@@ -11,6 +11,12 @@ from pathlib import Path
 from typing import Callable, Sequence
 
 from src.asr import MockASRBackend
+from src.export import (
+    write_matches_csv,
+    write_scenes_json,
+    write_subs_qa_srt,
+    write_subs_target_srt,
+)
 from src.ingest.script_parser import load_script_table
 from src.match.engine import match_segments_to_script
 from src.scene import reconstruct_scenes
@@ -133,6 +139,20 @@ def main(
             matching_output=matching_output,
             scene_gap_seconds=float(args.scene_gap),
         )
+
+        out_dir = Path(args.out_dir)
+        write_matches_csv(output_path=out_dir / "matches.csv", matching_output=matching_output)
+        write_scenes_json(output_path=out_dir / "scenes.json", scene_output=scene_output)
+        write_subs_qa_srt(
+            output_path=out_dir / "subs_qa.srt",
+            matching_output=matching_output,
+            script_table=script_table,
+        )
+        write_subs_target_srt(
+            output_path=out_dir / "subs_target.srt",
+            matching_output=matching_output,
+            script_table=script_table,
+        )
     except (CliError, ValueError) as exc:
         message = exc.message if isinstance(exc, CliError) else str(exc)
         print(f"Error: {message}", file=sys.stderr)
@@ -151,8 +171,10 @@ def main(
         )
         print(f"Verbose: scenes reconstructed={len(scene_output['scenes'])} gap_seconds={float(args.scene_gap)}")
 
-    print("Preflight checks passed. Script ingestion, ASR validation, matching, and scene reconstruction completed.")
-    return 0
+    low_confidence_count = sum(1 for match in matching_output.matches if match.low_confidence)
+
+    print("Preflight checks passed. Full pipeline completed and exports written.")
+    return 2 if low_confidence_count > 0 else 0
 
 
 if __name__ == "__main__":
