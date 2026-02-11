@@ -38,6 +38,15 @@ class FasterWhisperBackendTests(unittest.TestCase):
                     ASRConfig(backend_name="faster-whisper", model_path=Path("models/faster-whisper")),
                 )
 
+    def test_cuda_request_without_cuda_is_actionable(self) -> None:
+        backend = FasterWhisperBackend()
+
+        with self.assertRaisesRegex(ValueError, "docs/CUDA.md"):
+            backend.transcribe(
+                "in.wav",
+                ASRConfig(backend_name="faster-whisper", model_path=Path("models/faster-whisper"), device="cuda"),
+            )
+
     def test_backend_emits_contract_without_speaker(self) -> None:
         backend = FasterWhisperBackend()
         fake_module = types.SimpleNamespace(WhisperModel=_FakeWhisperModel)

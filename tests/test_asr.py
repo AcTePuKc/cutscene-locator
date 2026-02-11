@@ -2,7 +2,13 @@ from pathlib import Path
 
 import unittest
 
-from src.asr import ASRConfig, MockASRBackend, resolve_device, validate_asr_result
+from src.asr import (
+    ASRConfig,
+    MockASRBackend,
+    resolve_device,
+    resolve_device_with_details,
+    validate_asr_result,
+)
 
 
 class MockASRBackendTests(unittest.TestCase):
@@ -84,6 +90,16 @@ class DeviceResolutionTests(unittest.TestCase):
     def test_cuda_request_fails_when_unavailable(self) -> None:
         with self.assertRaisesRegex(ValueError, "Requested --device cuda"):
             resolve_device("cuda", cuda_available_checker=lambda: False)
+
+
+    def test_auto_resolution_includes_reason(self) -> None:
+        resolution = resolve_device_with_details("auto", cuda_available_checker=lambda: False)
+        self.assertEqual(resolution.resolved, "cpu")
+        self.assertIn("selected cpu", resolution.reason)
+
+    def test_cuda_unavailable_error_mentions_cuda_doc(self) -> None:
+        with self.assertRaisesRegex(ValueError, "docs/CUDA.md"):
+            resolve_device_with_details("cuda", cuda_available_checker=lambda: False)
 
     def test_mock_backend_uses_config_model_and_resolved_device_meta(self) -> None:
         result = MockASRBackend(Path("tests/fixtures/mock_asr_valid.json")).transcribe(

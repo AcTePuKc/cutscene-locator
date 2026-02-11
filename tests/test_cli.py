@@ -345,6 +345,7 @@ class CliPhaseOneTests(unittest.TestCase):
             output = stdout.getvalue()
             self.assertIn("Full pipeline completed and exports written", output)
             self.assertIn("Verbose: script rows loaded=2", output)
+            self.assertIn("Verbose: timings seconds=", output)
 
     def test_success_without_low_confidence_exits_zero(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

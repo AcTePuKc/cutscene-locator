@@ -6,11 +6,18 @@ import argparse
 import shutil
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Sequence
 
-from src.asr import ASRConfig, FasterWhisperBackend, MockASRBackend, get_backend
+from src.asr import (
+    ASRConfig,
+    FasterWhisperBackend,
+    MockASRBackend,
+    get_backend,
+    resolve_device_with_details,
+)
 from src.asr.model_resolution import ModelResolutionError, resolve_model_path
 from src.export import (
     write_matches_csv,
@@ -140,6 +147,10 @@ def main(
         print(f"cutscene-locator {VERSION}")
         return 0
 
+    timings: dict[str, float] = {}
+    runtime_started = time.perf_counter()
+    device_resolution_reason: str | None = None
+
     try:
         _validate_required_args(args)
         _validate_backend(args)
@@ -156,6 +167,7 @@ def main(
         run_ffmpeg_preflight(ffmpeg_binary, runner=runner)
         input_path = Path(args.input_path)
         out_dir = Path(args.out_dir)
+        preprocess_started = time.perf_counter()
         preprocessing_output = preprocess_media(
             ffmpeg_binary=ffmpeg_binary,
             input_path=input_path,
@@ -163,6 +175,7 @@ def main(
             chunk_seconds=args.chunk,
             runner=runner,
         )
+        timings["preprocess"] = time.perf_counter() - preprocess_started
         script_table = load_script_table(Path(args.script_path))
 
         resolved_model_path: Path | None = None
@@ -178,10 +191,13 @@ def main(
                 raise CliError(str(exc)) from exc
 
         backend_registration = get_backend(asr_config.backend_name)
+        asr_started = time.perf_counter()
         if backend_registration.name == "mock":
             asr_backend = MockASRBackend(Path(args.mock_asr_path))
             asr_result = asr_backend.transcribe(str(preprocessing_output.canonical_wav_path), asr_config)
         elif backend_registration.name == "faster-whisper":
+            resolution = resolve_device_with_details(asr_config.device)
+            device_resolution_reason = resolution.reason
             asr_backend = FasterWhisperBackend()
             effective_config = ASRConfig(
                 backend_name=asr_config.backend_name,
@@ -199,16 +215,22 @@ def main(
             )
         else:
             raise CliError(f"ASR backend '{asr_config.backend_name}' is not implemented yet.")
+        timings["asr"] = time.perf_counter() - asr_started
 
+        matching_started = time.perf_counter()
         matching_output = match_segments_to_script(
             asr_result=asr_result,
             script_table=script_table,
             low_confidence_threshold=args.match_threshold,
         )
+        timings["matching"] = time.perf_counter() - matching_started
+
+        scene_started = time.perf_counter()
         scene_output = reconstruct_scenes(
             matching_output=matching_output,
             scene_gap_seconds=float(args.scene_gap),
         )
+        timings["scene_reconstruction"] = time.perf_counter() - scene_started
 
         write_matches_csv(output_path=out_dir / "matches.csv", matching_output=matching_output)
         write_scenes_json(output_path=out_dir / "scenes.json", scene_output=scene_output)
@@ -222,6 +244,7 @@ def main(
             matching_output=matching_output,
             script_table=script_table,
         )
+        timings["total_runtime"] = time.perf_counter() - runtime_started
     except (CliError, ValueError) as exc:
         message = exc.message if isinstance(exc, CliError) else str(exc)
         print(f"Error: {message}", file=sys.stderr)
@@ -247,11 +270,21 @@ def main(
             f"model_path={resolved_model_path if resolved_model_path is not None else asr_config.model_path} "
             f"auto_download={asr_config.auto_download}"
         )
+        if device_resolution_reason is not None:
+            print(f"Verbose: device resolution reason: {device_resolution_reason}")
         print(
             "Verbose: matches computed="
             f"{len(matching_output.matches)} low_confidence={low_confidence_count} threshold={args.match_threshold}"
         )
         print(f"Verbose: scenes reconstructed={len(scene_output['scenes'])} gap_seconds={float(args.scene_gap)}")
+        print(
+            "Verbose: timings seconds="
+            f"preprocess={timings.get('preprocess', 0.0):.4f} "
+            f"asr={timings.get('asr', 0.0):.4f} "
+            f"matching={timings.get('matching', 0.0):.4f} "
+            f"scene_reconstruction={timings.get('scene_reconstruction', 0.0):.4f} "
+            f"total={timings.get('total_runtime', 0.0):.4f}"
+        )
 
     low_confidence_count = sum(1 for match in matching_output.matches if match.low_confidence)
 
