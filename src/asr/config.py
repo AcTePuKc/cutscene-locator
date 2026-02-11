@@ -15,6 +15,8 @@ class ASRConfig:
 
     backend_name: str
     model_path: Path | None = None
+    model_id: str | None = None
+    revision: str | None = None
     auto_download: str | None = None
     device: DeviceType = "auto"
     language: str | None = None

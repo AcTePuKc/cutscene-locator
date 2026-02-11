@@ -19,6 +19,7 @@ _FASTER_WHISPER_MODEL_REPOS: dict[str, str] = {
     "base": "Systran/faster-whisper-base",
     "small": "Systran/faster-whisper-small",
 }
+_DEFAULT_MODEL_REVISION = "default"
 
 
 class ModelResolutionError(ValueError):
@@ -48,12 +49,37 @@ def resolve_model_cache_dir() -> Path:
     return cache_dir
 
 
+def _sanitize_repo_id(repo_id: str) -> str:
+    """Sanitize repo id for deterministic cache directory names."""
+
+    return repo_id.replace("/", "--")
+
+
 def _is_model_present(path: Path) -> bool:
     if path.is_file():
         return True
     if path.is_dir():
         return any(path.iterdir())
     return False
+
+
+def _validate_model_repo_snapshot(*, backend_name: str, model_dir: Path) -> None:
+    """Validate backend-specific required files for model directories."""
+
+    if backend_name == "faster-whisper":
+        required_paths = [
+            model_dir / "config.json",
+            model_dir / "tokenizer.json",
+            model_dir / "vocabulary.json",
+            model_dir / "model.bin",
+        ]
+        missing = [path.name for path in required_paths if not path.exists()]
+        if missing:
+            missing_display = ", ".join(sorted(missing))
+            raise ModelResolutionError(
+                "Resolved faster-whisper model is missing required files: "
+                f"{missing_display}. Expected a CTranslate2-converted Whisper model directory."
+            )
 
 
 def _default_download_url(*, backend_name: str, model_size: str) -> str:
@@ -118,6 +144,7 @@ def _download_faster_whisper_snapshot(
         snapshot_download(
             repo_id=repo_id,
             local_dir=str(model_dir),
+            revision=None,
         )
     except Exception as exc:  # pragma: no cover - message validated through tests
         raise ModelResolutionError(
@@ -130,6 +157,64 @@ def _download_faster_whisper_snapshot(
 
     if progress_callback is not None:
         progress_callback(100.0)
+
+
+def _download_model_id_snapshot(
+    *,
+    backend_name: str,
+    model_id: str,
+    revision: str | None,
+    cache_dir: Path,
+    progress_callback: Callable[[float], None] | None,
+    cancel_check: Callable[[], bool] | None,
+) -> Path:
+    if cancel_check is not None and cancel_check():
+        raise ModelResolutionError("Model download cancelled before start.")
+
+    try:
+        huggingface_hub_module = import_module("huggingface_hub")
+    except ModuleNotFoundError as exc:
+        raise ModelResolutionError(
+            "Model-id download requires huggingface_hub. "
+            "Install dependencies or provide --model-path."
+        ) from exc
+
+    snapshot_download = getattr(huggingface_hub_module, "snapshot_download", None)
+    if snapshot_download is None:
+        raise ModelResolutionError(
+            "huggingface_hub is installed but snapshot_download is unavailable. "
+            "Upgrade huggingface_hub or provide --model-path."
+        )
+
+    resolved_revision = revision if revision else _DEFAULT_MODEL_REVISION
+    model_dir = cache_dir / backend_name / _sanitize_repo_id(model_id) / resolved_revision
+    model_dir.mkdir(parents=True, exist_ok=True)
+
+    if progress_callback is not None:
+        progress_callback(0.0)
+
+    try:
+        snapshot_download(
+            repo_id=model_id,
+            revision=revision,
+            local_dir=str(model_dir),
+        )
+    except Exception as exc:  # pragma: no cover - validated in tests
+        raise ModelResolutionError(
+            "Failed to download model-id snapshot from Hugging Face. "
+            f"Repository: '{model_id}' revision='{resolved_revision}'. "
+            "Check connectivity/permissions or provide --model-path."
+        ) from exc
+
+    if cancel_check is not None and cancel_check():
+        raise ModelResolutionError("Model download cancelled by caller.")
+
+    _validate_model_repo_snapshot(backend_name=backend_name, model_dir=model_dir)
+
+    if progress_callback is not None:
+        progress_callback(100.0)
+
+    return model_dir
 
 
 def _write_metadata_file(*, model_dir: Path, metadata: DownloadMetadata) -> None:
@@ -267,9 +352,20 @@ def resolve_model_path(config: ASRConfig) -> Path:
     if config.model_path is not None:
         explicit_path = config.model_path
         if _is_model_present(explicit_path):
+            _validate_model_repo_snapshot(backend_name=config.backend_name, model_dir=explicit_path)
             return explicit_path
         raise ModelResolutionError(
             f"Model not found at explicit --model-path '{explicit_path}'."
+        )
+
+    if config.model_id is not None:
+        return _download_model_id_snapshot(
+            backend_name=config.backend_name,
+            model_id=config.model_id,
+            revision=config.revision,
+            cache_dir=cache_dir,
+            progress_callback=config.progress_callback,
+            cancel_check=config.cancel_check,
         )
 
     requested_size = config.auto_download
@@ -278,31 +374,37 @@ def resolve_model_path(config: ASRConfig) -> Path:
     if requested_size is not None:
         local_models_for_size = local_models_root / requested_size
         if _is_model_present(local_models_for_size):
+            _validate_model_repo_snapshot(backend_name=config.backend_name, model_dir=local_models_for_size)
             return local_models_for_size
 
     if _is_model_present(local_models_root):
+        _validate_model_repo_snapshot(backend_name=config.backend_name, model_dir=local_models_root)
         return local_models_root
 
     cache_backend_dir = cache_dir / config.backend_name
     if requested_size is not None:
         cached_model_for_size = cache_backend_dir / requested_size
         if _is_model_present(cached_model_for_size):
+            _validate_model_repo_snapshot(backend_name=config.backend_name, model_dir=cached_model_for_size)
             return cached_model_for_size
 
     cached_model_dir = cache_backend_dir / "tiny"
     if _is_model_present(cached_model_dir):
+        _validate_model_repo_snapshot(backend_name=config.backend_name, model_dir=cached_model_dir)
         return cached_model_dir
 
     if requested_size in {"tiny", "base", "small"}:
-        return download_model_to_cache(
+        downloaded_model = download_model_to_cache(
             backend_name=config.backend_name,
             model_size=requested_size,
             cache_dir=cache_dir,
             progress_callback=config.progress_callback,
             cancel_check=config.cancel_check,
         )
+        _validate_model_repo_snapshot(backend_name=config.backend_name, model_dir=downloaded_model)
+        return downloaded_model
 
     raise ModelResolutionError(
         "Model could not be resolved. Checked --model-path, local models/, and cache. "
-        "To allow download, pass --auto-download tiny."
+        "To allow download, pass --auto-download tiny or use --model-id."
     )
