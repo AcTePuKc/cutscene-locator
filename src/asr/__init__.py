@@ -4,7 +4,7 @@ from .backends import MockASRBackend, validate_asr_result
 from .faster_whisper_backend import FasterWhisperBackend
 from .base import ASRBackend, ASRResult
 from .config import ASRConfig, DeviceType
-from .device import resolve_device
+from .device import DeviceResolution, resolve_device, resolve_device_with_details
 from .model_resolution import ModelResolutionError, resolve_model_cache_dir, resolve_model_path
 from .registry import BackendCapabilities, BackendRegistration, get_backend, list_backends
 
@@ -16,7 +16,9 @@ __all__ = [
     "validate_asr_result",
     "ASRConfig",
     "DeviceType",
+    "DeviceResolution",
     "resolve_device",
+    "resolve_device_with_details",
     "ModelResolutionError",
     "resolve_model_cache_dir",
     "resolve_model_path",

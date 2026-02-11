@@ -124,7 +124,7 @@ All agents must update this file when completing or modifying tasks.
 - [ ] Qwen ASR backend
 - [x]  faster-whisper backend (pilot)
 - [x]  faster-whisper auto-download mapping (tiny/base/small → HF repo)
-- [ ]  CUDA enablement notes + detection (ctranslate2/whisper backend)
+- [x]  CUDA enablement notes + detection (ctranslate2/whisper backend)
 - [ ] Timestamp normalization across backends
 
 ### Advanced alignment
@@ -186,3 +186,5 @@ All agents must update this file when completing or modifying tasks.
 - 2026-02-11 – Milestone 1.5 Phase 3 ASR interface finalization + deterministic device resolution + metadata reporting completed (`src/asr/base.py`, `src/asr/backends.py`, `src/asr/device.py`, `src/asr/__init__.py`, `src/match/engine.py`, `cli.py`, `tests/test_asr.py`, `tests/test_cli.py`, `tests/test_matching.py`, `tests/test_exports.py`, `tests/fixtures/mock_asr_valid.json`, `tests/fixtures/mock_asr_invalid_start_end.json`, `docs/Data-contracts.md`).
 
 - 2026-02-11 – Milestone 2 faster-whisper auto-download mapping completed (`src/asr/model_resolution.py`, `tests/test_model_resolution.py`, `docs/STATUS.md`).
+
+- 2026-02-11 – Milestone 2 CUDA detection + guidance and verbose timings completed (`src/asr/device.py`, `src/asr/faster_whisper_backend.py`, `src/asr/__init__.py`, `cli.py`, `docs/CUDA.md`, `tests/test_asr.py`, `tests/test_cli.py`, `tests/test_faster_whisper_backend.py`, `docs/STATUS.md`).

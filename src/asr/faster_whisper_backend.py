@@ -9,7 +9,7 @@ from pathlib import Path
 from .base import ASRResult
 from .backends import validate_asr_result
 from .config import ASRConfig
-from .device import resolve_device
+from .device import resolve_device_with_details
 
 
 class FasterWhisperBackend:
@@ -22,7 +22,7 @@ class FasterWhisperBackend:
                 "Provide --model-path or use models/faster-whisper, cache, or --auto-download tiny."
             )
 
-        resolved_device = resolve_device(config.device)
+        resolved_device = resolve_device_with_details(config.device).resolved
 
         try:
             faster_whisper_module = import_module("faster_whisper")
