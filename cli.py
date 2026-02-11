@@ -94,6 +94,15 @@ def _resolve_progress_mode(progress: str | None) -> str:
         return progress
     return "off" if os.name == "nt" else "on"
 
+
+def _apply_windows_progress_guard() -> None:
+    """Disable progress-bar monitor threads by default on Windows."""
+
+    if os.name != "nt":
+        return
+    os.environ["TQDM_DISABLE"] = "1"
+    os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+
 def _validate_asr_options(args: argparse.Namespace) -> None:
     allowed_devices = {"cpu", "cuda", "auto"}
     if args.device not in allowed_devices:
@@ -181,6 +190,7 @@ def main(
     try:
         _validate_required_args(args)
         _validate_backend(args)
+        _apply_windows_progress_guard()
         args.progress = _resolve_progress_mode(args.progress)
         _validate_asr_options(args)
         ffmpeg_binary = resolve_ffmpeg_binary(args.ffmpeg_path, which=which)
@@ -200,6 +210,8 @@ def main(
         input_path = Path(args.input_path)
         out_dir = Path(args.out_dir)
         preprocess_started = time.perf_counter()
+        if args.verbose:
+            print("stage: preprocess start")
         preprocessing_output = preprocess_media(
             ffmpeg_binary=ffmpeg_binary,
             input_path=input_path,
@@ -208,6 +220,8 @@ def main(
             runner=runner,
         )
         timings["preprocess"] = time.perf_counter() - preprocess_started
+        if args.verbose:
+            print("stage: preprocess end")
         script_table = load_script_table(Path(args.script_path))
 
         resolved_model_path: Path | None = None
@@ -225,6 +239,8 @@ def main(
 
         backend_registration = get_backend(asr_config.backend_name)
         asr_started = time.perf_counter()
+        if args.verbose:
+            print("stage: asr start")
         if backend_registration.name == "mock":
             asr_backend = MockASRBackend(Path(args.mock_asr_path))
             asr_result = asr_backend.transcribe(str(preprocessing_output.canonical_wav_path), asr_config)
@@ -256,14 +272,22 @@ def main(
         else:
             raise CliError(f"ASR backend '{asr_config.backend_name}' is not implemented yet.")
         timings["asr"] = time.perf_counter() - asr_started
+        if args.verbose:
+            print("stage: asr end")
 
         matching_started = time.perf_counter()
+        if args.verbose:
+            print("stage: matching start")
         matching_output = match_segments_to_script(
             asr_result=asr_result,
             script_table=script_table,
             low_confidence_threshold=args.match_threshold,
+            progress_logger=print if args.verbose else None,
+            progress_every=50,
         )
         timings["matching"] = time.perf_counter() - matching_started
+        if args.verbose:
+            print("stage: matching end")
 
         scene_started = time.perf_counter()
         scene_output = reconstruct_scenes(
@@ -272,6 +296,8 @@ def main(
         )
         timings["scene_reconstruction"] = time.perf_counter() - scene_started
 
+        if args.verbose:
+            print("stage: exports start")
         write_matches_csv(output_path=out_dir / "matches.csv", matching_output=matching_output)
         write_scenes_json(output_path=out_dir / "scenes.json", scene_output=scene_output)
         write_subs_qa_srt(
@@ -284,6 +310,8 @@ def main(
             matching_output=matching_output,
             script_table=script_table,
         )
+        if args.verbose:
+            print("stage: exports end")
         timings["total_runtime"] = time.perf_counter() - runtime_started
     except (CliError, ValueError) as exc:
         message = exc.message if isinstance(exc, CliError) else str(exc)

@@ -80,6 +80,7 @@ All agents must update this file when completing or modifying tasks.
 - [x] Exit codes
 - [x] Verbose logging
 - [x] Error handling
+- [x] Windows progress-thread guard + verbose stage markers (`cli.py`, `src/match/engine.py`, `tests/test_cli.py`, `tests/test_matching.py`)
 
 ---
 
@@ -198,3 +199,5 @@ All agents must update this file when completing or modifying tasks.
 - 2026-02-11 – Faster-whisper model validation unified in model resolution (removed backend duplicate checks, expanded tokenizer asset acceptance, improved error file listing) (`src/asr/model_resolution.py`, `src/asr/faster_whisper_backend.py`, `tests/test_model_resolution.py`, `tests/test_faster_whisper_backend.py`, `docs/STATUS.md`).
 
 - 2026-02-11 – Fixed Windows model-id cached hit behavior by bypassing snapshot_download, added progress control and verbose model-resolution logs (`src/asr/model_resolution.py`, `src/asr/config.py`, `cli.py`, `tests/test_model_resolution.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/STATUS.md`).
+
+- 2026-02-11 – Disabled tqdm/HF progress env by default on Windows at CLI startup, added per-stage verbose markers, and switched matching to periodic verbose progress logging (`cli.py`, `src/match/engine.py`, `tests/test_cli.py`, `tests/test_matching.py`, `docs/STATUS.md`).
