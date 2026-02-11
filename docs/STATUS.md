@@ -88,21 +88,21 @@ All agents must update this file when completing or modifying tasks.
 ### Backend architecture
 
 - [ ] Final ASR backend interface definition
-- [ ] Backend registry system
-- [ ] Backend discovery via CLI flag
-- [ ] Backend capability metadata (supports_word_timestamps, supports_alignment, etc.)
+- [x] Backend registry system
+- [x] Backend discovery via CLI flag
+- [x] Backend capability metadata (supports_word_timestamps, supports_alignment, etc.)
 
 ### Model resolution strategy
 
-- [ ] models/ directory convention
-- [ ] --model-path explicit override
-- [ ] --auto-download <model-size> optional flag
+- [x] models/ directory convention
+- [x] --model-path explicit override
+- [x] --auto-download <model-size> optional flag
 - [ ] Deterministic model cache directory
 - [ ] No silent fallback policy
 
 ### Device handling
 
-- [ ] --device cpu/cuda/auto
+- [x] --device cpu/cuda/auto
 - [ ] Deterministic device selection
 - [ ] Clear error if requested device unavailable
 
@@ -174,3 +174,5 @@ All agents must update this file when completing or modifying tasks.
 - 2026-02-11 – Milestone 1 Phase 6 export writers + CLI full pipeline wiring completed (`src/export/writers.py`, `src/export/__init__.py`, `cli.py`, `tests/test_exports.py`, `tests/test_cli.py`).
 
 - 2026-02-11 – Milestone 1 Phase 7 ffmpeg preprocessing + deterministic `_tmp` workspace + chunking completed (`src/ingest/preprocess.py`, `src/ingest/__init__.py`, `cli.py`, `tests/test_preprocess.py`, `tests/test_cli.py`).
+
+- 2026-02-11 – Milestone 1.5 Phase 1 ASR registry + CLI model/device/config plumbing completed (`src/asr/registry.py`, `src/asr/config.py`, `src/asr/__init__.py`, `cli.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`).
