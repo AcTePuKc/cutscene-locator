@@ -492,14 +492,16 @@ class CliPhaseOneTests(unittest.TestCase):
                 compute_type="float16",
             )
             with patch("cli.subprocess.run", return_value=subprocess.CompletedProcess([], 3221226505)):
-                with self.assertRaisesRegex(cli.CliError, "GPU backend aborted"):
+                with self.assertRaisesRegex(cli.CliError, "compute-type float32") as ctx:
                     cli._run_faster_whisper_subprocess(
                         audio_path=result_path,
                         resolved_model_path=Path("models/faster-whisper"),
                         asr_config=config,
-                        progress_mode="off",
                         verbose=False,
                     )
+
+        self.assertIn("backend=faster-whisper", str(ctx.exception))
+        self.assertIn("device=cuda", str(ctx.exception))
 
 
 if __name__ == "__main__":

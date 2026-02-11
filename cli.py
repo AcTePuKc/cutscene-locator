@@ -12,10 +12,11 @@ import json
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Sequence
+from typing import Callable, Sequence
 
 from src.asr import (
     ASRConfig,
+    ASRResult,
     FasterWhisperBackend,
     MockASRBackend,
     Qwen3ASRBackend,
@@ -177,9 +178,8 @@ def _run_faster_whisper_subprocess(
     audio_path: Path,
     resolved_model_path: Path,
     asr_config: ASRConfig,
-    progress_mode: str,
     verbose: bool,
-) -> dict[str, Any]:
+) -> ASRResult:
     with tempfile.TemporaryDirectory(prefix="cutscene_locator_asr_") as temp_dir:
         result_path = Path(temp_dir) / "asr_result.json"
         cmd = [
@@ -194,8 +194,6 @@ def _run_faster_whisper_subprocess(
             asr_config.device,
             "--compute-type",
             asr_config.compute_type,
-            "--progress",
-            progress_mode,
             "--result-path",
             str(result_path),
         ]
@@ -209,12 +207,20 @@ def _run_faster_whisper_subprocess(
             print(completed.stderr, file=sys.stderr, end="")
 
         if completed.returncode != 0:
+            model_ref = str(asr_config.model_id or resolved_model_path)
+            context = (
+                f"device={asr_config.device} compute_type={asr_config.compute_type} "
+                f"backend={asr_config.backend_name} model={model_ref}"
+            )
             if completed.returncode in {-1073740791, 3221226505}:
                 raise CliError(
-                    "GPU backend aborted. This is a native crash. "
-                    "Try --compute-type float32 or update ctranslate2 CUDA wheel."
+                    "GPU backend aborted with a native CUDA crash in ASR worker. "
+                    "Try --compute-type float32; check ctranslate2 CUDA wheel compatibility. "
+                    f"Context: {context}."
                 )
-            raise CliError(f"ASR worker failed with exit code {completed.returncode}.")
+            raise CliError(
+                f"ASR worker failed with exit code {completed.returncode}. Context: {context}."
+            )
 
         if not result_path.exists():
             raise CliError("ASR worker did not produce result output.")
@@ -222,7 +228,7 @@ def _run_faster_whisper_subprocess(
         payload = json.loads(result_path.read_text(encoding="utf-8"))
         if not isinstance(payload, dict):
             raise CliError("ASR worker result must be a JSON object.")
-        return payload
+        return parse_asr_result(payload, source="faster-whisper worker")
 
 
 def main(
@@ -331,14 +337,12 @@ def main(
             if backend_registration.name == "faster-whisper" and effective_config.device == "cuda" and os.name == "nt":
                 if effective_config.model_path is None:
                     raise CliError("faster-whisper backend requires a resolved model path.")
-                worker_result = _run_faster_whisper_subprocess(
+                asr_result = _run_faster_whisper_subprocess(
                     audio_path=preprocessing_output.canonical_wav_path,
                     resolved_model_path=effective_config.model_path,
                     asr_config=effective_config,
-                    progress_mode=args.progress,
                     verbose=args.verbose,
                 )
-                asr_result = parse_asr_result(worker_result, source="faster-whisper worker")
             else:
                 asr_result = asr_backend.transcribe(
                     str(preprocessing_output.canonical_wav_path),

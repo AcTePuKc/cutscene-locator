@@ -155,6 +155,31 @@ class FasterWhisperBackendTests(unittest.TestCase):
         assert fake_factory.instance is not None
         self.assertEqual(fake_factory.instance.calls[0]["kwargs"], {})
 
+
+    def test_transcribe_kwargs_never_include_progress(self) -> None:
+        backend = FasterWhisperBackend()
+        fake_factory = _FakeWhisperModelFactory()
+        fake_module = types.SimpleNamespace(WhisperModel=fake_factory)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = _create_fake_model_dir(Path(temp_dir))
+            with patch("src.asr.faster_whisper_backend.import_module", return_value=fake_module):
+                with patch("src.asr.faster_whisper_backend.version", return_value="1.2.1"):
+                    backend.transcribe(
+                        "in.wav",
+                        ASRConfig(
+                            backend_name="faster-whisper",
+                            model_path=model_path,
+                            language="en",
+                        ),
+                    )
+
+        self.assertIsNotNone(fake_factory.instance)
+        assert fake_factory.instance is not None
+        passed_kwargs = fake_factory.instance.calls[0]["kwargs"]
+        self.assertNotIn("progress", passed_kwargs)
+        self.assertEqual(passed_kwargs.get("language"), "en")
+
     def test_transcribe_kwargs_are_filtered_by_signature(self) -> None:
         backend = FasterWhisperBackend()
         fake_factory = _FakeWhisperModelNoKwargsFactory()

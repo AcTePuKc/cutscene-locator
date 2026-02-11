@@ -103,11 +103,12 @@ All agents must update this file when completing or modifying tasks.
 - [x] No silent fallback policy
 - [x] Generic model-id download/cache support (`src/asr/model_resolution.py`, `src/asr/config.py`, `cli.py`)
 - [x] Windows-safe model-id cache fast-path + progress control (`src/asr/model_resolution.py`, `src/asr/config.py`, `cli.py`, `tests/test_model_resolution.py`, `tests/test_cli.py`)
-- [x] faster-whisper progress-off NullProgressBar shim + HF progress separation (`src/asr/faster_whisper_backend.py`, `src/asr/model_resolution.py`, `tests/test_faster_whisper_backend.py`, `tests/test_model_resolution.py`)
+- [x] faster-whisper progress/runtime separation from HF snapshot download controls (`src/asr/faster_whisper_backend.py`, `src/asr/model_resolution.py`, `tests/test_faster_whisper_backend.py`, `tests/test_model_resolution.py`)
 - [x] faster-whisper CUDA-safe progress path + Windows subprocess isolation + `--compute-type` (`cli.py`, `src/asr/faster_whisper_backend.py`, `src/asr/asr_worker.py`, `src/asr/config.py`, `tests/test_faster_whisper_backend.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/Integration-issues.md`)
 - [x] faster-whisper 1.2.1 transcribe compatibility fix (removed unsupported `progress` kwarg while keeping CUDA subprocess isolation) (`src/asr/faster_whisper_backend.py`, `tests/test_faster_whisper_backend.py`, `docs/STATUS.md`)
 - [x] faster-whisper transcribe kwarg signature guard for version-safe execution (`src/asr/faster_whisper_backend.py`, `tests/test_faster_whisper_backend.py`, `docs/STATUS.md`)
 - [x] Worker JSON → validated `ASRResult` parsing in parent CLI + typed metadata access (`cli.py`, `src/asr/backends.py`, `src/asr/__init__.py`, `tests/test_asr.py`)
+- [x] Windows CUDA worker hardening: removed worker `--progress`, set CUDA-only tqdm/HF env in worker pre-import path, and improved native abort diagnostics (`src/asr/asr_worker.py`, `src/asr/faster_whisper_backend.py`, `cli.py`, `tests/test_asr_worker.py`, `tests/test_faster_whisper_backend.py`, `tests/test_cli.py`, `docs/Integration-issues.md`)
 
 ### Device handling
 
@@ -216,3 +217,5 @@ All agents must update this file when completing or modifying tasks.
 - 2026-02-11 – Fixed faster-whisper 1.2.1 worker crash by removing unsupported `progress` transcribe kwarg while preserving CUDA subprocess isolation (`src/asr/faster_whisper_backend.py`, `tests/test_faster_whisper_backend.py`, `docs/STATUS.md`).
 
 - 2026-02-11 – Added transcribe kwarg signature filtering guard in faster-whisper backend to prevent runtime kwarg incompatibilities across versions (`src/asr/faster_whisper_backend.py`, `tests/test_faster_whisper_backend.py`, `docs/STATUS.md`).
+
+- 2026-02-11 – Hardened Windows CUDA faster-whisper worker by removing worker progress arg, setting CUDA tqdm/HF env pre-import, tightening worker/parent ASRResult typing, and improving native-abort diagnostics (`src/asr/asr_worker.py`, `src/asr/faster_whisper_backend.py`, `cli.py`, `tests/test_asr_worker.py`, `tests/test_faster_whisper_backend.py`, `tests/test_cli.py`, `docs/Integration-issues.md`, `docs/STATUS.md`).
