@@ -2,6 +2,7 @@
 
 from .backends import MockASRBackend, validate_asr_result
 from .faster_whisper_backend import FasterWhisperBackend
+from .qwen3_asr_backend import Qwen3ASRBackend
 from .base import ASRBackend, ASRResult
 from .config import ASRConfig, DeviceType
 from .device import DeviceResolution, resolve_device, resolve_device_with_details
@@ -13,6 +14,7 @@ __all__ = [
     "ASRResult",
     "MockASRBackend",
     "FasterWhisperBackend",
+    "Qwen3ASRBackend",
     "validate_asr_result",
     "ASRConfig",
     "DeviceType",

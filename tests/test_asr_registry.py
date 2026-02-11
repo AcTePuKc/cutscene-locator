@@ -1,11 +1,21 @@
+import importlib
 import unittest
+from unittest.mock import patch
 
 from src.asr import ASRConfig, get_backend, list_backends
 
 
 class ASRRegistryTests(unittest.TestCase):
-    def test_registry_lists_mock_backend(self) -> None:
-        self.assertEqual(list_backends(), ["faster-whisper", "mock"])
+    def test_registry_lists_required_backends(self) -> None:
+        backends = list_backends()
+        self.assertIn("faster-whisper", backends)
+        self.assertIn("mock", backends)
+
+    def test_registry_includes_qwen3_when_dependencies_installed(self) -> None:
+        with patch("importlib.util.find_spec", side_effect=lambda name: object()):
+            registry_module = importlib.import_module("src.asr.registry")
+            registry_module = importlib.reload(registry_module)
+            self.assertIn("qwen3-asr", registry_module.list_backends())
 
     def test_get_backend_returns_faster_whisper_capabilities(self) -> None:
         backend = get_backend("faster-whisper")
