@@ -504,5 +504,25 @@ class CliPhaseOneTests(unittest.TestCase):
         self.assertIn("device=cuda", str(ctx.exception))
 
 
+
+    def test_read_ctranslate2_version_not_installed(self) -> None:
+        with patch("cli.importlib.import_module", side_effect=ModuleNotFoundError()):
+            self.assertEqual(cli._read_ctranslate2_version(), "not-installed")
+
+    def test_print_faster_whisper_cuda_preflight_includes_expected_fields(self) -> None:
+        stdout = io.StringIO()
+        with patch("cli._read_ctranslate2_version", return_value="4.5.0"):
+            with patch("cli._read_ctranslate2_cuda_device_count", return_value=2):
+                with redirect_stdout(stdout):
+                    cli._print_faster_whisper_cuda_preflight(device="cuda", compute_type="float16")
+
+        output = stdout.getvalue()
+        self.assertIn("ctranslate2=4.5.0", output)
+        self.assertIn("cuda_device_count=2", output)
+        self.assertIn("device=cuda", output)
+        self.assertIn("compute_type=float16", output)
+        self.assertIn("--compute-type float32", output)
+
+
 if __name__ == "__main__":
     unittest.main()

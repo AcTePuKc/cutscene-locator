@@ -251,4 +251,6 @@ Some Windows + CUDA + ASR backend combinations may abort in native code (for exa
 - Parent CLI must catch child non-zero exits and emit actionable guidance.
 - Parent process must never silently disappear due to child native aborts.
 - For CUDA transcription, avoid tqdm progress monitor threads in the ASR execution path.
-- If worker exits with `-1073740791` / `3221226505`, advise `--compute-type float32` and verify `ctranslate2` CUDA wheel compatibility with the installed CUDA runtime/driver.
+- Never pass `progress=` into `WhisperModel.transcribe(...)`; `faster-whisper` 1.2.1 does not accept it.
+- Add an ASR preflight print before transcription with `ctranslate2` version, CUDA device count, selected device, and selected compute type.
+- If worker exits with `-1073740791` / `3221226505`, advise `--compute-type float32` first and verify torch/ctranslate2 CUDA wheel compatibility with the installed CUDA runtime/driver (see faster-whisper issue #1086).

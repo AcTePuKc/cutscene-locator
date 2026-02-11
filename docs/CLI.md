@@ -171,6 +171,15 @@ Controls faster-whisper compute precision passed to `WhisperModel(compute_type=.
 - `float32`: safer fallback for CUDA instability
 - `auto`: backend default
 
+When `--asr-backend faster-whisper` is selected, CLI prints an ASR preflight line before transcription that includes:
+
+- detected `ctranslate2` version
+- CUDA device count reported by `ctranslate2`
+- selected resolved device
+- selected compute type
+
+If CUDA ASR aborts, first retry with `--compute-type float32`, then verify torch/ctranslate2 CUDA wheel compatibility (see faster-whisper issue #1086).
+
 ### `--progress <on|off>`
 
 Controls progress behavior for ASR/model-resolution operations.
