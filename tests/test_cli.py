@@ -147,9 +147,10 @@ class CliPhaseOneTests(unittest.TestCase):
 
         self.assertEqual(code, 0)
         output = stdout.getvalue()
-        self.assertIn("ASR validation, and matching completed", output)
+        self.assertIn("ASR validation, matching, and scene reconstruction completed", output)
         self.assertIn("Verbose: script rows loaded=2", output)
         self.assertIn("Verbose: asr backend=mock segments=2", output)
+        self.assertIn("Verbose: scenes reconstructed=1 gap_seconds=10.0", output)
 
 
 if __name__ == "__main__":
