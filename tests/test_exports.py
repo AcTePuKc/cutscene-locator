@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from src.asr.backends import ASRResult
+from src.asr.base import ASRResult
 from src.export import (
     write_matches_csv,
     write_scenes_json,
@@ -30,7 +30,7 @@ class ExportWritersTests(unittest.TestCase):
                     "text": "hello world",
                 }
             ],
-            "meta": {"backend": "mock", "version": "1.0", "language": "en"},
+            "meta": {"backend": "mock", "model": "unknown", "version": "1.0", "device": "cpu"},
         }
         matching_output = match_segments_to_script(asr_result=asr_result, script_table=script_table)
 
@@ -62,7 +62,7 @@ class ExportWritersTests(unittest.TestCase):
                 {"segment_id": "seg_0002", "start": 16.1, "end": 16.8, "text": "yeah"},
                 {"segment_id": "seg_0001", "start": 12.34, "end": 15.56, "text": "hello world"},
             ],
-            "meta": {"backend": "mock", "version": "1.0", "language": "en"},
+            "meta": {"backend": "mock", "model": "unknown", "version": "1.0", "device": "cpu"},
         }
         matching_output = match_segments_to_script(asr_result=asr_result, script_table=script_table)
         scene_output = reconstruct_scenes(matching_output=matching_output)
@@ -83,7 +83,7 @@ class ExportWritersTests(unittest.TestCase):
                 {"segment_id": "seg_0001", "start": 12.34, "end": 15.56, "text": "hello world"},
                 {"segment_id": "seg_0002", "start": 16.1, "end": 16.8, "text": "second line"},
             ],
-            "meta": {"backend": "mock", "version": "1.0", "language": "en"},
+            "meta": {"backend": "mock", "model": "unknown", "version": "1.0", "device": "cpu"},
         }
         matching_output = match_segments_to_script(asr_result=asr_result, script_table=script_table)
 
@@ -115,7 +115,7 @@ class ExportWritersTests(unittest.TestCase):
             "segments": [
                 {"segment_id": "seg_0001", "start": 1.0, "end": 2.0, "text": "hello world"}
             ],
-            "meta": {"backend": "mock", "version": "1.0", "language": "en"},
+            "meta": {"backend": "mock", "model": "unknown", "version": "1.0", "device": "cpu"},
         }
         matching_output = match_segments_to_script(asr_result=asr_result, script_table=script_table)
 

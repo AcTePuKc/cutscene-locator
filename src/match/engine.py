@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 
-from src.asr.backends import ASRResult
+from src.asr.base import ASRResult
 from src.ingest.script_parser import ScriptTable
 from src.match.normalization import normalize_text
 

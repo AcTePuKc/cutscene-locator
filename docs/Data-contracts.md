@@ -77,8 +77,9 @@ All ASR backends must produce output that conforms to this structure.
   ],
   "meta": {
     "backend": "mock",
+    "model": "unknown",
     "version": "1.0",
-    "language": "en"
+    "device": "cpu"
   }
 }
 ```

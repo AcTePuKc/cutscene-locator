@@ -16,7 +16,8 @@
   ],
   "meta": {
     "backend": "mock",
+    "model": "unknown",
     "version": "1.0",
-    "language": "en"
+    "device": "cpu"
   }
 }
