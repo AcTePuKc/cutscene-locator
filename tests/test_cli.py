@@ -107,6 +107,21 @@ class CliPhaseOneTests(unittest.TestCase):
         with patch("cli.os.name", "nt"):
             self.assertEqual(cli._resolve_progress_mode("on"), "on")
 
+
+    def test_apply_windows_progress_guard_sets_env_vars_on_windows(self) -> None:
+        with patch("cli.os.name", "nt"):
+            with patch.dict("cli.os.environ", {}, clear=True):
+                cli._apply_windows_progress_guard()
+                self.assertEqual(cli.os.environ.get("TQDM_DISABLE"), "1")
+                self.assertEqual(cli.os.environ.get("HF_HUB_DISABLE_PROGRESS_BARS"), "1")
+
+    def test_apply_windows_progress_guard_noop_on_non_windows(self) -> None:
+        with patch("cli.os.name", "posix"):
+            with patch.dict("cli.os.environ", {}, clear=True):
+                cli._apply_windows_progress_guard()
+                self.assertNotIn("TQDM_DISABLE", cli.os.environ)
+                self.assertNotIn("HF_HUB_DISABLE_PROGRESS_BARS", cli.os.environ)
+
     def test_invalid_device_value_exits_one(self) -> None:
         stderr = io.StringIO()
         with redirect_stderr(stderr):
@@ -406,6 +421,15 @@ class CliPhaseOneTests(unittest.TestCase):
             self.assertTrue((out_dir / "subs_target.srt").exists())
             output = stdout.getvalue()
             self.assertIn("Full pipeline completed and exports written", output)
+            self.assertIn("stage: preprocess start", output)
+            self.assertIn("stage: preprocess end", output)
+            self.assertIn("stage: asr start", output)
+            self.assertIn("stage: asr end", output)
+            self.assertIn("stage: matching start", output)
+            self.assertIn("stage: matching end", output)
+            self.assertIn("stage: exports start", output)
+            self.assertIn("stage: exports end", output)
+            self.assertIn("Verbose: matching progress 2/2 segments", output)
             self.assertIn("Verbose: script rows loaded=2", output)
             self.assertIn("Verbose: timings seconds=", output)
 

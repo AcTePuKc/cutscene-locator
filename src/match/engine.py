@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from difflib import SequenceMatcher
+from typing import Callable
 
 from src.asr.base import ASRResult
 from src.ingest.script_parser import ScriptTable
@@ -42,16 +43,21 @@ def match_segments_to_script(
     asr_result: ASRResult,
     script_table: ScriptTable,
     low_confidence_threshold: float = 0.85,
+    progress_logger: Callable[[str], None] | None = None,
+    progress_every: int = 50,
 ) -> MatchingOutput:
     """Match each ASR segment against all script lines and keep best candidate."""
 
     if not 0.0 <= low_confidence_threshold <= 1.0:
         raise ValueError("low_confidence_threshold must be in [0.0, 1.0]")
+    if progress_every <= 0:
+        raise ValueError("progress_every must be greater than 0")
     if not script_table.rows:
         raise ValueError("Script table must contain at least one row for matching")
 
     matches: list[MatchResult] = []
-    for segment in asr_result["segments"]:
+    total_segments = len(asr_result["segments"])
+    for index, segment in enumerate(asr_result["segments"], start=1):
         normalized_asr = normalize_text(segment["text"])
         scored_candidates: list[tuple[float, str, int, str]] = []
         for row in script_table.rows:
@@ -77,5 +83,8 @@ def match_segments_to_script(
                 low_confidence=score < low_confidence_threshold,
             )
         )
+
+        if progress_logger is not None and (index % progress_every == 0 or index == total_segments):
+            progress_logger(f"Verbose: matching progress {index}/{total_segments} segments")
 
     return MatchingOutput(matches=matches)

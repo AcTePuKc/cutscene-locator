@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import unittest
+from unittest.mock import Mock
 
 from src.asr.base import ASRResult
 from src.ingest.script_parser import load_script_table
@@ -101,6 +102,67 @@ class MatchingEngineTests(unittest.TestCase):
                 script_table=script_table,
                 low_confidence_threshold=1.1,
             )
+
+    def test_invalid_progress_every_raises(self) -> None:
+        script_table = load_script_table(Path("tests/fixtures/script_sample.tsv"))
+        asr_result: ASRResult = {
+            "segments": [
+                {
+                    "segment_id": "seg_0001",
+                    "start": 1.0,
+                    "end": 2.0,
+                    "text": "hello world",
+                }
+            ],
+            "meta": {
+                "backend": "mock",
+                "model": "unknown",
+                "version": "1.0",
+                "device": "cpu",
+            },
+        }
+
+        with self.assertRaisesRegex(ValueError, "progress_every"):
+            match_segments_to_script(
+                asr_result=asr_result,
+                script_table=script_table,
+                progress_every=0,
+            )
+
+    def test_progress_logger_reports_final_progress(self) -> None:
+        script_table = load_script_table(Path("tests/fixtures/script_sample.tsv"))
+        asr_result: ASRResult = {
+            "segments": [
+                {
+                    "segment_id": "seg_0001",
+                    "start": 1.0,
+                    "end": 2.0,
+                    "text": "hello world",
+                },
+                {
+                    "segment_id": "seg_0002",
+                    "start": 2.5,
+                    "end": 3.5,
+                    "text": "zzzzz",
+                },
+            ],
+            "meta": {
+                "backend": "mock",
+                "model": "unknown",
+                "version": "1.0",
+                "device": "cpu",
+            },
+        }
+        progress_logger = Mock()
+
+        match_segments_to_script(
+            asr_result=asr_result,
+            script_table=script_table,
+            progress_logger=progress_logger,
+            progress_every=10,
+        )
+
+        progress_logger.assert_called_once_with("Verbose: matching progress 2/2 segments")
 
 
 if __name__ == "__main__":
