@@ -147,7 +147,7 @@ class CliPhaseOneTests(unittest.TestCase):
 
         self.assertEqual(code, 0)
         output = stdout.getvalue()
-        self.assertIn("ASR validation completed", output)
+        self.assertIn("ASR validation, and matching completed", output)
         self.assertIn("Verbose: script rows loaded=2", output)
         self.assertIn("Verbose: asr backend=mock segments=2", output)
 

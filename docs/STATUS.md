@@ -53,11 +53,11 @@ All agents must update this file when completing or modifying tasks.
 
 ### Matching
 
-- [ ] Text normalization (shared ASR/script)
-- [ ] Fuzzy matching implementation
-- [ ] Ranked candidate selection
-- [ ] Confidence scoring
-- [ ] Low-confidence flagging
+- [x] Text normalization (shared ASR/script)
+- [x] Fuzzy matching implementation
+- [x] Ranked candidate selection
+- [x] Confidence scoring
+- [x] Low-confidence flagging
 
 ### Scene reconstruction
 
@@ -137,3 +137,4 @@ All agents must update this file when completing or modifying tasks.
 - 2026-02-11 – Milestone 1 Phase 2 script ingestion + normalization completed (`src/ingest/script_parser.py`, `src/match/normalization.py`, `cli.py`, `tests/test_script_parser.py`, `tests/test_cli.py`).
 
 - 2026-02-11 – Milestone 1 Phase 3 ASR abstraction + mock backend + validation completed (`src/asr/backends.py`, `src/asr/__init__.py`, `cli.py`, `tests/test_asr.py`, `tests/test_cli.py`, `tests/fixtures/mock_asr_valid.json`, `tests/fixtures/mock_asr_invalid_start_end.json`).
+- 2026-02-11 – Milestone 1 Phase 4 matching engine completed (`src/match/engine.py`, `src/match/__init__.py`, `cli.py`, `tests/test_matching.py`, `tests/test_cli.py`).

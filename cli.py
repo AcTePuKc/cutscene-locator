@@ -12,6 +12,7 @@ from typing import Callable, Sequence
 
 from src.asr import MockASRBackend
 from src.ingest.script_parser import load_script_table
+from src.match.engine import match_segments_to_script
 
 VERSION = "0.0.0"
 
@@ -36,6 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--keep-wav", action="store_true")
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--version", action="store_true")
+    parser.add_argument("--match-threshold", type=float, default=0.85)
     return parser
 
 
@@ -121,6 +123,11 @@ def main(
         script_table = load_script_table(Path(args.script_path))
         asr_backend = MockASRBackend(Path(args.mock_asr_path))
         asr_result = asr_backend.run()
+        matching_output = match_segments_to_script(
+            asr_result=asr_result,
+            script_table=script_table,
+            low_confidence_threshold=args.match_threshold,
+        )
     except (CliError, ValueError) as exc:
         message = exc.message if isinstance(exc, CliError) else str(exc)
         print(f"Error: {message}", file=sys.stderr)
@@ -131,9 +138,14 @@ def main(
         print(f"Verbose: ffmpeg binary: {ffmpeg_binary}")
         print(f"Verbose: input={Path(args.input_path)} script={Path(args.script_path)} out={Path(args.out_dir)}")
         print(f"Verbose: script rows loaded={len(script_table.rows)} delimiter={repr(script_table.delimiter)}")
+        low_confidence_count = sum(1 for match in matching_output.matches if match.low_confidence)
         print(f"Verbose: asr backend={asr_result['meta']['backend']} segments={len(asr_result['segments'])}")
+        print(
+            "Verbose: matches computed="
+            f"{len(matching_output.matches)} low_confidence={low_confidence_count} threshold={args.match_threshold}"
+        )
 
-    print("Preflight checks passed. Script ingestion and ASR validation completed. Matching is not implemented in this phase.")
+    print("Preflight checks passed. Script ingestion, ASR validation, and matching completed.")
     return 0
 
 
