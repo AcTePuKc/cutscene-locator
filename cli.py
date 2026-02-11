@@ -4,6 +4,16 @@ from __future__ import annotations
 
 import argparse
 import os
+
+if os.name == "nt":
+    os.environ["TQDM_DISABLE"] = "1"
+    os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+    try:
+        import tqdm  # type: ignore
+        tqdm.tqdm = lambda *a, **k: a[0] if a else None  # crude no-op
+    except Exception:
+        pass
+    
 import shutil
 import subprocess
 import sys
