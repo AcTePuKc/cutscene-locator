@@ -1,0 +1,22 @@
+{
+  "segments": [
+    {
+      "segment_id": "seg_0001",
+      "start": 12.34,
+      "end": 15.56,
+      "text": "You don't get it.",
+      "speaker": "SPEAKER_1"
+    },
+    {
+      "segment_id": "seg_0002",
+      "start": 16.1,
+      "end": 16.8,
+      "text": "Yeah."
+    }
+  ],
+  "meta": {
+    "backend": "mock",
+    "version": "1.0",
+    "language": "en"
+  }
+}

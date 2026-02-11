@@ -47,9 +47,9 @@ All agents must update this file when completing or modifying tasks.
 
 ### ASR (mock backend)
 
-- [ ] ASR backend interface
-- [ ] Mock ASR backend (JSON input)
-- [ ] ASR segment validation (timestamps, text)
+- [x] ASR backend interface
+- [x] Mock ASR backend (JSON input)
+- [x] ASR segment validation (timestamps, text)
 
 ### Matching
 
@@ -135,3 +135,5 @@ All agents must update this file when completing or modifying tasks.
 - YYYY-MM-DD – Initial STATUS.md created
 - 2026-02-11 – Milestone 1 Phase 1 CLI skeleton + ffmpeg preflight completed (`cli.py`, `tests/test_cli.py`).
 - 2026-02-11 – Milestone 1 Phase 2 script ingestion + normalization completed (`src/ingest/script_parser.py`, `src/match/normalization.py`, `cli.py`, `tests/test_script_parser.py`, `tests/test_cli.py`).
+
+- 2026-02-11 – Milestone 1 Phase 3 ASR abstraction + mock backend + validation completed (`src/asr/backends.py`, `src/asr/__init__.py`, `cli.py`, `tests/test_asr.py`, `tests/test_cli.py`, `tests/fixtures/mock_asr_valid.json`, `tests/fixtures/mock_asr_invalid_start_end.json`).

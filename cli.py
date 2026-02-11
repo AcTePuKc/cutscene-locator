@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Sequence
 
+from src.asr import MockASRBackend
 from src.ingest.script_parser import load_script_table
 
 VERSION = "0.0.0"
@@ -118,6 +119,8 @@ def main(
         ffmpeg_binary = resolve_ffmpeg_binary(args.ffmpeg_path, which=which)
         run_ffmpeg_preflight(ffmpeg_binary, runner=runner)
         script_table = load_script_table(Path(args.script_path))
+        asr_backend = MockASRBackend(Path(args.mock_asr_path))
+        asr_result = asr_backend.run()
     except (CliError, ValueError) as exc:
         message = exc.message if isinstance(exc, CliError) else str(exc)
         print(f"Error: {message}", file=sys.stderr)
@@ -128,8 +131,9 @@ def main(
         print(f"Verbose: ffmpeg binary: {ffmpeg_binary}")
         print(f"Verbose: input={Path(args.input_path)} script={Path(args.script_path)} out={Path(args.out_dir)}")
         print(f"Verbose: script rows loaded={len(script_table.rows)} delimiter={repr(script_table.delimiter)}")
+        print(f"Verbose: asr backend={asr_result['meta']['backend']} segments={len(asr_result['segments'])}")
 
-    print("Preflight checks passed. Script ingestion completed. Further pipeline stages are not implemented in this phase.")
+    print("Preflight checks passed. Script ingestion and ASR validation completed. Matching is not implemented in this phase.")
     return 0
 
 

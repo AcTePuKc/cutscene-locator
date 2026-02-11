@@ -1,0 +1,15 @@
+{
+  "segments": [
+    {
+      "segment_id": "seg_bad_1",
+      "start": 20.0,
+      "end": 20.0,
+      "text": "bad timing"
+    }
+  ],
+  "meta": {
+    "backend": "mock",
+    "version": "1.0",
+    "language": "en"
+  }
+}
