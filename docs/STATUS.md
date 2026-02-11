@@ -83,6 +83,37 @@ All agents must update this file when completing or modifying tasks.
 
 ---
 
+## Milestone 1.5 – ASR Architecture Lock
+
+### Backend architecture
+
+- [ ] Final ASR backend interface definition
+- [ ] Backend registry system
+- [ ] Backend discovery via CLI flag
+- [ ] Backend capability metadata (supports_word_timestamps, supports_alignment, etc.)
+
+### Model resolution strategy
+
+- [ ] models/ directory convention
+- [ ] --model-path explicit override
+- [ ] --auto-download <model-size> optional flag
+- [ ] Deterministic model cache directory
+- [ ] No silent fallback policy
+
+### Device handling
+
+- [ ] --device cpu/cuda/auto
+- [ ] Deterministic device selection
+- [ ] Clear error if requested device unavailable
+
+### UI-readiness hooks
+
+- [ ] Progress callback interface in backend
+- [ ] Cancellation-ready interface (future-safe)
+- [ ] Backend metadata reporting (model name, version, device)
+
+---
+
 ## Milestone 2 – Real ASR backends (post-MVP)
 
 ### Whisper / Qwen / others
