@@ -106,7 +106,7 @@ class ModelResolutionTests(unittest.TestCase):
                 snapshot_calls.append((repo_id, local_dir, revision))
                 model_dir = Path(local_dir)
                 model_dir.mkdir(parents=True, exist_ok=True)
-                for filename in ("config.json", "tokenizer.json", "vocabulary.json", "model.bin"):
+                for filename in ("config.json", "tokenizer.json", "model.bin"):
                     (model_dir / filename).write_text("{}", encoding="utf-8")
 
             fake_hf_module = types.SimpleNamespace(snapshot_download=_snapshot_download)
@@ -142,7 +142,7 @@ class ModelResolutionTests(unittest.TestCase):
                 snapshot_calls.append((repo_id, revision, local_dir))
                 model_dir = Path(local_dir)
                 model_dir.mkdir(parents=True, exist_ok=True)
-                for filename in ("config.json", "tokenizer.json", "vocabulary.json", "model.bin"):
+                for filename in ("config.json", "tokenizer.json", "model.bin"):
                     (model_dir / filename).write_text("{}", encoding="utf-8")
 
             fake_hf_module = types.SimpleNamespace(snapshot_download=_snapshot_download)
@@ -187,6 +187,30 @@ class ModelResolutionTests(unittest.TestCase):
                         ASRConfig(backend_name="faster-whisper", model_id="openai/whisper-tiny")
                     )
             self.assertTrue(str(resolved).endswith("/openai--whisper-tiny/default"))
+
+
+    def test_faster_whisper_validation_accepts_vocabulary_txt_tokenizer_asset(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_home:
+            model_dir = Path(temp_home) / "models" / "faster-whisper"
+            model_dir.mkdir(parents=True, exist_ok=True)
+            (model_dir / "config.json").write_text("{}", encoding="utf-8")
+            (model_dir / "model.bin").write_text("{}", encoding="utf-8")
+            (model_dir / "vocabulary.txt").write_text("token", encoding="utf-8")
+
+            resolved = resolve_model_path(
+                ASRConfig(backend_name="faster-whisper", model_path=model_dir)
+            )
+
+            self.assertEqual(resolved, model_dir)
+
+    def test_faster_whisper_validation_reports_found_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_home:
+            model_dir = Path(temp_home) / "models" / "faster-whisper"
+            model_dir.mkdir(parents=True, exist_ok=True)
+            (model_dir / "config.json").write_text("{}", encoding="utf-8")
+
+            with self.assertRaisesRegex(ModelResolutionError, "Found files: config.json"):
+                resolve_model_path(ASRConfig(backend_name="faster-whisper", model_path=model_dir))
 
 
 if __name__ == "__main__":

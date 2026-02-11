@@ -11,21 +11,6 @@ from .backends import validate_asr_result
 from .config import ASRConfig
 from .device import resolve_device_with_details
 
-def _validate_faster_whisper_model_dir(model_path: Path) -> None:
-    required_paths = [
-        model_path / "config.json",
-        model_path / "tokenizer.json",
-        model_path / "vocabulary.json",
-        model_path / "model.bin",
-    ]
-    missing = [path.name for path in required_paths if not path.exists()]
-    if missing:
-        missing_display = ", ".join(sorted(missing))
-        raise ValueError(
-            "faster-whisper model directory is missing required files: "
-            f"{missing_display}. Provide a valid CTranslate2 model directory."
-        )
-
 
 class FasterWhisperBackend:
     """ASR backend powered by faster-whisper."""
@@ -51,7 +36,6 @@ class FasterWhisperBackend:
         if whisper_model_class is None:
             raise ValueError("Installed faster-whisper package is missing WhisperModel.")
 
-        _validate_faster_whisper_model_dir(Path(config.model_path))
         model = whisper_model_class(str(config.model_path), device=resolved_device)
         raw_segments, _info = model.transcribe(audio_path)
 
