@@ -61,10 +61,10 @@ All agents must update this file when completing or modifying tasks.
 
 ### Scene reconstruction
 
-- [ ] Scene gap logic
-- [ ] Chronological stitching
-- [ ] Scene ID generation
-- [ ] Overlap tolerance
+- [x] Scene gap logic
+- [x] Chronological stitching
+- [x] Scene ID generation
+- [x] Overlap tolerance
 
 ### Exports
 
@@ -138,3 +138,4 @@ All agents must update this file when completing or modifying tasks.
 
 - 2026-02-11 – Milestone 1 Phase 3 ASR abstraction + mock backend + validation completed (`src/asr/backends.py`, `src/asr/__init__.py`, `cli.py`, `tests/test_asr.py`, `tests/test_cli.py`, `tests/fixtures/mock_asr_valid.json`, `tests/fixtures/mock_asr_invalid_start_end.json`).
 - 2026-02-11 – Milestone 1 Phase 4 matching engine completed (`src/match/engine.py`, `src/match/__init__.py`, `cli.py`, `tests/test_matching.py`, `tests/test_cli.py`).
+- 2026-02-11 – Milestone 1 Phase 5 scene reconstruction completed (`src/scene/reconstruct.py`, `src/scene/__init__.py`, `cli.py`, `tests/test_scene.py`, `tests/test_cli.py`).

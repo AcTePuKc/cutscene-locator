@@ -13,6 +13,7 @@ from typing import Callable, Sequence
 from src.asr import MockASRBackend
 from src.ingest.script_parser import load_script_table
 from src.match.engine import match_segments_to_script
+from src.scene import reconstruct_scenes
 
 VERSION = "0.0.0"
 
@@ -128,6 +129,10 @@ def main(
             script_table=script_table,
             low_confidence_threshold=args.match_threshold,
         )
+        scene_output = reconstruct_scenes(
+            matching_output=matching_output,
+            scene_gap_seconds=float(args.scene_gap),
+        )
     except (CliError, ValueError) as exc:
         message = exc.message if isinstance(exc, CliError) else str(exc)
         print(f"Error: {message}", file=sys.stderr)
@@ -144,8 +149,9 @@ def main(
             "Verbose: matches computed="
             f"{len(matching_output.matches)} low_confidence={low_confidence_count} threshold={args.match_threshold}"
         )
+        print(f"Verbose: scenes reconstructed={len(scene_output['scenes'])} gap_seconds={float(args.scene_gap)}")
 
-    print("Preflight checks passed. Script ingestion, ASR validation, and matching completed.")
+    print("Preflight checks passed. Script ingestion, ASR validation, matching, and scene reconstruction completed.")
     return 0
 
 
