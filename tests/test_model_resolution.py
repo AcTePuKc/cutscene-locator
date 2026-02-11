@@ -250,5 +250,33 @@ class ModelResolutionTests(unittest.TestCase):
                 resolve_model_path(ASRConfig(backend_name="faster-whisper", model_path=model_dir))
 
 
+    def test_faster_whisper_snapshot_download_progress_off_does_not_pass_tqdm_class(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_home:
+            snapshot_kwargs: list[dict[str, object]] = []
+
+            def _snapshot_download(**kwargs: object) -> None:
+                snapshot_kwargs.append(dict(kwargs))
+                model_dir = Path(str(kwargs["local_dir"]))
+                model_dir.mkdir(parents=True, exist_ok=True)
+                for filename in ("config.json", "tokenizer.json", "model.bin"):
+                    (model_dir / filename).write_text("{}", encoding="utf-8")
+
+            fake_hf_module = types.SimpleNamespace(snapshot_download=_snapshot_download)
+
+            with patch("pathlib.Path.home", return_value=Path(temp_home)):
+                with patch("src.asr.model_resolution.import_module", return_value=fake_hf_module):
+                    resolve_model_path(
+                        ASRConfig(
+                            backend_name="faster-whisper",
+                            auto_download="tiny",
+                            download_progress=False,
+                        )
+                    )
+
+            self.assertEqual(len(snapshot_kwargs), 1)
+            self.assertNotIn("tqdm_class", snapshot_kwargs[0])
+            self.assertEqual(snapshot_kwargs[0].get("local_dir_use_symlinks"), False)
+
+
 if __name__ == "__main__":
     unittest.main()

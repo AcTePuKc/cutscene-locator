@@ -131,13 +131,11 @@ def _snapshot_download_with_progress(
     }
     if not progress_enabled:
         kwargs["local_dir_use_symlinks"] = False
-        kwargs["tqdm_class"] = None
 
     try:
         snapshot_download(**kwargs)
     except TypeError:
         kwargs.pop("local_dir_use_symlinks", None)
-        kwargs.pop("tqdm_class", None)
         snapshot_download(**kwargs)
 
 def _default_download_url(*, backend_name: str, model_size: str) -> str:
