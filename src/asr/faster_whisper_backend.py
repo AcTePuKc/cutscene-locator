@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from inspect import Parameter, signature
 from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
+from typing import Callable
 
 from .base import ASRResult
 from .backends import validate_asr_result
@@ -15,6 +17,42 @@ from .device import resolve_device_with_details
 class FasterWhisperBackend:
     """ASR backend powered by faster-whisper."""
 
+    @staticmethod
+    def _filter_supported_transcribe_kwargs(
+        transcribe_callable: Callable[..., object],
+        candidate_kwargs: dict[str, object],
+        log_callback: Callable[[str], None] | None,
+    ) -> dict[str, object]:
+        """Keep only kwargs accepted by the transcribe() signature."""
+
+        if not candidate_kwargs:
+            return {}
+
+        try:
+            transcribe_signature = signature(transcribe_callable)
+        except (TypeError, ValueError):
+            return dict(candidate_kwargs)
+
+        supports_var_kwargs = any(
+            parameter.kind == Parameter.VAR_KEYWORD
+            for parameter in transcribe_signature.parameters.values()
+        )
+        if supports_var_kwargs:
+            return dict(candidate_kwargs)
+
+        supported_names = set(transcribe_signature.parameters)
+        filtered_kwargs = {
+            key: value for key, value in candidate_kwargs.items() if key in supported_names
+        }
+
+        dropped = sorted(set(candidate_kwargs).difference(filtered_kwargs))
+        if dropped and log_callback is not None:
+            log_callback(
+                "asr: filtered unsupported transcribe kwargs: " + ", ".join(dropped)
+            )
+
+        return filtered_kwargs
+
     def transcribe(self, audio_path: str, config: ASRConfig) -> ASRResult:
         if config.model_path is None:
             raise ValueError(
@@ -23,8 +61,6 @@ class FasterWhisperBackend:
             )
 
         resolved_device = resolve_device_with_details(config.device).resolved
-        progress_enabled = config.download_progress is not False
-
         try:
             faster_whisper_module = import_module("faster_whisper")
         except ModuleNotFoundError as exc:
@@ -47,14 +83,18 @@ class FasterWhisperBackend:
         if config.log_callback is not None:
             config.log_callback("asr: model init end")
 
-        transcribe_kwargs: dict[str, object] = {}
-        if resolved_device == "cuda":
-            transcribe_kwargs["progress"] = False
-        else:
-            transcribe_kwargs["progress"] = progress_enabled
-
         if config.log_callback is not None:
             config.log_callback("asr: transcribe start")
+
+        transcribe_kwargs: dict[str, object] = {}
+        if config.language is not None:
+            transcribe_kwargs["language"] = config.language
+        transcribe_kwargs = self._filter_supported_transcribe_kwargs(
+            model.transcribe,
+            transcribe_kwargs,
+            config.log_callback,
+        )
+
         raw_segments, _info = model.transcribe(audio_path, **transcribe_kwargs)
         if config.log_callback is not None:
             config.log_callback("asr: transcribe end")
