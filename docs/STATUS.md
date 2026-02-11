@@ -68,10 +68,10 @@ All agents must update this file when completing or modifying tasks.
 
 ### Exports
 
-- [ ] `matches.csv` writer
-- [ ] `scenes.json` writer
-- [ ] `subs_qa.srt` writer
-- [ ] `subs_target.srt` writer (optional)
+- [x] `matches.csv` writer
+- [x] `scenes.json` writer
+- [x] `subs_qa.srt` writer
+- [x] `subs_target.srt` writer (optional)
 
 ### CLI
 
@@ -139,3 +139,5 @@ All agents must update this file when completing or modifying tasks.
 - 2026-02-11 – Milestone 1 Phase 3 ASR abstraction + mock backend + validation completed (`src/asr/backends.py`, `src/asr/__init__.py`, `cli.py`, `tests/test_asr.py`, `tests/test_cli.py`, `tests/fixtures/mock_asr_valid.json`, `tests/fixtures/mock_asr_invalid_start_end.json`).
 - 2026-02-11 – Milestone 1 Phase 4 matching engine completed (`src/match/engine.py`, `src/match/__init__.py`, `cli.py`, `tests/test_matching.py`, `tests/test_cli.py`).
 - 2026-02-11 – Milestone 1 Phase 5 scene reconstruction completed (`src/scene/reconstruct.py`, `src/scene/__init__.py`, `cli.py`, `tests/test_scene.py`, `tests/test_cli.py`).
+
+- 2026-02-11 – Milestone 1 Phase 6 export writers + CLI full pipeline wiring completed (`src/export/writers.py`, `src/export/__init__.py`, `cli.py`, `tests/test_exports.py`, `tests/test_cli.py`).
