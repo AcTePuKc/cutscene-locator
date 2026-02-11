@@ -60,20 +60,6 @@ class FasterWhisperBackendTests(unittest.TestCase):
                 )
 
 
-    def test_model_dir_missing_required_files_is_actionable(self) -> None:
-        backend = FasterWhisperBackend()
-        fake_module = types.SimpleNamespace(WhisperModel=_FakeWhisperModel)
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            model_path = Path(temp_dir) / "bad-model"
-            model_path.mkdir(parents=True, exist_ok=True)
-            with patch("src.asr.faster_whisper_backend.import_module", return_value=fake_module):
-                with self.assertRaisesRegex(ValueError, "missing required files"):
-                    backend.transcribe(
-                        "in.wav",
-                        ASRConfig(backend_name="faster-whisper", model_path=model_path, device="cpu"),
-                    )
-
     def test_backend_emits_contract_without_speaker(self) -> None:
         backend = FasterWhisperBackend()
         fake_module = types.SimpleNamespace(WhisperModel=_FakeWhisperModel)

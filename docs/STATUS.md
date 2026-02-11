@@ -193,3 +193,5 @@ All agents must update this file when completing or modifying tasks.
 - 2026-02-11 – Milestone 2 Qwen ASR backend completed (`src/asr/qwen3_asr_backend.py`, `src/asr/registry.py`, `src/asr/__init__.py`, `cli.py`, `pyproject.toml`, `tests/test_asr_registry.py`, `docs/STATUS.md`).
 
 - 2026-02-11 – Generic model-id download/cache support completed (`src/asr/model_resolution.py`, `src/asr/config.py`, `src/asr/faster_whisper_backend.py`, `cli.py`, `tests/test_model_resolution.py`, `tests/test_cli.py`, `tests/test_faster_whisper_backend.py`, `docs/CLI.md`, `docs/ASR_ARCHITECTURE.md`, `docs/STATUS.md`).
+
+- 2026-02-11 – Faster-whisper model validation unified in model resolution (removed backend duplicate checks, expanded tokenizer asset acceptance, improved error file listing) (`src/asr/model_resolution.py`, `src/asr/faster_whisper_backend.py`, `tests/test_model_resolution.py`, `tests/test_faster_whisper_backend.py`, `docs/STATUS.md`).

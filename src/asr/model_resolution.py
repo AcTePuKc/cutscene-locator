@@ -69,16 +69,30 @@ def _validate_model_repo_snapshot(*, backend_name: str, model_dir: Path) -> None
     if backend_name == "faster-whisper":
         required_paths = [
             model_dir / "config.json",
-            model_dir / "tokenizer.json",
-            model_dir / "vocabulary.json",
             model_dir / "model.bin",
         ]
         missing = [path.name for path in required_paths if not path.exists()]
+
+        tokenizer_assets = [
+            "tokenizer.json",
+            "vocabulary.json",
+            "vocabulary.txt",
+            "vocab.json",
+            "vocab.txt",
+        ]
+        has_tokenizer_asset = any((model_dir / filename).exists() for filename in tokenizer_assets)
+        if not has_tokenizer_asset:
+            missing.append(
+                "one of tokenizer.json, vocabulary.json, vocabulary.txt, vocab.json, vocab.txt"
+            )
+
         if missing:
             missing_display = ", ".join(sorted(missing))
+            found_files = ", ".join(sorted(path.name for path in model_dir.iterdir())) if model_dir.is_dir() else "<none>"
             raise ModelResolutionError(
                 "Resolved faster-whisper model is missing required files: "
-                f"{missing_display}. Expected a CTranslate2-converted Whisper model directory."
+                f"{missing_display}. Expected a CTranslate2-converted Whisper model directory. "
+                f"Found files: {found_files}"
             )
 
 
