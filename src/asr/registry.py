@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .backends import MockASRBackend
+from .faster_whisper_backend import FasterWhisperBackend
 
 
 @dataclass(frozen=True)
@@ -28,6 +29,16 @@ class BackendRegistration:
 
 
 _REGISTRY: dict[str, BackendRegistration] = {
+    "faster-whisper": BackendRegistration(
+        name="faster-whisper",
+        backend_class=FasterWhisperBackend,
+        capabilities=BackendCapabilities(
+            supports_word_timestamps=False,
+            supports_alignment=False,
+            supports_diarization=False,
+            max_audio_duration=None,
+        ),
+    ),
     "mock": BackendRegistration(
         name="mock",
         backend_class=MockASRBackend,
