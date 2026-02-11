@@ -170,6 +170,43 @@ class ModelResolutionTests(unittest.TestCase):
                 [("openai/whisper-tiny", "main", str(expected_dir))],
             )
 
+
+    def test_model_id_cached_hit_skips_snapshot_download(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_home:
+            expected_dir = (
+                Path(temp_home)
+                / ".cutscene-locator"
+                / "models"
+                / "faster-whisper"
+                / "openai--whisper-tiny"
+                / "main"
+            )
+            expected_dir.mkdir(parents=True, exist_ok=True)
+            (expected_dir / "config.json").write_text("{}", encoding="utf-8")
+            (expected_dir / "tokenizer.json").write_text("{}", encoding="utf-8")
+            (expected_dir / "model.bin").write_text("{}", encoding="utf-8")
+
+            def _snapshot_download(**kwargs: object) -> None:
+                raise AssertionError("snapshot_download should not be called for cached hit")
+
+            fake_hf_module = types.SimpleNamespace(snapshot_download=_snapshot_download)
+            logs: list[str] = []
+
+            with patch("pathlib.Path.home", return_value=Path(temp_home)):
+                with patch("src.asr.model_resolution.import_module", return_value=fake_hf_module):
+                    resolved = resolve_model_path(
+                        ASRConfig(
+                            backend_name="faster-whisper",
+                            model_id="openai/whisper-tiny",
+                            revision="main",
+                            log_callback=logs.append,
+                        )
+                    )
+
+            self.assertEqual(resolved, expected_dir)
+            self.assertIn("model resolution: cached hit", logs)
+            self.assertIn(f"model resolution: resolved cache directory: {expected_dir}", logs)
+
     def test_model_id_download_default_revision_folder(self) -> None:
         with tempfile.TemporaryDirectory() as temp_home:
             fake_hf_module = types.SimpleNamespace(

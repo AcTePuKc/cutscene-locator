@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -59,6 +60,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--version", action="store_true")
     parser.add_argument("--match-threshold", type=float, default=0.85)
+    parser.add_argument("--progress", choices=("on", "off"), default=None)
     return parser
 
 
@@ -84,6 +86,13 @@ def _validate_backend(args: argparse.Namespace) -> None:
     if registration.name == "mock" and not args.mock_asr_path:
         raise CliError("--mock-asr is required when --asr-backend mock is used.")
 
+
+
+
+def _resolve_progress_mode(progress: str | None) -> str:
+    if progress is not None:
+        return progress
+    return "off" if os.name == "nt" else "on"
 
 def _validate_asr_options(args: argparse.Namespace) -> None:
     allowed_devices = {"cpu", "cuda", "auto"}
@@ -167,10 +176,12 @@ def main(
     timings: dict[str, float] = {}
     runtime_started = time.perf_counter()
     device_resolution_reason: str | None = None
+    model_resolution_logs: list[str] = []
 
     try:
         _validate_required_args(args)
         _validate_backend(args)
+        args.progress = _resolve_progress_mode(args.progress)
         _validate_asr_options(args)
         ffmpeg_binary = resolve_ffmpeg_binary(args.ffmpeg_path, which=which)
         asr_config = ASRConfig(
@@ -182,6 +193,8 @@ def main(
             device=args.device,
             language=None,
             ffmpeg_path=ffmpeg_binary,
+            download_progress=(args.progress == "on"),
+            log_callback=model_resolution_logs.append,
         )
         run_ffmpeg_preflight(ffmpeg_binary, runner=runner)
         input_path = Path(args.input_path)
@@ -231,8 +244,10 @@ def main(
                 device=asr_config.device,
                 language=asr_config.language,
                 ffmpeg_path=asr_config.ffmpeg_path,
+                download_progress=asr_config.download_progress,
                 progress_callback=asr_config.progress_callback,
                 cancel_check=asr_config.cancel_check,
+                log_callback=asr_config.log_callback,
             )
             asr_result = asr_backend.transcribe(
                 str(preprocessing_output.canonical_wav_path),
@@ -294,8 +309,10 @@ def main(
             f"backend={asr_config.backend_name} requested_device={asr_config.device} "
             f"model_path={resolved_model_path if resolved_model_path is not None else asr_config.model_path} "
             f"model_id={asr_config.model_id} revision={asr_config.revision} "
-            f"auto_download={asr_config.auto_download}"
+            f"auto_download={asr_config.auto_download} download_progress={args.progress}"
         )
+        for model_resolution_log in model_resolution_logs:
+            print(f"Verbose: {model_resolution_log}")
         if device_resolution_reason is not None:
             print(f"Verbose: device resolution reason: {device_resolution_reason}")
         print(

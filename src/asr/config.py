@@ -21,5 +21,7 @@ class ASRConfig:
     device: DeviceType = "auto"
     language: str | None = None
     ffmpeg_path: str | None = None
+    download_progress: bool | None = None
     progress_callback: Callable[[float], None] | None = None
     cancel_check: Callable[[], bool] | None = None
+    log_callback: Callable[[str], None] | None = None

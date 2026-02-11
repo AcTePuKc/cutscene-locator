@@ -94,6 +94,19 @@ class CliPhaseOneTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("Install it with: pip install 'cutscene-locator[faster-whisper]'", stderr.getvalue())
 
+
+    def test_resolve_progress_mode_defaults_off_on_windows(self) -> None:
+        with patch("cli.os.name", "nt"):
+            self.assertEqual(cli._resolve_progress_mode(None), "off")
+
+    def test_resolve_progress_mode_defaults_on_non_windows(self) -> None:
+        with patch("cli.os.name", "posix"):
+            self.assertEqual(cli._resolve_progress_mode(None), "on")
+
+    def test_resolve_progress_mode_honors_explicit_value(self) -> None:
+        with patch("cli.os.name", "nt"):
+            self.assertEqual(cli._resolve_progress_mode("on"), "on")
+
     def test_invalid_device_value_exits_one(self) -> None:
         stderr = io.StringIO()
         with redirect_stderr(stderr):
