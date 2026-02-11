@@ -71,7 +71,7 @@ class CliPhaseOneTests(unittest.TestCase):
                     "--input",
                     "in.wav",
                     "--script",
-                    "script.tsv",
+                    "tests/fixtures/script_sample.tsv",
                     "--out",
                     "out",
                     "--mock-asr",
@@ -83,6 +83,27 @@ class CliPhaseOneTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("ffmpeg not found", stderr.getvalue())
 
+    def test_invalid_script_exits_one(self) -> None:
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            code = cli.main(
+                [
+                    "--input",
+                    "in.wav",
+                    "--script",
+                    "tests/fixtures/script_missing_required.csv",
+                    "--out",
+                    "out",
+                    "--mock-asr",
+                    "mock.json",
+                ],
+                which=lambda _: "/usr/bin/ffmpeg",
+                runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+            )
+
+        self.assertEqual(code, 1)
+        self.assertIn("Missing required script columns", stderr.getvalue())
+
     def test_success_exits_zero(self) -> None:
         stdout = io.StringIO()
         with redirect_stdout(stdout):
@@ -91,7 +112,7 @@ class CliPhaseOneTests(unittest.TestCase):
                     "--input",
                     "in.wav",
                     "--script",
-                    "script.tsv",
+                    "tests/fixtures/script_sample.tsv",
                     "--out",
                     "out",
                     "--mock-asr",
@@ -104,8 +125,8 @@ class CliPhaseOneTests(unittest.TestCase):
 
         self.assertEqual(code, 0)
         output = stdout.getvalue()
-        self.assertIn("Preflight checks passed", output)
-        self.assertIn("Verbose: ffmpeg binary", output)
+        self.assertIn("Script ingestion completed", output)
+        self.assertIn("Verbose: script rows loaded=2", output)
 
 
 if __name__ == "__main__":
