@@ -8,6 +8,8 @@ import shutil
 import subprocess
 import sys
 import time
+import json
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Sequence
@@ -53,6 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--revision")
     parser.add_argument("--auto-download")
     parser.add_argument("--device", default="auto")
+    parser.add_argument("--compute-type", default="auto")
     parser.add_argument("--chunk", type=int, default=300)
     parser.add_argument("--scene-gap", type=int, default=10)
     parser.add_argument("--ffmpeg-path")
@@ -107,6 +110,10 @@ def _validate_asr_options(args: argparse.Namespace) -> None:
     allowed_devices = {"cpu", "cuda", "auto"}
     if args.device not in allowed_devices:
         raise CliError("Invalid --device value. Expected one of: cpu, cuda, auto.")
+
+    allowed_compute_types = {"float16", "float32", "auto"}
+    if args.compute_type not in allowed_compute_types:
+        raise CliError("Invalid --compute-type value. Expected one of: float16, float32, auto.")
 
     if args.auto_download is not None:
         allowed_model_sizes = {"tiny", "base", "small"}
@@ -164,6 +171,57 @@ def run_ffmpeg_preflight(
         raise CliError(f"ffmpeg preflight failed for '{ffmpeg_binary}'.{details}") from exc
 
 
+
+
+def _run_faster_whisper_subprocess(
+    *,
+    audio_path: Path,
+    resolved_model_path: Path,
+    asr_config: ASRConfig,
+    progress_mode: str,
+    verbose: bool,
+) -> dict[str, object]:
+    with tempfile.TemporaryDirectory(prefix="cutscene_locator_asr_") as temp_dir:
+        result_path = Path(temp_dir) / "asr_result.json"
+        cmd = [
+            sys.executable,
+            "-m",
+            "src.asr.asr_worker",
+            "--audio-path",
+            str(audio_path),
+            "--model-path",
+            str(resolved_model_path),
+            "--device",
+            asr_config.device,
+            "--compute-type",
+            asr_config.compute_type,
+            "--progress",
+            progress_mode,
+            "--result-path",
+            str(result_path),
+        ]
+        if verbose:
+            cmd.append("--verbose")
+
+        completed = subprocess.run(cmd, check=False, capture_output=True, text=True)
+        if completed.stdout:
+            print(completed.stdout, end="")
+        if completed.stderr:
+            print(completed.stderr, file=sys.stderr, end="")
+
+        if completed.returncode != 0:
+            if completed.returncode in {-1073740791, 3221226505}:
+                raise CliError(
+                    "GPU backend aborted. This is a native crash. "
+                    "Try --compute-type float32 or update ctranslate2 CUDA wheel."
+                )
+            raise CliError(f"ASR worker failed with exit code {completed.returncode}.")
+
+        if not result_path.exists():
+            raise CliError("ASR worker did not produce result output.")
+
+        return json.loads(result_path.read_text(encoding="utf-8"))
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -201,6 +259,7 @@ def main(
             revision=args.revision,
             auto_download=args.auto_download,
             device=args.device,
+            compute_type=args.compute_type,
             language=None,
             ffmpeg_path=ffmpeg_binary,
             download_progress=(args.progress == "on"),
@@ -258,17 +317,29 @@ def main(
                 revision=asr_config.revision,
                 auto_download=asr_config.auto_download,
                 device=asr_config.device,
+                compute_type=asr_config.compute_type,
                 language=asr_config.language,
                 ffmpeg_path=asr_config.ffmpeg_path,
                 download_progress=asr_config.download_progress,
                 progress_callback=asr_config.progress_callback,
                 cancel_check=asr_config.cancel_check,
-                log_callback=asr_config.log_callback,
+                log_callback=print if args.verbose else asr_config.log_callback,
             )
-            asr_result = asr_backend.transcribe(
-                str(preprocessing_output.canonical_wav_path),
-                effective_config,
-            )
+            if backend_registration.name == "faster-whisper" and effective_config.device == "cuda" and os.name == "nt":
+                if effective_config.model_path is None:
+                    raise CliError("faster-whisper backend requires a resolved model path.")
+                asr_result = _run_faster_whisper_subprocess(
+                    audio_path=preprocessing_output.canonical_wav_path,
+                    resolved_model_path=effective_config.model_path,
+                    asr_config=effective_config,
+                    progress_mode=args.progress,
+                    verbose=args.verbose,
+                )
+            else:
+                asr_result = asr_backend.transcribe(
+                    str(preprocessing_output.canonical_wav_path),
+                    effective_config,
+                )
         else:
             raise CliError(f"ASR backend '{asr_config.backend_name}' is not implemented yet.")
         timings["asr"] = time.perf_counter() - asr_started
@@ -334,7 +405,7 @@ def main(
         )
         print(
             "Verbose: asr config="
-            f"backend={asr_config.backend_name} requested_device={asr_config.device} "
+            f"backend={asr_config.backend_name} requested_device={asr_config.device} compute_type={asr_config.compute_type} "
             f"model_path={resolved_model_path if resolved_model_path is not None else asr_config.model_path} "
             f"model_id={asr_config.model_id} revision={asr_config.revision} "
             f"auto_download={asr_config.auto_download} download_progress={args.progress}"

@@ -237,3 +237,17 @@ ASR models may evolve or produce slightly different text.
 - Missing data should be reported, not invented.
 
 The tool is a locator and alignment aid, not an oracle.
+
+
+## 13. Windows CUDA native aborts in ASR backends
+
+### Description
+
+Some Windows + CUDA + ASR backend combinations may abort in native code (for example, process exit code `-1073740791`) even when Python-level CUDA checks pass.
+
+### Handling
+
+- For `faster-whisper` on Windows with `--device cuda`, run ASR in an isolated subprocess.
+- Parent CLI must catch child non-zero exits and emit actionable guidance.
+- Parent process must never silently disappear due to child native aborts.
+- For CUDA transcription, avoid tqdm progress monitor threads in the ASR execution path.

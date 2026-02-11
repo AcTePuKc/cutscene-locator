@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
 from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Iterator
 
 from .base import ASRResult
 from .backends import validate_asr_result
@@ -17,41 +15,6 @@ from .device import resolve_device_with_details
 class FasterWhisperBackend:
     """ASR backend powered by faster-whisper."""
 
-    @contextmanager
-    def _patched_progress_bar(self, *, progress_enabled: bool) -> Iterator[None]:
-        """Patch faster-whisper tqdm factory with a no-op progress bar when disabled."""
-
-        if progress_enabled:
-            yield
-            return
-
-        try:
-            transcribe_module = import_module("faster_whisper.transcribe")
-        except ModuleNotFoundError:
-            yield
-            return
-
-        original_tqdm = getattr(transcribe_module, "tqdm", None)
-        if original_tqdm is None:
-            yield
-            return
-
-        class NullProgressBar:
-            def update(self, _n: int = 1) -> None:
-                return None
-
-            def close(self) -> None:
-                return None
-
-        def _null_tqdm(*_args: object, **_kwargs: object) -> NullProgressBar:
-            return NullProgressBar()
-
-        setattr(transcribe_module, "tqdm", _null_tqdm)
-        try:
-            yield
-        finally:
-            setattr(transcribe_module, "tqdm", original_tqdm)
-
     def transcribe(self, audio_path: str, config: ASRConfig) -> ASRResult:
         if config.model_path is None:
             raise ValueError(
@@ -60,6 +23,7 @@ class FasterWhisperBackend:
             )
 
         resolved_device = resolve_device_with_details(config.device).resolved
+        progress_enabled = config.download_progress is not False
 
         try:
             faster_whisper_module = import_module("faster_whisper")
@@ -73,9 +37,27 @@ class FasterWhisperBackend:
         if whisper_model_class is None:
             raise ValueError("Installed faster-whisper package is missing WhisperModel.")
 
-        model = whisper_model_class(str(config.model_path), device=resolved_device)
-        with self._patched_progress_bar(progress_enabled=(config.download_progress is not False)):
-            raw_segments, _info = model.transcribe(audio_path)
+        if config.log_callback is not None:
+            config.log_callback("asr: model init start")
+        model = whisper_model_class(
+            str(config.model_path),
+            device=resolved_device,
+            compute_type=config.compute_type,
+        )
+        if config.log_callback is not None:
+            config.log_callback("asr: model init end")
+
+        transcribe_kwargs: dict[str, object] = {}
+        if resolved_device == "cuda":
+            transcribe_kwargs["progress"] = False
+        else:
+            transcribe_kwargs["progress"] = progress_enabled
+
+        if config.log_callback is not None:
+            config.log_callback("asr: transcribe start")
+        raw_segments, _info = model.transcribe(audio_path, **transcribe_kwargs)
+        if config.log_callback is not None:
+            config.log_callback("asr: transcribe end")
 
         normalized_segments: list[dict[str, str | float]] = []
         for index, segment in enumerate(raw_segments, start=1):

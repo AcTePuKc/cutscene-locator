@@ -159,9 +159,24 @@ Optional Hugging Face revision when used with `--model-id`.
 - Example: `--revision main`
 - If omitted, cache folder uses `default`.
 
+### `--device <cpu|cuda|auto>`
+
+Selects ASR execution device.
+
+### `--compute-type <float16|float32|auto>`
+
+Controls faster-whisper compute precision passed to `WhisperModel(compute_type=...)`.
+
+- `float16`: fastest on most CUDA setups
+- `float32`: safer fallback for CUDA instability
+- `auto`: backend default
+
 ### `--progress <on|off>`
 
-Controls model download progress bars for Hugging Face snapshot downloads.
+Controls progress behavior for ASR/model-resolution operations.
+
+- For Hugging Face snapshot downloads, this controls progress bars as before.
+- For faster-whisper transcription on CUDA, progress bars are disabled internally to avoid Windows tqdm monitor-thread crashes.
 
 - Windows default: `off` (sets `HF_HUB_DISABLE_PROGRESS_BARS=1`)
 - Non-Windows default: `on`
