@@ -17,7 +17,7 @@ from src.export import (
     write_subs_qa_srt,
     write_subs_target_srt,
 )
-from src.ingest.script_parser import load_script_table
+from src.ingest import load_script_table, preprocess_media
 from src.match.engine import match_segments_to_script
 from src.scene import reconstruct_scenes
 
@@ -127,6 +127,15 @@ def main(
         _validate_backend(args)
         ffmpeg_binary = resolve_ffmpeg_binary(args.ffmpeg_path, which=which)
         run_ffmpeg_preflight(ffmpeg_binary, runner=runner)
+        input_path = Path(args.input_path)
+        out_dir = Path(args.out_dir)
+        preprocessing_output = preprocess_media(
+            ffmpeg_binary=ffmpeg_binary,
+            input_path=input_path,
+            out_dir=out_dir,
+            chunk_seconds=args.chunk,
+            runner=runner,
+        )
         script_table = load_script_table(Path(args.script_path))
         asr_backend = MockASRBackend(Path(args.mock_asr_path))
         asr_result = asr_backend.run()
@@ -140,7 +149,6 @@ def main(
             scene_gap_seconds=float(args.scene_gap),
         )
 
-        out_dir = Path(args.out_dir)
         write_matches_csv(output_path=out_dir / "matches.csv", matching_output=matching_output)
         write_scenes_json(output_path=out_dir / "scenes.json", scene_output=scene_output)
         write_subs_qa_srt(
@@ -161,8 +169,10 @@ def main(
     if args.verbose:
         print("Verbose: CLI validation, ffmpeg preflight, and script ingestion completed.")
         print(f"Verbose: ffmpeg binary: {ffmpeg_binary}")
-        print(f"Verbose: input={Path(args.input_path)} script={Path(args.script_path)} out={Path(args.out_dir)}")
+        print(f"Verbose: input={input_path} script={Path(args.script_path)} out={out_dir}")
         print(f"Verbose: script rows loaded={len(script_table.rows)} delimiter={repr(script_table.delimiter)}")
+        print(f"Verbose: canonical wav={preprocessing_output.canonical_wav_path}")
+        print(f"Verbose: chunks generated={len(preprocessing_output.chunk_metadata)} chunk_seconds={args.chunk}")
         low_confidence_count = sum(1 for match in matching_output.matches if match.low_confidence)
         print(f"Verbose: asr backend={asr_result['meta']['backend']} segments={len(asr_result['segments'])}")
         print(

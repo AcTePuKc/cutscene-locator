@@ -33,10 +33,10 @@ All agents must update this file when completing or modifying tasks.
 ### Ingest / Preprocessing
 
 - [x] ffmpeg availability check
-- [ ] Audio extraction from video via ffmpeg
-- [ ] Audio normalization to canonical WAV
-- [ ] Chunking implementation (time-based)
-- [ ] Temporary file management (`out/_tmp/`)
+- [x] Audio extraction from video via ffmpeg
+- [x] Audio normalization to canonical WAV
+- [x] Chunking implementation (time-based)
+- [x] Temporary file management (`out/_tmp/`)
 
 ### Script handling
 
@@ -172,3 +172,5 @@ All agents must update this file when completing or modifying tasks.
 - 2026-02-11 – Milestone 1 Phase 5 scene reconstruction completed (`src/scene/reconstruct.py`, `src/scene/__init__.py`, `cli.py`, `tests/test_scene.py`, `tests/test_cli.py`).
 
 - 2026-02-11 – Milestone 1 Phase 6 export writers + CLI full pipeline wiring completed (`src/export/writers.py`, `src/export/__init__.py`, `cli.py`, `tests/test_exports.py`, `tests/test_cli.py`).
+
+- 2026-02-11 – Milestone 1 Phase 7 ffmpeg preprocessing + deterministic `_tmp` workspace + chunking completed (`src/ingest/preprocess.py`, `src/ingest/__init__.py`, `cli.py`, `tests/test_preprocess.py`, `tests/test_cli.py`).
