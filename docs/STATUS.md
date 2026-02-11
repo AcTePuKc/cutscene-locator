@@ -32,7 +32,7 @@ All agents must update this file when completing or modifying tasks.
 
 ### Ingest / Preprocessing
 
-- [ ] ffmpeg availability check
+- [x] ffmpeg availability check
 - [ ] Audio extraction from video via ffmpeg
 - [ ] Audio normalization to canonical WAV
 - [ ] Chunking implementation (time-based)
@@ -75,11 +75,11 @@ All agents must update this file when completing or modifying tasks.
 
 ### CLI
 
-- [ ] Argument parsing
-- [ ] Help and version output
-- [ ] Exit codes
-- [ ] Verbose logging
-- [ ] Error handling
+- [x] Argument parsing
+- [x] Help and version output
+- [x] Exit codes
+- [x] Verbose logging
+- [x] Error handling
 
 ---
 
@@ -133,3 +133,4 @@ All agents must update this file when completing or modifying tasks.
 > Keep this short. One line per meaningful change.
 
 - YYYY-MM-DD – Initial STATUS.md created
+- 2026-02-11 – Milestone 1 Phase 1 CLI skeleton + ffmpeg preflight completed (`cli.py`, `tests/test_cli.py`).
