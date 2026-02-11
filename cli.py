@@ -10,6 +10,7 @@ import sys
 import time
 import json
 import tempfile
+import importlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Sequence
@@ -231,6 +232,50 @@ def _run_faster_whisper_subprocess(
         return parse_asr_result(payload, source="faster-whisper worker")
 
 
+def _read_ctranslate2_cuda_device_count() -> int | None:
+    try:
+        ctranslate2_module = importlib.import_module("ctranslate2")
+    except ModuleNotFoundError:
+        return None
+
+    get_device_count = getattr(ctranslate2_module, "get_cuda_device_count", None)
+    if get_device_count is None:
+        return None
+
+    try:
+        return int(get_device_count())
+    except (TypeError, ValueError, RuntimeError):
+        return None
+
+
+def _read_ctranslate2_version() -> str:
+    try:
+        ctranslate2_module = importlib.import_module("ctranslate2")
+    except ModuleNotFoundError:
+        return "not-installed"
+
+    raw_version = getattr(ctranslate2_module, "__version__", None)
+    if raw_version is None:
+        return "unknown"
+    return str(raw_version)
+
+
+def _print_faster_whisper_cuda_preflight(*, device: str, compute_type: str) -> None:
+    cuda_device_count = _read_ctranslate2_cuda_device_count()
+    cuda_count_text = str(cuda_device_count) if cuda_device_count is not None else "unknown"
+    print(
+        "ASR preflight (faster-whisper): "
+        f"ctranslate2={_read_ctranslate2_version()} "
+        f"cuda_device_count={cuda_count_text} "
+        f"device={device} "
+        f"compute_type={compute_type}"
+    )
+    print(
+        "ASR preflight guidance: if CUDA ASR aborts, retry with --compute-type float32 first; "
+        "then verify torch/ctranslate2 CUDA wheel compatibility (see faster-whisper issue #1086)."
+    )
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -334,6 +379,11 @@ def main(
                 cancel_check=asr_config.cancel_check,
                 log_callback=print if args.verbose else asr_config.log_callback,
             )
+            if backend_registration.name == "faster-whisper":
+                _print_faster_whisper_cuda_preflight(
+                    device=resolution.resolved,
+                    compute_type=effective_config.compute_type,
+                )
             if backend_registration.name == "faster-whisper" and effective_config.device == "cuda" and os.name == "nt":
                 if effective_config.model_path is None:
                     raise CliError("faster-whisper backend requires a resolved model path.")
