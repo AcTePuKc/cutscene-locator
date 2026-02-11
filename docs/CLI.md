@@ -149,7 +149,8 @@ Hugging Face repo id to download as a deterministic local snapshot cache.
 
 - Example: `openai/whisper-tiny`
 - Cached under: `<cache>/models/<backend>/<sanitized_repo_id>/<revision_or_default>/`
-- Requires `huggingface_hub`.
+- On cache hit, model resolution returns the cached path immediately (no `snapshot_download` call).
+- Requires `huggingface_hub` only when downloading.
 
 ### `--revision <revision>`
 
@@ -157,6 +158,16 @@ Optional Hugging Face revision when used with `--model-id`.
 
 - Example: `--revision main`
 - If omitted, cache folder uses `default`.
+
+### `--progress <on|off>`
+
+Controls model download progress bars for Hugging Face snapshot downloads.
+
+- Windows default: `off` (sets `HF_HUB_DISABLE_PROGRESS_BARS=1`)
+- Non-Windows default: `on`
+- Useful for avoiding native aborts in tqdm monitor threads on some Windows environments.
+
+---
 
 ### `--confidence-threshold <float>`
 

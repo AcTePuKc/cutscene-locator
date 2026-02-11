@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import platform
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from importlib import import_module
@@ -96,6 +97,49 @@ def _validate_model_repo_snapshot(*, backend_name: str, model_dir: Path) -> None
             )
 
 
+
+
+def _is_windows_platform() -> bool:
+    return platform.system().lower().startswith("win")
+
+
+def _resolve_progress_enabled(download_progress: bool | None) -> bool:
+    if download_progress is not None:
+        return download_progress
+    return not _is_windows_platform()
+
+
+def _apply_progress_env(*, progress_enabled: bool) -> None:
+    if progress_enabled:
+        os.environ.pop("HF_HUB_DISABLE_PROGRESS_BARS", None)
+    else:
+        os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+
+
+def _snapshot_download_with_progress(
+    snapshot_download: Callable[..., object],
+    *,
+    repo_id: str,
+    local_dir: str,
+    revision: str | None,
+    progress_enabled: bool,
+) -> None:
+    kwargs = {
+        "repo_id": repo_id,
+        "local_dir": local_dir,
+        "revision": revision,
+    }
+    if not progress_enabled:
+        kwargs["local_dir_use_symlinks"] = False
+        kwargs["tqdm_class"] = None
+
+    try:
+        snapshot_download(**kwargs)
+    except TypeError:
+        kwargs.pop("local_dir_use_symlinks", None)
+        kwargs.pop("tqdm_class", None)
+        snapshot_download(**kwargs)
+
 def _default_download_url(*, backend_name: str, model_size: str) -> str:
     if backend_name != "mock" or model_size != "tiny":
         raise ModelResolutionError(
@@ -124,6 +168,7 @@ def _download_faster_whisper_snapshot(
     model_dir: Path,
     progress_callback: Callable[[float], None] | None,
     cancel_check: Callable[[], bool] | None,
+    download_progress: bool | None,
 ) -> None:
     repo_id = _FASTER_WHISPER_MODEL_REPOS.get(model_size)
     if repo_id is None:
@@ -151,14 +196,19 @@ def _download_faster_whisper_snapshot(
             "Upgrade huggingface_hub or provide --model-path."
         )
 
+    progress_enabled = _resolve_progress_enabled(download_progress)
+    _apply_progress_env(progress_enabled=progress_enabled)
+
     if progress_callback is not None:
         progress_callback(0.0)
 
     try:
-        snapshot_download(
+        _snapshot_download_with_progress(
+            snapshot_download,
             repo_id=repo_id,
             local_dir=str(model_dir),
             revision=None,
+            progress_enabled=progress_enabled,
         )
     except Exception as exc:  # pragma: no cover - message validated through tests
         raise ModelResolutionError(
@@ -181,6 +231,7 @@ def _download_model_id_snapshot(
     cache_dir: Path,
     progress_callback: Callable[[float], None] | None,
     cancel_check: Callable[[], bool] | None,
+    download_progress: bool | None,
 ) -> Path:
     if cancel_check is not None and cancel_check():
         raise ModelResolutionError("Model download cancelled before start.")
@@ -204,14 +255,19 @@ def _download_model_id_snapshot(
     model_dir = cache_dir / backend_name / _sanitize_repo_id(model_id) / resolved_revision
     model_dir.mkdir(parents=True, exist_ok=True)
 
+    progress_enabled = _resolve_progress_enabled(download_progress)
+    _apply_progress_env(progress_enabled=progress_enabled)
+
     if progress_callback is not None:
         progress_callback(0.0)
 
     try:
-        snapshot_download(
+        _snapshot_download_with_progress(
+            snapshot_download,
             repo_id=model_id,
             revision=revision,
             local_dir=str(model_dir),
+            progress_enabled=progress_enabled,
         )
     except Exception as exc:  # pragma: no cover - validated in tests
         raise ModelResolutionError(
@@ -257,6 +313,7 @@ def download_model_to_cache(
     cache_dir: Path,
     progress_callback: Callable[[float], None] | None,
     cancel_check: Callable[[], bool] | None,
+    download_progress: bool | None,
 ) -> Path:
     """Download model into cache directory with resume support and metadata."""
 
@@ -271,6 +328,7 @@ def download_model_to_cache(
             model_dir=model_dir,
             progress_callback=progress_callback,
             cancel_check=cancel_check,
+            download_progress=download_progress,
         )
         _write_metadata_file(
             model_dir=model_dir,
@@ -373,6 +431,19 @@ def resolve_model_path(config: ASRConfig) -> Path:
         )
 
     if config.model_id is not None:
+        resolved_revision = config.revision if config.revision else _DEFAULT_MODEL_REVISION
+        cached_model_id_dir = cache_dir / config.backend_name / _sanitize_repo_id(config.model_id) / resolved_revision
+        if _is_model_present(cached_model_id_dir):
+            _validate_model_repo_snapshot(backend_name=config.backend_name, model_dir=cached_model_id_dir)
+            if config.log_callback is not None:
+                config.log_callback("model resolution: cached hit")
+                config.log_callback(f"model resolution: resolved cache directory: {cached_model_id_dir}")
+            return cached_model_id_dir
+
+        if config.log_callback is not None:
+            config.log_callback("model resolution: downloading")
+            config.log_callback(f"model resolution: resolved cache directory: {cached_model_id_dir}")
+
         return _download_model_id_snapshot(
             backend_name=config.backend_name,
             model_id=config.model_id,
@@ -380,6 +451,7 @@ def resolve_model_path(config: ASRConfig) -> Path:
             cache_dir=cache_dir,
             progress_callback=config.progress_callback,
             cancel_check=config.cancel_check,
+            download_progress=config.download_progress,
         )
 
     requested_size = config.auto_download
@@ -414,6 +486,7 @@ def resolve_model_path(config: ASRConfig) -> Path:
             cache_dir=cache_dir,
             progress_callback=config.progress_callback,
             cancel_check=config.cancel_check,
+            download_progress=config.download_progress,
         )
         _validate_model_repo_snapshot(backend_name=config.backend_name, model_dir=downloaded_model)
         return downloaded_model
