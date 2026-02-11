@@ -15,6 +15,7 @@ from src.asr import (
     ASRConfig,
     FasterWhisperBackend,
     MockASRBackend,
+    Qwen3ASRBackend,
     get_backend,
     resolve_device_with_details,
 )
@@ -214,10 +215,13 @@ def main(
         if backend_registration.name == "mock":
             asr_backend = MockASRBackend(Path(args.mock_asr_path))
             asr_result = asr_backend.transcribe(str(preprocessing_output.canonical_wav_path), asr_config)
-        elif backend_registration.name == "faster-whisper":
+        elif backend_registration.name in {"faster-whisper", "qwen3-asr"}:
             resolution = resolve_device_with_details(asr_config.device)
             device_resolution_reason = resolution.reason
-            asr_backend = FasterWhisperBackend()
+            if backend_registration.name == "faster-whisper":
+                asr_backend = FasterWhisperBackend()
+            else:
+                asr_backend = Qwen3ASRBackend()
             effective_config = ASRConfig(
                 backend_name=asr_config.backend_name,
                 model_path=resolved_model_path,

@@ -19,3 +19,8 @@ asr_faster_whisper = [
   "faster-whisper>=1.0.0",
   "huggingface_hub>=0.20.0",
 ]
+asr_qwen3 = [
+  "transformers>=4.46.0",
+  "torch>=2.2.0",
+  "huggingface_hub>=0.20.0",
+]
