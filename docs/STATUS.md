@@ -105,6 +105,7 @@ All agents must update this file when completing or modifying tasks.
 - [x] Windows-safe model-id cache fast-path + progress control (`src/asr/model_resolution.py`, `src/asr/config.py`, `cli.py`, `tests/test_model_resolution.py`, `tests/test_cli.py`)
 - [x] faster-whisper progress-off NullProgressBar shim + HF progress separation (`src/asr/faster_whisper_backend.py`, `src/asr/model_resolution.py`, `tests/test_faster_whisper_backend.py`, `tests/test_model_resolution.py`)
 - [x] faster-whisper CUDA-safe progress path + Windows subprocess isolation + `--compute-type` (`cli.py`, `src/asr/faster_whisper_backend.py`, `src/asr/asr_worker.py`, `src/asr/config.py`, `tests/test_faster_whisper_backend.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/Integration-issues.md`)
+- [x] Worker JSON → validated `ASRResult` parsing in parent CLI + typed metadata access (`cli.py`, `src/asr/backends.py`, `src/asr/__init__.py`, `tests/test_asr.py`)
 
 ### Device handling
 
@@ -207,3 +208,5 @@ All agents must update this file when completing or modifying tasks.
 - 2026-02-11 – Faster-whisper progress-off fix: replaced None pbar with backend-local NullProgressBar patch and decoupled HF snapshot progress disabling from faster-whisper transcribe progress (`src/asr/faster_whisper_backend.py`, `src/asr/model_resolution.py`, `tests/test_faster_whisper_backend.py`, `tests/test_model_resolution.py`, `docs/STATUS.md`).
 
 - 2026-02-11 – Windows CUDA crash isolation for faster-whisper via subprocess worker, CUDA-safe progress handling, ASR init/transcribe stage markers, and CLI `--compute-type` support (`cli.py`, `src/asr/faster_whisper_backend.py`, `src/asr/asr_worker.py`, `src/asr/config.py`, `tests/test_faster_whisper_backend.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/Integration-issues.md`, `docs/STATUS.md`).
+
+- 2026-02-11 – Fixed ASR subprocess typing/contract consistency by parsing worker JSON into validated ASRResult in parent CLI and tightening JSON helper typing (`cli.py`, `src/asr/backends.py`, `src/asr/__init__.py`, `tests/test_asr.py`, `docs/STATUS.md`).
