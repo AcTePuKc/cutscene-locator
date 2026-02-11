@@ -123,6 +123,8 @@ All agents must update this file when completing or modifying tasks.
 - [ ] WhisperX backend
 - [ ] Qwen ASR backend
 - [x]  faster-whisper backend (pilot)
+- [ ]  faster-whisper auto-download mapping (tiny/base/small → HF repo)
+- [ ]  CUDA enablement notes + detection (ctranslate2/whisper backend)
 - [ ] Timestamp normalization across backends
 
 ### Advanced alignment
