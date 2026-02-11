@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Sequence
 
-from src.asr import MockASRBackend
+from src.asr import ASRConfig, MockASRBackend, get_backend
 from src.export import (
     write_matches_csv,
     write_scenes_json,
@@ -38,6 +38,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--out", dest="out_dir")
     parser.add_argument("--asr-backend", default="mock")
     parser.add_argument("--mock-asr", dest="mock_asr_path")
+    parser.add_argument("--model-path")
+    parser.add_argument("--auto-download")
+    parser.add_argument("--device", default="auto")
     parser.add_argument("--chunk", type=int, default=300)
     parser.add_argument("--scene-gap", type=int, default=10)
     parser.add_argument("--ffmpeg-path")
@@ -62,10 +65,24 @@ def _validate_required_args(args: argparse.Namespace) -> None:
 
 
 def _validate_backend(args: argparse.Namespace) -> None:
-    if args.asr_backend != "mock":
-        raise CliError("Invalid ASR backend. Only 'mock' is supported in this phase.")
-    if not args.mock_asr_path:
+    try:
+        registration = get_backend(args.asr_backend)
+    except ValueError as exc:
+        raise CliError(str(exc)) from exc
+
+    if registration.name == "mock" and not args.mock_asr_path:
         raise CliError("--mock-asr is required when --asr-backend mock is used.")
+
+
+def _validate_asr_options(args: argparse.Namespace) -> None:
+    allowed_devices = {"cpu", "cuda", "auto"}
+    if args.device not in allowed_devices:
+        raise CliError("Invalid --device value. Expected one of: cpu, cuda, auto.")
+
+    if args.auto_download is not None:
+        allowed_model_sizes = {"tiny", "base", "small"}
+        if args.auto_download not in allowed_model_sizes:
+            raise CliError("Invalid --auto-download value. Expected one of: tiny, base, small.")
 
 
 def resolve_ffmpeg_binary(
@@ -125,7 +142,16 @@ def main(
     try:
         _validate_required_args(args)
         _validate_backend(args)
+        _validate_asr_options(args)
         ffmpeg_binary = resolve_ffmpeg_binary(args.ffmpeg_path, which=which)
+        asr_config = ASRConfig(
+            backend_name=args.asr_backend,
+            model_path=Path(args.model_path) if args.model_path else Path("models"),
+            auto_download=args.auto_download,
+            device=args.device,
+            language=None,
+            ffmpeg_path=ffmpeg_binary,
+        )
         run_ffmpeg_preflight(ffmpeg_binary, runner=runner)
         input_path = Path(args.input_path)
         out_dir = Path(args.out_dir)
@@ -137,8 +163,17 @@ def main(
             runner=runner,
         )
         script_table = load_script_table(Path(args.script_path))
-        asr_backend = MockASRBackend(Path(args.mock_asr_path))
-        asr_result = asr_backend.run()
+
+        if asr_config.auto_download is not None:
+            raise CliError("--auto-download is not implemented yet.")
+
+        backend_registration = get_backend(asr_config.backend_name)
+        if backend_registration.name == "mock":
+            asr_backend = MockASRBackend(Path(args.mock_asr_path))
+            asr_result = asr_backend.run()
+        else:
+            raise CliError(f"ASR backend '{asr_config.backend_name}' is not implemented yet.")
+
         matching_output = match_segments_to_script(
             asr_result=asr_result,
             script_table=script_table,
@@ -175,6 +210,11 @@ def main(
         print(f"Verbose: chunks generated={len(preprocessing_output.chunk_metadata)} chunk_seconds={args.chunk}")
         low_confidence_count = sum(1 for match in matching_output.matches if match.low_confidence)
         print(f"Verbose: asr backend={asr_result['meta']['backend']} segments={len(asr_result['segments'])}")
+        print(
+            "Verbose: asr config="
+            f"backend={asr_config.backend_name} device={asr_config.device} "
+            f"model_path={asr_config.model_path} auto_download={asr_config.auto_download}"
+        )
         print(
             "Verbose: matches computed="
             f"{len(matching_output.matches)} low_confidence={low_confidence_count} threshold={args.match_threshold}"
