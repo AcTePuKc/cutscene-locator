@@ -4,10 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cutscene-locator"
-version = "0.0.0"
+version = "0.1.0"
 requires-python = ">=3.10"
+description = "Reconstruct dialogue scenes from audio by aligning ASR output to a script."
+readme = "README.md"
+
+dependencies = [
+  "rapidfuzz>=3.0.0",
+  "platformdirs>=4.0.0",
+]
 
 [project.optional-dependencies]
-faster-whisper = [
+asr_faster_whisper = [
   "faster-whisper>=1.0.0",
 ]

@@ -1,0 +1,17 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Packaging artifacts
+*.egg-info/
+build/
+dist/
+
+# Virtual environment
+.venv/
+
+# Local runtime data
+models/
+beta_test/
+**/_tmp/
