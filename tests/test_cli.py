@@ -112,7 +112,7 @@ class CliPhaseOneTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("Invalid --auto-download value", stderr.getvalue())
 
-    def test_auto_download_not_implemented_exits_one(self) -> None:
+    def test_auto_download_base_without_url_config_exits_one(self) -> None:
         stderr = io.StringIO()
         with redirect_stderr(stderr):
             code = cli.main(
@@ -126,7 +126,7 @@ class CliPhaseOneTests(unittest.TestCase):
                     "--mock-asr",
                     "tests/fixtures/mock_asr_valid.json",
                     "--auto-download",
-                    "tiny",
+                    "base",
                     "--chunk",
                     "0",
                 ],
@@ -135,7 +135,7 @@ class CliPhaseOneTests(unittest.TestCase):
             )
 
         self.assertEqual(code, 1)
-        self.assertIn("not implemented", stderr.getvalue())
+        self.assertIn("To allow download, pass --auto-download tiny", stderr.getvalue())
 
     def test_models_convention_used_when_model_path_not_set(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -163,7 +163,33 @@ class CliPhaseOneTests(unittest.TestCase):
                 )
 
             self.assertEqual(code, 0)
-            self.assertIn("model_path=models", stdout.getvalue())
+            self.assertIn("model_path=None", stdout.getvalue())
+
+
+    def test_explicit_model_path_missing_exits_one(self) -> None:
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            code = cli.main(
+                [
+                    "--input",
+                    "in.wav",
+                    "--script",
+                    "tests/fixtures/script_sample.tsv",
+                    "--out",
+                    "out",
+                    "--mock-asr",
+                    "tests/fixtures/mock_asr_valid.json",
+                    "--chunk",
+                    "0",
+                    "--model-path",
+                    "does/not/exist.bin",
+                ],
+                which=lambda _: "/usr/bin/ffmpeg",
+                runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+            )
+
+        self.assertEqual(code, 1)
+        self.assertIn("Model not found at explicit --model-path", stderr.getvalue())
 
     def test_ffmpeg_not_found_exits_one(self) -> None:
         stderr = io.StringIO()

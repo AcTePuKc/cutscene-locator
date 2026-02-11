@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Callable, Sequence
 
 from src.asr import ASRConfig, MockASRBackend, get_backend
+from src.asr.model_resolution import ModelResolutionError, resolve_model_path
 from src.export import (
     write_matches_csv,
     write_scenes_json,
@@ -146,7 +147,7 @@ def main(
         ffmpeg_binary = resolve_ffmpeg_binary(args.ffmpeg_path, which=which)
         asr_config = ASRConfig(
             backend_name=args.asr_backend,
-            model_path=Path(args.model_path) if args.model_path else Path("models"),
+            model_path=Path(args.model_path) if args.model_path else None,
             auto_download=args.auto_download,
             device=args.device,
             language=None,
@@ -164,8 +165,17 @@ def main(
         )
         script_table = load_script_table(Path(args.script_path))
 
-        if asr_config.auto_download is not None:
-            raise CliError("--auto-download is not implemented yet.")
+        resolved_model_path: Path | None = None
+        should_resolve_model = (
+            asr_config.backend_name != "mock"
+            or asr_config.model_path is not None
+            or asr_config.auto_download is not None
+        )
+        if should_resolve_model:
+            try:
+                resolved_model_path = resolve_model_path(asr_config)
+            except ModelResolutionError as exc:
+                raise CliError(str(exc)) from exc
 
         backend_registration = get_backend(asr_config.backend_name)
         if backend_registration.name == "mock":
@@ -213,7 +223,8 @@ def main(
         print(
             "Verbose: asr config="
             f"backend={asr_config.backend_name} device={asr_config.device} "
-            f"model_path={asr_config.model_path} auto_download={asr_config.auto_download}"
+            f"model_path={resolved_model_path if resolved_model_path is not None else asr_config.model_path} "
+            f"auto_download={asr_config.auto_download}"
         )
         print(
             "Verbose: matches computed="

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Callable, Literal
 
 DeviceType = Literal["cpu", "cuda", "auto"]
 
@@ -19,3 +19,5 @@ class ASRConfig:
     device: DeviceType = "auto"
     language: str | None = None
     ffmpeg_path: str | None = None
+    progress_callback: Callable[[float], None] | None = None
+    cancel_check: Callable[[], bool] | None = None

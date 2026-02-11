@@ -97,8 +97,9 @@ All agents must update this file when completing or modifying tasks.
 - [x] models/ directory convention
 - [x] --model-path explicit override
 - [x] --auto-download <model-size> optional flag
-- [ ] Deterministic model cache directory
-- [ ] No silent fallback policy
+- [x] Optional auto-download tiny implemented
+- [x] Deterministic model cache directory
+- [x] No silent fallback policy
 
 ### Device handling
 
@@ -108,8 +109,8 @@ All agents must update this file when completing or modifying tasks.
 
 ### UI-readiness hooks
 
-- [ ] Progress callback interface in backend
-- [ ] Cancellation-ready interface (future-safe)
+- [x] Progress callback interface in backend config
+- [x] Cancellation-ready interface (future-safe)
 - [ ] Backend metadata reporting (model name, version, device)
 
 ---
@@ -176,3 +177,5 @@ All agents must update this file when completing or modifying tasks.
 - 2026-02-11 – Milestone 1 Phase 7 ffmpeg preprocessing + deterministic `_tmp` workspace + chunking completed (`src/ingest/preprocess.py`, `src/ingest/__init__.py`, `cli.py`, `tests/test_preprocess.py`, `tests/test_cli.py`).
 
 - 2026-02-11 – Milestone 1.5 Phase 1 ASR registry + CLI model/device/config plumbing completed (`src/asr/registry.py`, `src/asr/config.py`, `src/asr/__init__.py`, `cli.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`).
+
+- 2026-02-11 – Milestone 1.5 Phase 2 model cache + auto-download plumbing + UI-ready hooks completed (`src/asr/model_resolution.py`, `src/asr/config.py`, `src/asr/__init__.py`, `cli.py`, `tests/test_model_resolution.py`, `tests/test_cli.py`, `tests/test_asr_registry.py`).
