@@ -67,6 +67,33 @@ class CliPhaseOneTests(unittest.TestCase):
         self.assertIn("--mock-asr is required", stderr.getvalue())
 
 
+    def test_faster_whisper_missing_dependency_exits_one(self) -> None:
+        stderr = io.StringIO()
+        with patch("cli.resolve_model_path", return_value=Path("models/faster-whisper")):
+            with patch("src.asr.faster_whisper_backend.import_module", side_effect=ModuleNotFoundError()):
+                with redirect_stderr(stderr):
+                    code = cli.main(
+                        [
+                            "--input",
+                            "in.wav",
+                            "--script",
+                            "tests/fixtures/script_sample.tsv",
+                            "--out",
+                            "out",
+                            "--asr-backend",
+                            "faster-whisper",
+                            "--model-path",
+                            "models/faster-whisper",
+                            "--chunk",
+                            "0",
+                        ],
+                        which=lambda _: "/usr/bin/ffmpeg",
+                        runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                    )
+
+        self.assertEqual(code, 1)
+        self.assertIn("Install it with: pip install 'cutscene-locator[faster-whisper]'", stderr.getvalue())
+
     def test_invalid_device_value_exits_one(self) -> None:
         stderr = io.StringIO()
         with redirect_stderr(stderr):

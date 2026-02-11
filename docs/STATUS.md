@@ -122,7 +122,7 @@ All agents must update this file when completing or modifying tasks.
 - [ ] ASR backend adapter (generic)
 - [ ] WhisperX backend
 - [ ] Qwen ASR backend
-- [ ]  faster-whisper backend (pilot)
+- [x]  faster-whisper backend (pilot)
 - [ ] Timestamp normalization across backends
 
 ### Advanced alignment

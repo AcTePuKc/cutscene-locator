@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Sequence
 
-from src.asr import ASRConfig, MockASRBackend, get_backend
+from src.asr import ASRConfig, FasterWhisperBackend, MockASRBackend, get_backend
 from src.asr.model_resolution import ModelResolutionError, resolve_model_path
 from src.export import (
     write_matches_csv,
@@ -181,6 +181,22 @@ def main(
         if backend_registration.name == "mock":
             asr_backend = MockASRBackend(Path(args.mock_asr_path))
             asr_result = asr_backend.transcribe(str(preprocessing_output.canonical_wav_path), asr_config)
+        elif backend_registration.name == "faster-whisper":
+            asr_backend = FasterWhisperBackend()
+            effective_config = ASRConfig(
+                backend_name=asr_config.backend_name,
+                model_path=resolved_model_path,
+                auto_download=asr_config.auto_download,
+                device=asr_config.device,
+                language=asr_config.language,
+                ffmpeg_path=asr_config.ffmpeg_path,
+                progress_callback=asr_config.progress_callback,
+                cancel_check=asr_config.cancel_check,
+            )
+            asr_result = asr_backend.transcribe(
+                str(preprocessing_output.canonical_wav_path),
+                effective_config,
+            )
         else:
             raise CliError(f"ASR backend '{asr_config.backend_name}' is not implemented yet.")
 
