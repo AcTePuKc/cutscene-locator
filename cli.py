@@ -12,7 +12,7 @@ import json
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Sequence
+from typing import Any, Callable, Sequence
 
 from src.asr import (
     ASRConfig,
@@ -20,6 +20,7 @@ from src.asr import (
     MockASRBackend,
     Qwen3ASRBackend,
     get_backend,
+    parse_asr_result,
     resolve_device_with_details,
 )
 from src.asr.model_resolution import ModelResolutionError, resolve_model_path
@@ -171,8 +172,6 @@ def run_ffmpeg_preflight(
         raise CliError(f"ffmpeg preflight failed for '{ffmpeg_binary}'.{details}") from exc
 
 
-
-
 def _run_faster_whisper_subprocess(
     *,
     audio_path: Path,
@@ -180,7 +179,7 @@ def _run_faster_whisper_subprocess(
     asr_config: ASRConfig,
     progress_mode: str,
     verbose: bool,
-) -> dict[str, object]:
+) -> dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="cutscene_locator_asr_") as temp_dir:
         result_path = Path(temp_dir) / "asr_result.json"
         cmd = [
@@ -220,7 +219,11 @@ def _run_faster_whisper_subprocess(
         if not result_path.exists():
             raise CliError("ASR worker did not produce result output.")
 
-        return json.loads(result_path.read_text(encoding="utf-8"))
+        payload = json.loads(result_path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise CliError("ASR worker result must be a JSON object.")
+        return payload
+
 
 def main(
     argv: Sequence[str] | None = None,
@@ -328,13 +331,14 @@ def main(
             if backend_registration.name == "faster-whisper" and effective_config.device == "cuda" and os.name == "nt":
                 if effective_config.model_path is None:
                     raise CliError("faster-whisper backend requires a resolved model path.")
-                asr_result = _run_faster_whisper_subprocess(
+                worker_result = _run_faster_whisper_subprocess(
                     audio_path=preprocessing_output.canonical_wav_path,
                     resolved_model_path=effective_config.model_path,
                     asr_config=effective_config,
                     progress_mode=args.progress,
                     verbose=args.verbose,
                 )
+                asr_result = parse_asr_result(worker_result, source="faster-whisper worker")
             else:
                 asr_result = asr_backend.transcribe(
                     str(preprocessing_output.canonical_wav_path),

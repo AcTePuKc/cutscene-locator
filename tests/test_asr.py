@@ -6,6 +6,7 @@ from src.asr import (
     ASRConfig,
     MockASRBackend,
     resolve_device,
+    parse_asr_result,
     resolve_device_with_details,
     validate_asr_result,
 )
@@ -54,6 +55,30 @@ class MockASRBackendTests(unittest.TestCase):
                 },
                 source="inline",
             )
+
+    def test_parse_asr_result_returns_validated_contract(self) -> None:
+        result = parse_asr_result(
+            {
+                "segments": [
+                    {
+                        "segment_id": "seg_0001",
+                        "start": 0.0,
+                        "end": 0.5,
+                        "text": "hello",
+                    }
+                ],
+                "meta": {
+                    "backend": "mock",
+                    "model": "unknown",
+                    "version": "1.0",
+                    "device": "cpu",
+                },
+            },
+            source="inline",
+        )
+
+        self.assertIsInstance(result["segments"], list)
+        self.assertEqual(result["segments"][0]["segment_id"], "seg_0001")
 
     def test_validate_rejects_empty_text(self) -> None:
         with self.assertRaisesRegex(ValueError, r"segments\[0\]\.text must be a non-empty string"):

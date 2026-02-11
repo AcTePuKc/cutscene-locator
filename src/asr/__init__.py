@@ -1,6 +1,6 @@
 """ASR backend interfaces and implementations."""
 
-from .backends import MockASRBackend, validate_asr_result
+from .backends import MockASRBackend, parse_asr_result, validate_asr_result
 from .faster_whisper_backend import FasterWhisperBackend
 from .qwen3_asr_backend import Qwen3ASRBackend
 from .base import ASRBackend, ASRResult
@@ -16,6 +16,7 @@ __all__ = [
     "FasterWhisperBackend",
     "Qwen3ASRBackend",
     "validate_asr_result",
+    "parse_asr_result",
     "ASRConfig",
     "ComputeType",
     "DeviceType",
