@@ -246,6 +246,55 @@ class CliPhaseOneTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("Model not found at explicit --model-path", stderr.getvalue())
 
+
+    def test_revision_requires_model_id(self) -> None:
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            code = cli.main(
+                [
+                    "--input",
+                    "in.wav",
+                    "--script",
+                    "script.tsv",
+                    "--out",
+                    "out",
+                    "--mock-asr",
+                    "tests/fixtures/mock_asr_valid.json",
+                    "--revision",
+                    "main",
+                ],
+                which=lambda _: "/usr/bin/ffmpeg",
+                runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+            )
+
+        self.assertEqual(code, 1)
+        self.assertIn("--revision requires --model-id", stderr.getvalue())
+
+    def test_model_flags_are_mutually_exclusive(self) -> None:
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            code = cli.main(
+                [
+                    "--input",
+                    "in.wav",
+                    "--script",
+                    "script.tsv",
+                    "--out",
+                    "out",
+                    "--mock-asr",
+                    "tests/fixtures/mock_asr_valid.json",
+                    "--model-id",
+                    "openai/whisper-tiny",
+                    "--auto-download",
+                    "tiny",
+                ],
+                which=lambda _: "/usr/bin/ffmpeg",
+                runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+            )
+
+        self.assertEqual(code, 1)
+        self.assertIn("Use only one of", stderr.getvalue())
+
     def test_ffmpeg_not_found_exits_one(self) -> None:
         stderr = io.StringIO()
         with redirect_stderr(stderr):

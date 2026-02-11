@@ -125,7 +125,22 @@ If missing → error.
 
 ---
 
-### B. Optional auto-download
+### B. Optional model-id download
+
+```bash
+
+--model-id <repo-id> [--revision <rev>]
+
+```
+
+Policy:
+
+- Uses `huggingface_hub.snapshot_download`.
+- Caches in deterministic directory:
+  `~/.cutscene-locator/models/<backend>/<sanitized_repo_id>/<revision_or_default>/`
+- Backend validates required model files and fails with actionable errors.
+
+### C. Optional auto-download
 
 ```bash
 
@@ -145,7 +160,7 @@ If download fails → error.
 
 ---
 
-### C. models/ directory convention
+### D. models/ directory convention
 
 If no explicit path:
 

@@ -47,6 +47,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--asr-backend", default="mock")
     parser.add_argument("--mock-asr", dest="mock_asr_path")
     parser.add_argument("--model-path")
+    parser.add_argument("--model-id")
+    parser.add_argument("--revision")
     parser.add_argument("--auto-download")
     parser.add_argument("--device", default="auto")
     parser.add_argument("--chunk", type=int, default=300)
@@ -91,6 +93,20 @@ def _validate_asr_options(args: argparse.Namespace) -> None:
         allowed_model_sizes = {"tiny", "base", "small"}
         if args.auto_download not in allowed_model_sizes:
             raise CliError("Invalid --auto-download value. Expected one of: tiny, base, small.")
+
+    if args.model_id is not None and not str(args.model_id).strip():
+        raise CliError("Invalid --model-id value. Expected a non-empty Hugging Face repo id.")
+
+    if args.revision is not None and args.model_id is None:
+        raise CliError("--revision requires --model-id.")
+
+    selected_model_source_flags = [
+        args.model_path is not None,
+        args.model_id is not None,
+        args.auto_download is not None,
+    ]
+    if sum(1 for selected in selected_model_source_flags if selected) > 1:
+        raise CliError("Use only one of: --model-path, --model-id, or --auto-download.")
 
 
 def resolve_ffmpeg_binary(
@@ -159,6 +175,8 @@ def main(
         asr_config = ASRConfig(
             backend_name=args.asr_backend,
             model_path=Path(args.model_path) if args.model_path else None,
+            model_id=args.model_id,
+            revision=args.revision,
             auto_download=args.auto_download,
             device=args.device,
             language=None,
@@ -182,6 +200,7 @@ def main(
         should_resolve_model = (
             asr_config.backend_name != "mock"
             or asr_config.model_path is not None
+            or asr_config.model_id is not None
             or asr_config.auto_download is not None
         )
         if should_resolve_model:
@@ -202,6 +221,8 @@ def main(
             effective_config = ASRConfig(
                 backend_name=asr_config.backend_name,
                 model_path=resolved_model_path,
+                model_id=asr_config.model_id,
+                revision=asr_config.revision,
                 auto_download=asr_config.auto_download,
                 device=asr_config.device,
                 language=asr_config.language,
@@ -268,6 +289,7 @@ def main(
             "Verbose: asr config="
             f"backend={asr_config.backend_name} requested_device={asr_config.device} "
             f"model_path={resolved_model_path if resolved_model_path is not None else asr_config.model_path} "
+            f"model_id={asr_config.model_id} revision={asr_config.revision} "
             f"auto_download={asr_config.auto_download}"
         )
         if device_resolution_reason is not None:

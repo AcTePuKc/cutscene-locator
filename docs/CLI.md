@@ -135,6 +135,29 @@ Example:
 
 ---
 
+
+### `--model-path <path>`
+
+Filesystem path to a local ASR model directory/file.
+
+- Path must already exist.
+- This flag is filesystem-only and never accepts a Hugging Face repo id.
+
+### `--model-id <repo_id>`
+
+Hugging Face repo id to download as a deterministic local snapshot cache.
+
+- Example: `openai/whisper-tiny`
+- Cached under: `<cache>/models/<backend>/<sanitized_repo_id>/<revision_or_default>/`
+- Requires `huggingface_hub`.
+
+### `--revision <revision>`
+
+Optional Hugging Face revision when used with `--model-id`.
+
+- Example: `--revision main`
+- If omitted, cache folder uses `default`.
+
 ### `--confidence-threshold <float>`
 
 Minimum confidence score for “high-confidence” matches.

@@ -1,3 +1,4 @@
+import tempfile
 import types
 import unittest
 from pathlib import Path
@@ -27,6 +28,15 @@ class _FakeWhisperModel:
         ], object()
 
 
+
+
+def _create_fake_model_dir(base_dir: Path) -> Path:
+    model_dir = base_dir / "faster-whisper"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    for filename in ("config.json", "tokenizer.json", "vocabulary.json", "model.bin"):
+        (model_dir / filename).write_text("{}", encoding="utf-8")
+    return model_dir
+
 class FasterWhisperBackendTests(unittest.TestCase):
     def test_missing_dependency_has_clear_install_hint(self) -> None:
         backend = FasterWhisperBackend()
@@ -41,22 +51,41 @@ class FasterWhisperBackendTests(unittest.TestCase):
     def test_cuda_request_without_cuda_is_actionable(self) -> None:
         backend = FasterWhisperBackend()
 
-        with self.assertRaisesRegex(ValueError, "docs/CUDA.md"):
-            backend.transcribe(
-                "in.wav",
-                ASRConfig(backend_name="faster-whisper", model_path=Path("models/faster-whisper"), device="cuda"),
-            )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = _create_fake_model_dir(Path(temp_dir))
+            with self.assertRaisesRegex(ValueError, "docs/CUDA.md"):
+                backend.transcribe(
+                    "in.wav",
+                    ASRConfig(backend_name="faster-whisper", model_path=model_path, device="cuda"),
+                )
+
+
+    def test_model_dir_missing_required_files_is_actionable(self) -> None:
+        backend = FasterWhisperBackend()
+        fake_module = types.SimpleNamespace(WhisperModel=_FakeWhisperModel)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = Path(temp_dir) / "bad-model"
+            model_path.mkdir(parents=True, exist_ok=True)
+            with patch("src.asr.faster_whisper_backend.import_module", return_value=fake_module):
+                with self.assertRaisesRegex(ValueError, "missing required files"):
+                    backend.transcribe(
+                        "in.wav",
+                        ASRConfig(backend_name="faster-whisper", model_path=model_path, device="cpu"),
+                    )
 
     def test_backend_emits_contract_without_speaker(self) -> None:
         backend = FasterWhisperBackend()
         fake_module = types.SimpleNamespace(WhisperModel=_FakeWhisperModel)
 
-        with patch("src.asr.faster_whisper_backend.import_module", return_value=fake_module):
-            with patch("src.asr.faster_whisper_backend.version", return_value="1.1.0"):
-                result = backend.transcribe(
-                    "in.wav",
-                    ASRConfig(backend_name="faster-whisper", model_path=Path("models/faster-whisper"), device="cpu"),
-                )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = _create_fake_model_dir(Path(temp_dir))
+            with patch("src.asr.faster_whisper_backend.import_module", return_value=fake_module):
+                with patch("src.asr.faster_whisper_backend.version", return_value="1.1.0"):
+                    result = backend.transcribe(
+                        "in.wav",
+                        ASRConfig(backend_name="faster-whisper", model_path=model_path, device="cpu"),
+                    )
 
         self.assertEqual(result["meta"]["backend"], "faster-whisper")
         self.assertEqual(result["meta"]["model"], "faster-whisper")
