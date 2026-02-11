@@ -458,5 +458,49 @@ class CliPhaseOneTests(unittest.TestCase):
             self.assertEqual(code, 0)
 
 
+    def test_invalid_compute_type_value_exits_one(self) -> None:
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            code = cli.main(
+                [
+                    "--input",
+                    "in.wav",
+                    "--script",
+                    "script.tsv",
+                    "--out",
+                    "out",
+                    "--mock-asr",
+                    "tests/fixtures/mock_asr_valid.json",
+                    "--compute-type",
+                    "bf16",
+                ],
+                which=lambda _: "/usr/bin/ffmpeg",
+                runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+            )
+
+        self.assertEqual(code, 1)
+        self.assertIn("Invalid --compute-type value", stderr.getvalue())
+
+    def test_windows_cuda_abort_in_worker_has_actionable_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result_path = Path(temp_dir) / "audio.wav"
+            result_path.write_text("fake", encoding="utf-8")
+            config = cli.ASRConfig(
+                backend_name="faster-whisper",
+                model_path=Path("models/faster-whisper"),
+                device="cuda",
+                compute_type="float16",
+            )
+            with patch("cli.subprocess.run", return_value=subprocess.CompletedProcess([], 3221226505)):
+                with self.assertRaisesRegex(cli.CliError, "GPU backend aborted"):
+                    cli._run_faster_whisper_subprocess(
+                        audio_path=result_path,
+                        resolved_model_path=Path("models/faster-whisper"),
+                        asr_config=config,
+                        progress_mode="off",
+                        verbose=False,
+                    )
+
+
 if __name__ == "__main__":
     unittest.main()

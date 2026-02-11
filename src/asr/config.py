@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Callable, Literal
 
 DeviceType = Literal["cpu", "cuda", "auto"]
+ComputeType = Literal["float16", "float32", "auto"]
 
 
 @dataclass(frozen=True)
@@ -19,6 +20,7 @@ class ASRConfig:
     revision: str | None = None
     auto_download: str | None = None
     device: DeviceType = "auto"
+    compute_type: ComputeType = "auto"
     language: str | None = None
     ffmpeg_path: str | None = None
     download_progress: bool | None = None
