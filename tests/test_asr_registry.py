@@ -24,6 +24,8 @@ class ASRRegistryTests(unittest.TestCase):
         self.assertEqual(config.backend_name, "mock")
         self.assertEqual(config.device, "auto")
         self.assertIsNone(config.model_path)
+        self.assertIsNone(config.progress_callback)
+        self.assertIsNone(config.cancel_check)
 
 
 if __name__ == "__main__":
