@@ -251,3 +251,4 @@ Some Windows + CUDA + ASR backend combinations may abort in native code (for exa
 - Parent CLI must catch child non-zero exits and emit actionable guidance.
 - Parent process must never silently disappear due to child native aborts.
 - For CUDA transcription, avoid tqdm progress monitor threads in the ASR execution path.
+- If worker exits with `-1073740791` / `3221226505`, advise `--compute-type float32` and verify `ctranslate2` CUDA wheel compatibility with the installed CUDA runtime/driver.

@@ -14,6 +14,8 @@ from .config import ASRConfig
 from .device import resolve_device_with_details
 
 
+_FORBIDDEN_TRANSCRIBE_KWARGS = frozenset({"progress"})
+
 class FasterWhisperBackend:
     """ASR backend powered by faster-whisper."""
 
@@ -94,6 +96,12 @@ class FasterWhisperBackend:
             transcribe_kwargs,
             config.log_callback,
         )
+        forbidden = sorted(_FORBIDDEN_TRANSCRIBE_KWARGS.intersection(transcribe_kwargs))
+        if forbidden:
+            raise ValueError(
+                "faster-whisper transcribe kwargs include unsupported options: "
+                + ", ".join(forbidden)
+            )
 
         raw_segments, _info = model.transcribe(audio_path, **transcribe_kwargs)
         if config.log_callback is not None:
