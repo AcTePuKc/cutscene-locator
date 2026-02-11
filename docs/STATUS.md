@@ -40,10 +40,10 @@ All agents must update this file when completing or modifying tasks.
 
 ### Script handling
 
-- [ ] TSV/CSV parser
-- [ ] Required column validation (`id`, `original`)
-- [ ] Optional column passthrough (`translation`, `file`, etc.)
-- [ ] Script normalization pipeline
+- [x] TSV/CSV parser
+- [x] Required column validation (`id`, `original`)
+- [x] Optional column passthrough (`translation`, `file`, etc.)
+- [x] Script normalization pipeline
 
 ### ASR (mock backend)
 
@@ -134,3 +134,4 @@ All agents must update this file when completing or modifying tasks.
 
 - YYYY-MM-DD – Initial STATUS.md created
 - 2026-02-11 – Milestone 1 Phase 1 CLI skeleton + ffmpeg preflight completed (`cli.py`, `tests/test_cli.py`).
+- 2026-02-11 – Milestone 1 Phase 2 script ingestion + normalization completed (`src/ingest/script_parser.py`, `src/match/normalization.py`, `cli.py`, `tests/test_script_parser.py`, `tests/test_cli.py`).
