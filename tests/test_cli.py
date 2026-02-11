@@ -190,7 +190,7 @@ class CliPhaseOneTests(unittest.TestCase):
             )
 
         self.assertEqual(code, 1)
-        self.assertIn("To allow download, pass --auto-download tiny", stderr.getvalue())
+        self.assertIn("Auto-download URL is not configured", stderr.getvalue())
 
     def test_models_convention_used_when_model_path_not_set(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

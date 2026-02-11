@@ -1,5 +1,6 @@
 import json
 import tempfile
+import types
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -96,6 +97,70 @@ class ModelResolutionTests(unittest.TestCase):
                     )
                     with self.assertRaisesRegex(ModelResolutionError, "cancelled"):
                         resolve_model_path(config)
+
+    def test_faster_whisper_auto_download_size_maps_to_hf_repo_and_cache(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_home:
+            snapshot_calls: list[tuple[str, str]] = []
+
+            def _snapshot_download(*, repo_id: str, local_dir: str) -> None:
+                snapshot_calls.append((repo_id, local_dir))
+                Path(local_dir).mkdir(parents=True, exist_ok=True)
+                (Path(local_dir) / "config.json").write_text("{}", encoding="utf-8")
+
+            fake_hf_module = types.SimpleNamespace(snapshot_download=_snapshot_download)
+
+            with patch("pathlib.Path.home", return_value=Path(temp_home)):
+                with patch("src.asr.model_resolution.import_module", return_value=fake_hf_module):
+                    resolved = resolve_model_path(
+                        ASRConfig(backend_name="faster-whisper", auto_download="small")
+                    )
+
+            expected_dir = (
+                Path(temp_home)
+                / ".cutscene-locator"
+                / "models"
+                / "faster-whisper"
+                / "small"
+            )
+            self.assertEqual(resolved, expected_dir)
+            self.assertEqual(
+                snapshot_calls,
+                [("Systran/faster-whisper-small", str(expected_dir))],
+            )
+
+    def test_faster_whisper_auto_download_ignores_url_env_var(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_home:
+            fake_hf_module = types.SimpleNamespace(
+                snapshot_download=lambda *, repo_id, local_dir: (
+                    Path(local_dir).mkdir(parents=True, exist_ok=True),
+                    (Path(local_dir) / "tokenizer.json").write_text("{}", encoding="utf-8"),
+                )
+            )
+            with patch("pathlib.Path.home", return_value=Path(temp_home)):
+                with patch.dict(
+                    "os.environ",
+                    {"CUTSCENE_LOCATOR_MODEL_DOWNLOAD_URL": "https://example.invalid/should-not-be-used"},
+                    clear=False,
+                ):
+                    with patch("src.asr.model_resolution.import_module", return_value=fake_hf_module):
+                        resolve_model_path(
+                            ASRConfig(backend_name="faster-whisper", auto_download="base")
+                        )
+
+    def test_faster_whisper_auto_download_reports_failure_with_repo_hint(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_home:
+            fake_hf_module = types.SimpleNamespace(
+                snapshot_download=lambda *, repo_id, local_dir: (_ for _ in ()).throw(RuntimeError("boom"))
+            )
+            with patch("pathlib.Path.home", return_value=Path(temp_home)):
+                with patch("src.asr.model_resolution.import_module", return_value=fake_hf_module):
+                    with self.assertRaisesRegex(
+                        ModelResolutionError,
+                        "Systran/faster-whisper-base",
+                    ):
+                        resolve_model_path(
+                            ASRConfig(backend_name="faster-whisper", auto_download="base")
+                        )
 
 
 if __name__ == "__main__":

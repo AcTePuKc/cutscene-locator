@@ -6,12 +6,19 @@ import json
 import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from importlib import import_module
 from pathlib import Path
 from typing import Callable
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from .config import ASRConfig
+
+_FASTER_WHISPER_MODEL_REPOS: dict[str, str] = {
+    "tiny": "Systran/faster-whisper-tiny",
+    "base": "Systran/faster-whisper-base",
+    "small": "Systran/faster-whisper-small",
+}
 
 
 class ModelResolutionError(ValueError):
@@ -59,10 +66,70 @@ def _default_download_url(*, backend_name: str, model_size: str) -> str:
 
 
 def _resolve_download_url(*, backend_name: str, model_size: str) -> str:
+    if backend_name == "faster-whisper":
+        raise ModelResolutionError(
+            "faster-whisper auto-download uses Hugging Face snapshots and does not accept "
+            "CUTSCENE_LOCATOR_MODEL_DOWNLOAD_URL."
+        )
+
     env_url = os.environ.get("CUTSCENE_LOCATOR_MODEL_DOWNLOAD_URL")
     if env_url:
         return env_url
     return _default_download_url(backend_name=backend_name, model_size=model_size)
+
+
+def _download_faster_whisper_snapshot(
+    *,
+    model_size: str,
+    model_dir: Path,
+    progress_callback: Callable[[float], None] | None,
+    cancel_check: Callable[[], bool] | None,
+) -> None:
+    repo_id = _FASTER_WHISPER_MODEL_REPOS.get(model_size)
+    if repo_id is None:
+        supported = ", ".join(sorted(_FASTER_WHISPER_MODEL_REPOS))
+        raise ModelResolutionError(
+            f"Unsupported faster-whisper auto-download size '{model_size}'. "
+            f"Expected one of: {supported}."
+        )
+
+    if cancel_check is not None and cancel_check():
+        raise ModelResolutionError("Model download cancelled before start.")
+
+    try:
+        huggingface_hub_module = import_module("huggingface_hub")
+    except ModuleNotFoundError as exc:
+        raise ModelResolutionError(
+            "faster-whisper auto-download requires huggingface_hub. "
+            "Install dependencies or provide --model-path."
+        ) from exc
+
+    snapshot_download = getattr(huggingface_hub_module, "snapshot_download", None)
+    if snapshot_download is None:
+        raise ModelResolutionError(
+            "huggingface_hub is installed but snapshot_download is unavailable. "
+            "Upgrade huggingface_hub or provide --model-path."
+        )
+
+    if progress_callback is not None:
+        progress_callback(0.0)
+
+    try:
+        snapshot_download(
+            repo_id=repo_id,
+            local_dir=str(model_dir),
+        )
+    except Exception as exc:  # pragma: no cover - message validated through tests
+        raise ModelResolutionError(
+            "Failed to auto-download faster-whisper model from Hugging Face. "
+            f"Repository: '{repo_id}'. Check connectivity/permissions or provide --model-path."
+        ) from exc
+
+    if cancel_check is not None and cancel_check():
+        raise ModelResolutionError("Model download cancelled by caller.")
+
+    if progress_callback is not None:
+        progress_callback(100.0)
 
 
 def _write_metadata_file(*, model_dir: Path, metadata: DownloadMetadata) -> None:
@@ -98,6 +165,24 @@ def download_model_to_cache(
     model_dir.mkdir(parents=True, exist_ok=True)
     model_file = model_dir / "model.bin"
     partial_file = model_dir / "model.bin.part"
+
+    if backend_name == "faster-whisper":
+        _download_faster_whisper_snapshot(
+            model_size=model_size,
+            model_dir=model_dir,
+            progress_callback=progress_callback,
+            cancel_check=cancel_check,
+        )
+        _write_metadata_file(
+            model_dir=model_dir,
+            metadata=DownloadMetadata(
+                backend=backend_name,
+                model_size=model_size,
+                downloaded_at=datetime.now(timezone.utc).isoformat(),
+                version=None,
+            ),
+        )
+        return model_dir
 
     if cancel_check is not None and cancel_check():
         raise ModelResolutionError("Model download cancelled before start.")
@@ -187,18 +272,31 @@ def resolve_model_path(config: ASRConfig) -> Path:
             f"Model not found at explicit --model-path '{explicit_path}'."
         )
 
-    local_models_dir = Path("models") / config.backend_name
-    if _is_model_present(local_models_dir):
-        return local_models_dir
+    requested_size = config.auto_download
 
-    cached_model_dir = cache_dir / config.backend_name / "tiny"
+    local_models_root = Path("models") / config.backend_name
+    if requested_size is not None:
+        local_models_for_size = local_models_root / requested_size
+        if _is_model_present(local_models_for_size):
+            return local_models_for_size
+
+    if _is_model_present(local_models_root):
+        return local_models_root
+
+    cache_backend_dir = cache_dir / config.backend_name
+    if requested_size is not None:
+        cached_model_for_size = cache_backend_dir / requested_size
+        if _is_model_present(cached_model_for_size):
+            return cached_model_for_size
+
+    cached_model_dir = cache_backend_dir / "tiny"
     if _is_model_present(cached_model_dir):
         return cached_model_dir
 
-    if config.auto_download == "tiny":
+    if requested_size in {"tiny", "base", "small"}:
         return download_model_to_cache(
             backend_name=config.backend_name,
-            model_size="tiny",
+            model_size=requested_size,
             cache_dir=cache_dir,
             progress_callback=config.progress_callback,
             cancel_check=config.cancel_check,
