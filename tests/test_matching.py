@@ -2,7 +2,7 @@ from pathlib import Path
 
 import unittest
 
-from src.asr.backends import ASRResult
+from src.asr.base import ASRResult
 from src.ingest.script_parser import load_script_table
 from src.match.engine import match_segments_to_script
 
@@ -27,8 +27,9 @@ class MatchingEngineTests(unittest.TestCase):
             ],
             "meta": {
                 "backend": "mock",
+                "model": "unknown",
                 "version": "1.0",
-                "language": "en",
+                "device": "cpu",
             },
         }
 
@@ -61,8 +62,9 @@ class MatchingEngineTests(unittest.TestCase):
             ],
             "meta": {
                 "backend": "mock",
+                "model": "unknown",
                 "version": "1.0",
-                "language": "en",
+                "device": "cpu",
             },
         }
 
@@ -87,8 +89,9 @@ class MatchingEngineTests(unittest.TestCase):
             ],
             "meta": {
                 "backend": "mock",
+                "model": "unknown",
                 "version": "1.0",
-                "language": "en",
+                "device": "cpu",
             },
         }
 

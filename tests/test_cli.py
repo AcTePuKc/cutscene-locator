@@ -2,6 +2,7 @@ import io
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
@@ -88,6 +89,33 @@ class CliPhaseOneTests(unittest.TestCase):
 
         self.assertEqual(code, 1)
         self.assertIn("Invalid --device value", stderr.getvalue())
+
+
+    def test_device_cuda_unavailable_exits_one_with_actionable_error(self) -> None:
+        stderr = io.StringIO()
+        with patch("src.asr.backends.resolve_device", side_effect=ValueError("Requested --device cuda, but CUDA is unavailable. Install a CUDA-enabled runtime or rerun with --device cpu.")):
+            with redirect_stderr(stderr):
+                code = cli.main(
+                    [
+                        "--input",
+                        "in.wav",
+                        "--script",
+                        "tests/fixtures/script_sample.tsv",
+                        "--out",
+                        "out",
+                        "--mock-asr",
+                        "tests/fixtures/mock_asr_valid.json",
+                        "--chunk",
+                        "0",
+                        "--device",
+                        "cuda",
+                    ],
+                    which=lambda _: "/usr/bin/ffmpeg",
+                    runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                )
+
+        self.assertEqual(code, 1)
+        self.assertIn("Requested --device cuda, but CUDA is unavailable", stderr.getvalue())
 
     def test_invalid_auto_download_value_exits_one(self) -> None:
         stderr = io.StringIO()

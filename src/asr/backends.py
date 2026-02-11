@@ -1,43 +1,15 @@
-"""ASR backend abstractions and mock backend implementation."""
+"""ASR backend implementations and validation helpers."""
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol, TypedDict
+from typing import Any
 
-
-class ASRSegment(TypedDict, total=False):
-    """Validated ASR segment structure."""
-
-    segment_id: str
-    start: float | int
-    end: float | int
-    text: str
-    speaker: str
-
-
-class ASRMeta(TypedDict):
-    """ASR metadata structure."""
-
-    backend: str
-    version: str
-    language: str
-
-
-class ASRResult(TypedDict):
-    """Internal normalized ASR structure."""
-
-    segments: list[ASRSegment]
-    meta: ASRMeta
-
-
-class ASRBackend(Protocol):
-    """Contract for ASR backend implementations."""
-
-    def run(self, *, audio_path: Path | None = None) -> ASRResult:
-        """Return ASR output in normalized internal JSON structure."""
+from .base import ASRResult, ASRSegment
+from .config import ASRConfig
+from .device import resolve_device
 
 
 @dataclass(frozen=True)
@@ -46,7 +18,7 @@ class MockASRBackend:
 
     mock_json_path: Path
 
-    def run(self, *, audio_path: Path | None = None) -> ASRResult:
+    def transcribe(self, audio_path: str, config: ASRConfig) -> ASRResult:
         del audio_path  # Unused by mock backend.
         if not self.mock_json_path.exists():
             raise ValueError(f"Mock ASR file does not exist: {self.mock_json_path}")
@@ -56,7 +28,31 @@ class MockASRBackend:
         except json.JSONDecodeError as exc:
             raise ValueError(f"Mock ASR JSON parse error in '{self.mock_json_path}': {exc.msg}") from exc
 
-        return validate_asr_result(raw_data, source=str(self.mock_json_path))
+        if not isinstance(raw_data, dict):
+            raise ValueError(f"{self.mock_json_path}: root must be an object")
+
+        raw_meta = raw_data.get("meta") if isinstance(raw_data.get("meta"), dict) else {}
+        resolved_device = resolve_device(config.device)
+        resolved_model = "unknown"
+        if config.model_path is not None:
+            resolved_model = config.model_path.name or str(config.model_path)
+        elif isinstance(raw_meta.get("model"), str) and raw_meta["model"].strip():
+            resolved_model = raw_meta["model"].strip()
+
+        resolved_version = "unknown"
+        if isinstance(raw_meta.get("version"), str) and raw_meta["version"].strip():
+            resolved_version = raw_meta["version"].strip()
+
+        normalized: dict[str, Any] = {
+            "segments": raw_data.get("segments"),
+            "meta": {
+                "backend": "mock",
+                "model": resolved_model,
+                "version": resolved_version,
+                "device": resolved_device,
+            },
+        }
+        return validate_asr_result(normalized, source=str(self.mock_json_path))
 
 
 def _require_non_empty_string(value: Any, *, path: str) -> str:
@@ -86,8 +82,9 @@ def validate_asr_result(raw_data: Any, *, source: str = "ASR data") -> ASRResult
         raise ValueError(f"{source}: 'meta' must be an object")
 
     backend = _require_non_empty_string(meta_raw.get("backend"), path=f"{source}: meta.backend")
+    model = _require_non_empty_string(meta_raw.get("model"), path=f"{source}: meta.model")
     version = _require_non_empty_string(meta_raw.get("version"), path=f"{source}: meta.version")
-    language = _require_non_empty_string(meta_raw.get("language"), path=f"{source}: meta.language")
+    device = _require_non_empty_string(meta_raw.get("device"), path=f"{source}: meta.device")
 
     validated_segments: list[ASRSegment] = []
     for idx, segment_raw in enumerate(segments_raw):
@@ -126,7 +123,8 @@ def validate_asr_result(raw_data: Any, *, source: str = "ASR data") -> ASRResult
         "segments": validated_segments,
         "meta": {
             "backend": backend,
+            "model": model,
             "version": version,
-            "language": language,
+            "device": device,
         },
     }

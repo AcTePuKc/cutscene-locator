@@ -180,7 +180,7 @@ def main(
         backend_registration = get_backend(asr_config.backend_name)
         if backend_registration.name == "mock":
             asr_backend = MockASRBackend(Path(args.mock_asr_path))
-            asr_result = asr_backend.run()
+            asr_result = asr_backend.transcribe(str(preprocessing_output.canonical_wav_path), asr_config)
         else:
             raise CliError(f"ASR backend '{asr_config.backend_name}' is not implemented yet.")
 
@@ -219,10 +219,15 @@ def main(
         print(f"Verbose: canonical wav={preprocessing_output.canonical_wav_path}")
         print(f"Verbose: chunks generated={len(preprocessing_output.chunk_metadata)} chunk_seconds={args.chunk}")
         low_confidence_count = sum(1 for match in matching_output.matches if match.low_confidence)
-        print(f"Verbose: asr backend={asr_result['meta']['backend']} segments={len(asr_result['segments'])}")
+        print(
+            "Verbose: asr backend="
+            f"{asr_result['meta']['backend']} model={asr_result['meta']['model']} "
+            f"version={asr_result['meta']['version']} device={asr_result['meta']['device']} "
+            f"segments={len(asr_result['segments'])}"
+        )
         print(
             "Verbose: asr config="
-            f"backend={asr_config.backend_name} device={asr_config.device} "
+            f"backend={asr_config.backend_name} requested_device={asr_config.device} "
             f"model_path={resolved_model_path if resolved_model_path is not None else asr_config.model_path} "
             f"auto_download={asr_config.auto_download}"
         )
