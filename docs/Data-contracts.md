@@ -93,6 +93,13 @@ All ASR backends must produce output that conforms to this structure.
 - Boundary policy: `end >= start` is accepted during normalization; zero-length segments are dropped before contract validation.
 - Stable ordering policy: segments are deterministically sorted by `(start, end, original_index)`.
 - Overlap semantics: inter-segment overlaps are allowed and preserved (no implicit de-overlap).
+- Cross-chunk continuity semantics (ASR→matching bridge):
+  - Chunk-local timestamps are converted to absolute timeline values via `ChunkMetadata.absolute_offset_seconds` before matching/scene stitching.
+  - Deterministic boundary merge applies only to adjacent chunk indexes (`n` and `n+1`).
+  - Repeated/overlapping boundary duplicates with equivalent normalized text are merged into one segment.
+  - Split utterances across adjacent chunks with a tiny boundary gap are merged and text is concatenated with token-overlap de-duplication.
+  - Tiny head/tail boundary fragments (short duration) are merged into the neighboring segment when the same boundary rule applies.
+  - Tie-break/preservation rules: keep the earlier segment `segment_id` and `speaker` when present, preserve earliest `start` + latest `end`, preserve stable deterministic ordering by `(start, end, original_index)`.
 - `speaker` is optional.
 - ASR text is not rewritten by timestamp normalization.
 
