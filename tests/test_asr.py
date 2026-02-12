@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import unittest
+import unittest.mock
 
 from src.asr import (
     ASRConfig,
@@ -11,6 +12,7 @@ from src.asr import (
     validate_asr_result,
 )
 from src.asr.timestamp_normalization import normalize_asr_segments_for_contract
+from src.asr.device import _cuda_probe_ctranslate2
 
 
 class MockASRBackendTests(unittest.TestCase):
@@ -142,6 +144,56 @@ class MockASRBackendTests(unittest.TestCase):
                 [{"segment_id": "seg_0001", "start": -0.1, "end": 0.3, "text": "bad"}],
                 source="inline",
             )
+
+
+class CTranslate2CudaProbeTests(unittest.TestCase):
+    def test_cuda_probe_accepts_numeric_return(self) -> None:
+        class _CTranslate2Module:
+            @staticmethod
+            def get_cuda_device_count() -> int:
+                return 2
+
+        with unittest.mock.patch("src.asr.device.import_module", return_value=_CTranslate2Module):
+            available, reason = _cuda_probe_ctranslate2()
+
+        self.assertTrue(available)
+        self.assertEqual(reason, "ctranslate2 detected 2 CUDA device(s)")
+
+    def test_cuda_probe_accepts_numeric_string_return(self) -> None:
+        class _CTranslate2Module:
+            @staticmethod
+            def get_cuda_device_count() -> str:
+                return "3"
+
+        with unittest.mock.patch("src.asr.device.import_module", return_value=_CTranslate2Module):
+            available, reason = _cuda_probe_ctranslate2()
+
+        self.assertTrue(available)
+        self.assertEqual(reason, "ctranslate2 detected 3 CUDA device(s)")
+
+    def test_cuda_probe_handles_non_convertible_return_deterministically(self) -> None:
+        class _CTranslate2Module:
+            @staticmethod
+            def get_cuda_device_count() -> object:
+                return object()
+
+        with unittest.mock.patch("src.asr.device.import_module", return_value=_CTranslate2Module):
+            available, reason = _cuda_probe_ctranslate2()
+
+        self.assertFalse(available)
+        self.assertIn("returned a non-numeric device count", reason)
+
+    def test_cuda_probe_preserves_getter_exception_path(self) -> None:
+        class _CTranslate2Module:
+            @staticmethod
+            def get_cuda_device_count() -> int:
+                raise RuntimeError("probe failed")
+
+        with unittest.mock.patch("src.asr.device.import_module", return_value=_CTranslate2Module):
+            available, reason = _cuda_probe_ctranslate2()
+
+        self.assertFalse(available)
+        self.assertEqual(reason, "ctranslate2 CUDA check failed: probe failed")
 
 
 class DeviceResolutionTests(unittest.TestCase):

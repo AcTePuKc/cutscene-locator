@@ -287,3 +287,5 @@ Contract notes:
 
 - 2026-02-12 – Expanded shared ASR adapter dispatch with registry capability preflight in adapter execution (single CLI dispatch path, no-fallback failure propagation, and deterministic adapter invocation tests) (`src/asr/adapters.py`, `src/asr/__init__.py`, `cli.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/STATUS.md`).
 - 2026-02-12 – Added additional forced-alignment contract validation coverage for malformed spans and missing timestamps while keeping capability-gating behavior explicit (`tests/test_alignment.py`, `docs/STATUS.md`).
+
+- 2026-02-12 – Refined ctranslate2 CUDA probe typing and deterministic non-numeric fallback handling in device resolution, with focused tests for numeric/string/object/exception getter outcomes (`src/asr/device.py`, `tests/test_asr.py`, `docs/STATUS.md`).
