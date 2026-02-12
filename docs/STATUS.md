@@ -15,6 +15,7 @@ All agents must update this file when completing or modifying tasks.
 - [x] completed
 - (stub) placeholder only
 - (test) covered by tests
+- Completed milestone entries with file markers must include at least one implementation path (`src/` or `cli.py`) and one test path (`tests/`)
 
 ---
 
@@ -199,6 +200,8 @@ Contract notes:
 ---
 
 ## Change log (manual)
+
+- 2026-02-12 – Added deterministic STATUS governance checks to enforce milestone checkbox/file-marker consistency and changelog-vs-milestone non-contradiction, including explicit contributor guidance to update milestone checkbox lines (not changelog-only notes) (`tests/test_docs_consistency.py`, `docs/STATUS.md`).
 
 - 2026-02-12 – Added deterministic cross-chunk continuity handling in ASR adapter bridge (absolute timestamp conversion via chunk offsets + boundary duplicate/split/tiny-fragment merges), covered by unit tests and documented tie-break semantics (`src/asr/adapters.py`, `cli.py`, `tests/test_adapters.py`, `docs/Data-contracts.md`, `docs/STATUS.md`).
 

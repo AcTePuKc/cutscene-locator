@@ -1,12 +1,38 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 import unittest
 
 from src.asr.registry import list_declared_backends
 
 
 class DocsConsistencyTests(unittest.TestCase):
+    @staticmethod
+    def _status_sections(status_doc: str) -> tuple[str, str, str]:
+        milestone_two_start = status_doc.index("## Milestone 2")
+        milestone_three_start = status_doc.index("## Milestone 3")
+        changelog_start = status_doc.index("## Change log (manual)")
+        milestone_two = status_doc[milestone_two_start:milestone_three_start]
+        milestone_three = status_doc[milestone_three_start:changelog_start]
+        changelog = status_doc[changelog_start:]
+        return milestone_two, milestone_three, changelog
+
+    @staticmethod
+    def _checklist_lines(section: str) -> list[str]:
+        return [line.strip() for line in section.splitlines() if line.lstrip().startswith("- [")]
+
+    @staticmethod
+    def _entry_paths(line: str) -> list[str]:
+        return re.findall(r"`([^`]+)`", line)
+
+    @staticmethod
+    def _normalized_entry_name(line: str) -> str:
+        entry = re.sub(r"^- \[[x ~]\]\s*", "", line.strip())
+        entry = re.sub(r"\s*\([^)]*\)\s*$", "", entry)
+        entry = " ".join(entry.split())
+        return entry.lower()
+
     def test_declared_registry_backend_names_are_documented(self) -> None:
         declared_backends = list_declared_backends()
 
@@ -21,12 +47,7 @@ class DocsConsistencyTests(unittest.TestCase):
     def test_milestone_backend_checkboxes_cover_completed_changelog_items(self) -> None:
         status_doc = Path("docs/STATUS.md").read_text(encoding="utf-8")
 
-        milestone_section_start = status_doc.index("## Milestone 2")
-        milestone_section_end = status_doc.index("## Milestone 3")
-        milestone_two_section = status_doc[milestone_section_start:milestone_section_end]
-
-        changelog_start = status_doc.index("## Change log (manual)")
-        changelog_section = status_doc[changelog_start:]
+        milestone_two_section, _, changelog_section = self._status_sections(status_doc)
 
         completed_item_checks = {
             "generic adapter": {
@@ -56,6 +77,74 @@ class DocsConsistencyTests(unittest.TestCase):
             if any(marker in changelog_lower for marker in item["changelog_markers"]):
                 with self.subTest(item=item_name):
                     self.assertIn(item["milestone_checkbox"], milestone_two_section)
+
+    def test_status_milestone_entries_with_paths_require_completed_checkbox(self) -> None:
+        status_doc = Path("docs/STATUS.md").read_text(encoding="utf-8")
+        milestone_two, milestone_three, _ = self._status_sections(status_doc)
+
+        lines = self._checklist_lines(milestone_two) + self._checklist_lines(milestone_three)
+        for line in lines:
+            paths = self._entry_paths(line)
+            has_impl_or_test_paths = any(
+                path.startswith(("src/", "tests/", "cli.py")) for path in paths
+            )
+            if has_impl_or_test_paths:
+                with self.subTest(line=line):
+                    self.assertTrue(
+                        line.startswith("- [x]"),
+                        "Milestone checklist entries that cite implementation/test files must use "
+                        "a completed checkbox `- [x]`. Update the milestone checkbox line in "
+                        "docs/STATUS.md (not only changelog notes).",
+                    )
+
+    def test_status_completed_marker_includes_impl_and_test_paths(self) -> None:
+        status_doc = Path("docs/STATUS.md").read_text(encoding="utf-8")
+        milestone_two, milestone_three, _ = self._status_sections(status_doc)
+
+        lines = self._checklist_lines(milestone_two) + self._checklist_lines(milestone_three)
+        for line in lines:
+            if not line.startswith("- [x]"):
+                continue
+            paths = self._entry_paths(line)
+            if not paths:
+                continue
+
+            has_impl_path = any(path.startswith(("src/", "cli.py")) for path in paths)
+            has_test_path = any(path.startswith("tests/") for path in paths)
+
+            with self.subTest(line=line):
+                self.assertTrue(
+                    has_impl_path and has_test_path,
+                    "Completed STATUS milestone entries with file markers must include at least "
+                    "one implementation path (`src/` or `cli.py`) and one test path (`tests/`). "
+                    "Update the milestone checkbox line in docs/STATUS.md, not only changelog "
+                    "footnotes.",
+                )
+
+    def test_changelog_completed_notes_do_not_conflict_with_unchecked_milestones(self) -> None:
+        status_doc = Path("docs/STATUS.md").read_text(encoding="utf-8")
+        milestone_two, milestone_three, changelog = self._status_sections(status_doc)
+
+        changelog_lower = changelog.lower()
+        unchecked_lines = [
+            line
+            for line in (self._checklist_lines(milestone_two) + self._checklist_lines(milestone_three))
+            if line.startswith("- [ ]")
+        ]
+
+        for line in unchecked_lines:
+            item_name = self._normalized_entry_name(line)
+            if len(item_name) < 12:
+                continue
+
+            with self.subTest(item=item_name):
+                self.assertNotIn(
+                    item_name,
+                    changelog_lower,
+                    "Feature appears in changelog as completed while milestone checkbox is still "
+                    "unchecked. Mark the milestone line as `- [x]` in docs/STATUS.md (do not "
+                    "record completion only in changelog notes).",
+                )
 
 
 class DocsCliFlagParityTests(unittest.TestCase):
