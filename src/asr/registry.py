@@ -46,6 +46,7 @@ class BackendStatus:
     name: str
     enabled: bool
     missing_dependencies: tuple[str, ...]
+    reason: str
     install_extra: str | None = None
 
 
@@ -107,15 +108,24 @@ def list_backend_status() -> list[BackendStatus]:
     for name in sorted(_DECLARED_REGISTRY):
         declared_backend = _DECLARED_REGISTRY[name]
         missing_dependencies = _missing_dependencies(declared_backend.required_dependencies)
+        enabled = not missing_dependencies
+        reason = "enabled" if enabled else f"missing optional dependencies: {', '.join(missing_dependencies)}"
         statuses.append(
             BackendStatus(
                 name=name,
-                enabled=not missing_dependencies,
+                enabled=enabled,
                 missing_dependencies=missing_dependencies,
+                reason=reason,
                 install_extra=declared_backend.install_extra,
             )
         )
     return statuses
+
+
+def list_declared_backends() -> list[str]:
+    """Return all declared backend names in deterministic order."""
+
+    return sorted(_DECLARED_REGISTRY.keys())
 
 
 def _build_enabled_registry() -> dict[str, BackendRegistration]:

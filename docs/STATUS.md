@@ -95,6 +95,7 @@ All agents must update this file when completing or modifying tasks.
 - [x] Backend registry system
 - [x] Backend discovery via CLI flag
 - [x] Backend capability metadata (supports_word_timestamps, supports_alignment, etc.)
+- [x] Backend status API distinguishes unknown vs declared-disabled backends (`name`, `enabled`, `missing_dependencies`, `reason`) and preserves enabled-only discovery via `list_backends()` (`src/asr/registry.py`, `cli.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/CLI.md`)
 
 ### Model resolution strategy
 
@@ -187,6 +188,7 @@ All agents must update this file when completing or modifying tasks.
 > Keep this short. One line per meaningful change.
 
 - YYYY-MM-DD – Initial STATUS.md created
+- 2026-02-12 – Refined backend discovery UX by adding structured backend `reason` status, exposing declared backend listing, preserving enabled-only lookup semantics, and improving disabled-backend CLI install guidance/messages with tests/docs updates (`src/asr/registry.py`, `src/asr/__init__.py`, `cli.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/STATUS.md`).
 - 2026-02-12 – Docs sync: updated CLI backend names/dependency extras and `--model-id` compatibility caveats; clarified explicit unchecked Milestone 2 next-work items (`docs/CLI.md`, `docs/STATUS.md`).
 - 2026-02-11 – Milestone 1 Phase 1 CLI skeleton + ffmpeg preflight completed (`cli.py`, `tests/test_cli.py`).
 - 2026-02-11 – Milestone 1 Phase 2 script ingestion + normalization completed (`src/ingest/script_parser.py`, `src/match/normalization.py`, `cli.py`, `tests/test_script_parser.py`, `tests/test_cli.py`).

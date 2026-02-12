@@ -49,6 +49,7 @@ class CliPhaseOneTests(unittest.TestCase):
 
         self.assertEqual(code, 1)
         self.assertIn("Unknown ASR backend", stderr.getvalue())
+        self.assertNotIn("declared but currently disabled", stderr.getvalue())
 
     def test_declared_but_disabled_backend_exits_with_actionable_error(self) -> None:
         stderr = io.StringIO()
@@ -76,10 +77,41 @@ class CliPhaseOneTests(unittest.TestCase):
                 )
 
         self.assertEqual(code, 1)
-        self.assertIn("is installed in code but disabled", stderr.getvalue())
-        self.assertIn("missing torch, transformers", stderr.getvalue())
-        self.assertIn("cutscene-locator[asr_qwen3]", stderr.getvalue())
+        self.assertIn("declared but currently disabled", stderr.getvalue())
+        self.assertIn("Missing optional dependencies: torch, transformers", stderr.getvalue())
+        self.assertIn("pip install 'cutscene-locator[asr_qwen3]'", stderr.getvalue())
 
+
+
+    def test_enabled_backend_path_unchanged(self) -> None:
+        stderr = io.StringIO()
+        enabled_backend = SimpleNamespace(
+            name="mock",
+            enabled=True,
+            missing_dependencies=(),
+            reason="enabled",
+            install_extra=None,
+        )
+        with patch("cli.list_backend_status", return_value=[enabled_backend]):
+            with redirect_stderr(stderr):
+                code = cli.main(
+                    [
+                        "--input",
+                        "in.wav",
+                        "--script",
+                        "script.tsv",
+                        "--out",
+                        "out",
+                        "--asr-backend",
+                        "mock",
+                    ],
+                    which=lambda _: "/usr/bin/ffmpeg",
+                    runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                )
+
+        self.assertEqual(code, 1)
+        self.assertIn("--mock-asr is required", stderr.getvalue())
+        self.assertNotIn("declared but currently disabled", stderr.getvalue())
 
     def test_alignment_backend_rejected_in_asr_mode(self) -> None:
         stderr = io.StringIO()

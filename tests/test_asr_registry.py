@@ -2,7 +2,13 @@ import importlib
 import unittest
 from unittest.mock import patch
 
-from src.asr import ASRConfig, get_backend, list_backend_status, list_backends
+from src.asr import (
+    ASRConfig,
+    get_backend,
+    list_backend_status,
+    list_backends,
+    list_declared_backends,
+)
 
 
 class ASRRegistryTests(unittest.TestCase):
@@ -16,6 +22,10 @@ class ASRRegistryTests(unittest.TestCase):
             registry_module = importlib.import_module("src.asr.registry")
             registry_module = importlib.reload(registry_module)
             self.assertIn("qwen3-asr", registry_module.list_backends())
+
+
+    def test_declared_backends_lists_all_names(self) -> None:
+        self.assertEqual(list_declared_backends(), ["faster-whisper", "mock", "qwen3-asr"])
 
     def test_registry_reports_disabled_backend_dependencies(self) -> None:
         def fake_find_spec(name: str) -> object | None:
@@ -31,6 +41,10 @@ class ASRRegistryTests(unittest.TestCase):
         self.assertFalse(qwen_status.enabled)
         self.assertEqual(qwen_status.missing_dependencies, ("torch", "transformers"))
         self.assertEqual(qwen_status.install_extra, "asr_qwen3")
+        self.assertEqual(
+            qwen_status.reason,
+            "missing optional dependencies: torch, transformers",
+        )
 
     def test_get_backend_returns_faster_whisper_capabilities(self) -> None:
         backend = get_backend("faster-whisper")
