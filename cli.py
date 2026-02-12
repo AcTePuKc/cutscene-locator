@@ -369,6 +369,7 @@ def _build_preflight_output(
     backend_name: str,
     resolved_model_path: Path | None,
     device_resolution_reason: str | None,
+    cuda_probe_label: str | None,
 ) -> dict[str, object]:
     output: dict[str, object] = {
         "mode": "asr_preflight_only",
@@ -385,6 +386,7 @@ def _build_preflight_output(
         "device": {
             "requested": asr_config.device,
             "compute_type": asr_config.compute_type,
+            "cuda_probe_label": cuda_probe_label,
             "resolution_reason": device_resolution_reason,
         },
     }
@@ -421,6 +423,7 @@ def _run_asr_preflight_only(
     )
 
     resolution_reason: str | None = None
+    cuda_probe_label: str | None = None
     if backend_registration.name != "mock":
         cuda_checker, cuda_probe_label = select_cuda_probe(backend_registration.name)
         resolution = resolve_device_with_details(
@@ -437,6 +440,7 @@ def _run_asr_preflight_only(
         backend_name=backend_registration.name,
         resolved_model_path=resolved_model_path,
         device_resolution_reason=resolution_reason,
+        cuda_probe_label=cuda_probe_label,
     )
     print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
     if args.verbose:

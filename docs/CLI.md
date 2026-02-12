@@ -177,7 +177,7 @@ Backend dependency expectations:
   - Install: `pip install 'cutscene-locator[asr_vibevoice]'`
   - Includes: `vibevoice`, `torch`.
 
-#### Deterministic backend readiness matrix (qwen3-asr / whisperx / vibevoice)
+#### Deterministic backend readiness matrix (authoritative CUDA probe mapping by backend runtime API)
 
 Use `scripts/verify_backend_readiness.py` for a no-inference verification pass:
 
@@ -197,11 +197,12 @@ This checklist verifies, per backend:
 
 Readiness preconditions summary:
 
-| backend | install extra | runtime preconditions | CUDA probe path | CPU fallback semantics |
-| --- | --- | --- | --- | --- |
-| `qwen3-asr` | `asr_qwen3` | Transformers snapshot with `config.json`, tokenizer asset(s), `tokenizer_config.json`, and model weights (`processor_config.json`/`preprocessor_config.json` optional) | `torch.cuda.is_available()` | If CUDA preflight says unavailable, rerun with `--device cpu` (no backend auto-switch). |
-| `whisperx` | `asr_whisperx` | CTranslate2 Whisper snapshot with `config.json`, `model.bin`, and tokenizer/vocabulary asset | `torch.cuda.is_available()` | If CUDA preflight says unavailable, rerun with `--device cpu` (no backend auto-switch). |
-| `vibevoice` | `asr_vibevoice` | Local VibeVoice model path compatible with installed runtime | `torch.cuda.is_available()` | If CUDA preflight says unavailable, rerun with `--device cpu` (no backend auto-switch). |
+| backend | runtime API used by backend implementation | CUDA probe label in preflight (`device.cuda_probe_label`) | CPU fallback semantics |
+| --- | --- | --- | --- |
+| `faster-whisper` | `faster_whisper.WhisperModel(...)` (CTranslate2 runtime path) | `ctranslate2` | If CUDA preflight says unavailable, rerun with `--device cpu` (no backend auto-switch). |
+| `qwen3-asr` | `transformers.pipeline(...)` (torch runtime path) | `torch` | If CUDA preflight says unavailable, rerun with `--device cpu` (no backend auto-switch). |
+| `whisperx` | `whisperx.load_model(..., device=...)` (torch runtime path) | `torch` | If CUDA preflight says unavailable, rerun with `--device cpu` (no backend auto-switch). |
+| `vibevoice` | `vibevoice.transcribe_file(..., device=...)` (torch runtime path) | `torch` | If CUDA preflight says unavailable, rerun with `--device cpu` (no backend auto-switch). |
 
 Common deterministic failure messages:
 
@@ -249,7 +250,7 @@ cutscene-locator --asr-preflight-only --asr-backend faster-whisper --model-path 
 Example output shape:
 
 ```json
-{"backend":"faster-whisper","device":{"compute_type":"auto","requested":"auto","resolution_reason":"--device auto selected cuda because ctranslate2 CUDA probe reported available"},"mode":"asr_preflight_only","model_resolution":{"requested":{"auto_download":null,"model_id":null,"model_path":"models/faster-whisper/tiny","revision":null},"resolved_model_path":"models/faster-whisper/tiny"}}
+{"backend":"faster-whisper","device":{"compute_type":"auto","cuda_probe_label":"ctranslate2","requested":"auto","resolution_reason":"--device auto selected cuda because ctranslate2 CUDA probe reported available"},"mode":"asr_preflight_only","model_resolution":{"requested":{"auto_download":null,"model_id":null,"model_path":"models/faster-whisper/tiny","revision":null},"resolved_model_path":"models/faster-whisper/tiny"}}
 ```
 
 Behavior notes:

@@ -52,7 +52,57 @@ class CliPhaseOneTests(unittest.TestCase):
         self.assertEqual(payload["model_resolution"]["resolved_model_path"], "models/faster-whisper/tiny")
         self.assertEqual(payload["device"]["requested"], "auto")
         self.assertEqual(payload["device"]["compute_type"], "auto")
+        self.assertEqual(payload["device"]["cuda_probe_label"], "ctranslate2")
         self.assertIn("selected cuda", payload["device"]["resolution_reason"])
+
+    def test_asr_preflight_only_includes_backend_probe_label(self) -> None:
+        scenarios = (("faster-whisper", "ctranslate2"), ("qwen3-asr", "torch"))
+        for backend_name, expected_probe_label in scenarios:
+            with self.subTest(backend=backend_name):
+                stdout = io.StringIO()
+                enabled_backend = SimpleNamespace(
+                    name=backend_name,
+                    enabled=True,
+                    missing_dependencies=(),
+                    reason="enabled",
+                    install_extra="asr_qwen3",
+                )
+                registration = SimpleNamespace(
+                    name=backend_name,
+                    capabilities=SimpleNamespace(supports_segment_timestamps=True, supports_alignment=False),
+                )
+                with patch("cli.list_backend_status", return_value=[enabled_backend]):
+                    with patch("cli.get_backend", return_value=registration):
+                        with patch("cli.resolve_model_path", return_value=Path(f"models/{backend_name}")):
+                            with patch(
+                                "cli.resolve_device_with_details",
+                                return_value=SimpleNamespace(
+                                    requested="auto",
+                                    resolved="cpu",
+                                    reason=f"--device auto selected cpu because {expected_probe_label} CUDA probe reported unavailable",
+                                ),
+                            ) as resolve_patch:
+                                with redirect_stdout(stdout):
+                                    code = cli.main(
+                                        [
+                                            "--asr-preflight-only",
+                                            "--asr-backend",
+                                            backend_name,
+                                            "--model-path",
+                                            f"models/{backend_name}",
+                                            "--device",
+                                            "auto",
+                                        ]
+                                    )
+
+                self.assertEqual(code, 0)
+                payload = json.loads(stdout.getvalue().strip().splitlines()[0])
+                self.assertEqual(payload["device"]["cuda_probe_label"], expected_probe_label)
+                self.assertIn(expected_probe_label, payload["device"]["resolution_reason"])
+                self.assertEqual(
+                    resolve_patch.call_args.kwargs["cuda_probe_reason_label"],
+                    expected_probe_label,
+                )
 
     def test_asr_preflight_only_model_resolution_failure_exits_one(self) -> None:
         stderr = io.StringIO()

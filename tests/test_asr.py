@@ -200,10 +200,11 @@ class CTranslate2CudaProbeTests(unittest.TestCase):
 
 class CudaProbeSelectionTests(unittest.TestCase):
     def test_select_cuda_probe_routes_torch_backends(self) -> None:
-        checker, label = select_cuda_probe("qwen3-asr")
-        self.assertEqual(label, "torch")
-        with unittest.mock.patch("src.asr.device.import_module", side_effect=ModuleNotFoundError()):
-            self.assertFalse(checker())
+        for backend in ("qwen3-asr", "whisperx", "vibevoice"):
+            checker, label = select_cuda_probe(backend)
+            self.assertEqual(label, "torch")
+            with unittest.mock.patch("src.asr.device.import_module", side_effect=ModuleNotFoundError()):
+                self.assertFalse(checker())
 
     def test_select_cuda_probe_routes_faster_whisper_to_ctranslate2(self) -> None:
         checker, label = select_cuda_probe("faster-whisper")

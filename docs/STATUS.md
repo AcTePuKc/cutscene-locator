@@ -204,6 +204,8 @@ Contract notes:
 
 ## Change log (manual)
 
+- 2026-02-12 – Verified backend CUDA probe source by actual runtime API usage (`faster-whisper`→`ctranslate2`; `qwen3-asr`/`whisperx`/`vibevoice`→`torch`), exposed probe label in `--asr-preflight-only` JSON (`device.cuda_probe_label`), aligned CLI backend matrix/docs, and added regression tests tying backend selection to declared probe label (`cli.py`, `src/asr/device.py`, `tests/test_cli.py`, `tests/test_asr.py`, `docs/CLI.md`, `docs/STATUS.md`).
+
 - 2026-02-12 – Relaxed qwen3-asr snapshot contract to require only core deterministic artifacts (`config.json`, tokenizer assets, `tokenizer_config.json`, model weights) while treating `processor_config.json`/`preprocessor_config.json` as optional; added regression coverage for config-absent valid layouts and kept deterministic missing-core failures (`src/asr/model_resolution.py`, `tests/test_model_resolution.py`, `docs/CLI.md`, `docs/Data-contracts.md`, `docs/STATUS.md`).
 
 - 2026-02-12 – Added deterministic backend readiness matrix/checklist for `qwen3-asr`, `whisperx`, and `vibevoice` (dependency importability, registry enabled-state validation, model artifact layout validation, and backend-appropriate CUDA preflight reason reporting) with a no-inference verification script and registry/readiness regression tests (`src/asr/readiness.py`, `src/asr/model_resolution.py`, `scripts/verify_backend_readiness.py`, `tests/test_backend_readiness.py`, `tests/test_asr_registry.py`, `docs/CLI.md`, `docs/Integration.md`, `docs/Integration-issues.md`, `docs/STATUS.md`).
@@ -314,6 +316,7 @@ Contract notes:
 - 2026-02-12 – Made model snapshot artifact schemas strongly typed and extended schema validation tests across faster-whisper/whisperx/qwen3-asr while preserving runtime error text format (`src/asr/model_resolution.py`, `tests/test_model_resolution.py`, `docs/STATUS.md`).
 
 - [x] Backend-specific CUDA probe routing in ASR adapter dispatch with centralized torch/ctranslate2 selection and deterministic reason labels (`src/asr/device.py`, `src/asr/adapters.py`, `src/asr/qwen3_asr_backend.py`, `src/asr/whisperx_backend.py`, `src/asr/vibevoice_backend.py`, `tests/test_asr.py`, `tests/test_asr_registry.py`)
+- [x] Authoritative backend→CUDA-probe mapping codified from runtime API usage, exposed in ASR preflight output (`device.cuda_probe_label`), and synchronized in CLI docs/backend tests (`src/asr/device.py`, `cli.py`, `tests/test_asr.py`, `tests/test_cli.py`, `docs/CLI.md`)
 
 - 2026-02-12 – Removed deprecated Hugging Face `local_dir_use_symlinks` usage from snapshot download wrapper using signature-based kwargs gating, preserved deterministic HF progress env toggling, and expanded model-resolution progress on/off tests (`src/asr/model_resolution.py`, `tests/test_model_resolution.py`, `docs/STATUS.md`).
 
