@@ -1,0 +1,172 @@
+"""ASR adapter layer that standardizes backend execution plumbing."""
+
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass, replace
+from pathlib import Path
+from typing import Callable, Protocol
+
+from .backends import MockASRBackend
+from .base import ASRResult
+from .config import ASRConfig
+from .device import resolve_device_with_details
+from .faster_whisper_backend import FasterWhisperBackend
+from .qwen3_asr_backend import Qwen3ASRBackend
+
+
+@dataclass(frozen=True)
+class CapabilityRequirements:
+    """Pipeline requirements checked against backend capability metadata."""
+
+    requires_segment_timestamps: bool = True
+    allows_alignment_backends: bool = False
+
+
+@dataclass(frozen=True)
+class ASRExecutionContext:
+    """Execution context shared by all adapters."""
+
+    resolved_model_path: Path | None
+    verbose: bool
+    mock_asr_path: str | None = None
+    run_faster_whisper_subprocess: Callable[[Path, Path, ASRConfig, bool], ASRResult] | None = None
+    faster_whisper_preflight: Callable[[str, str], None] | None = None
+
+
+class ASRAdapter(Protocol):
+    """Unified adapter contract for backend execution."""
+
+    backend_name: str
+
+    def load_model(self, config: ASRConfig, context: ASRExecutionContext) -> object | None:
+        """Load backend model resources and return runtime model handle when applicable."""
+
+    def build_backend_kwargs(self, config: ASRConfig) -> dict[str, object]:
+        """Build backend-native transcribe kwargs from canonical config."""
+
+    def filter_backend_kwargs(
+        self,
+        candidate_kwargs: dict[str, object],
+        *,
+        allowed_keys: set[str],
+    ) -> dict[str, object]:
+        """Filter backend-native kwargs to a deterministic supported subset."""
+
+    def normalize_output(self, raw_result: ASRResult) -> ASRResult:
+        """Normalize backend output into canonical ASRResult."""
+
+    def transcribe(self, audio_path: str, config: ASRConfig, context: ASRExecutionContext) -> ASRResult:
+        """Execute transcription using the backend adapter."""
+
+
+class _BaseASRAdapter:
+    backend_name: str
+
+    def load_model(self, config: ASRConfig, context: ASRExecutionContext) -> object | None:
+        del config, context
+        return None
+
+    def build_backend_kwargs(self, config: ASRConfig) -> dict[str, object]:
+        return {
+            "language": config.language,
+            "beam_size": config.beam_size,
+            "temperature": config.temperature,
+            "best_of": config.best_of,
+            "no_speech_threshold": config.no_speech_threshold,
+            "log_prob_threshold": config.log_prob_threshold,
+            "vad_filter": config.vad_filter,
+        }
+
+    def filter_backend_kwargs(
+        self,
+        candidate_kwargs: dict[str, object],
+        *,
+        allowed_keys: set[str],
+    ) -> dict[str, object]:
+        return {
+            key: candidate_kwargs[key]
+            for key in sorted(candidate_kwargs)
+            if key in allowed_keys and candidate_kwargs[key] is not None
+        }
+
+    def normalize_output(self, raw_result: ASRResult) -> ASRResult:
+        return raw_result
+
+
+class MockASRAdapter(_BaseASRAdapter):
+    backend_name = "mock"
+
+    def transcribe(self, audio_path: str, config: ASRConfig, context: ASRExecutionContext) -> ASRResult:
+        if context.mock_asr_path is None:
+            raise ValueError("--mock-asr is required when --asr-backend mock is used.")
+        backend = MockASRBackend(Path(context.mock_asr_path))
+        return self.normalize_output(backend.transcribe(audio_path, config))
+
+
+class FasterWhisperASRAdapter(_BaseASRAdapter):
+    backend_name = "faster-whisper"
+
+    def transcribe(self, audio_path: str, config: ASRConfig, context: ASRExecutionContext) -> ASRResult:
+        backend = FasterWhisperBackend()
+        effective_config = replace(
+            config,
+            model_path=context.resolved_model_path,
+            log_callback=print if context.verbose else config.log_callback,
+        )
+
+        resolution = resolve_device_with_details(effective_config.device)
+        if context.faster_whisper_preflight is not None:
+            context.faster_whisper_preflight(device=resolution.resolved, compute_type=effective_config.compute_type)
+
+        if (
+            effective_config.device == "cuda"
+            and os.name == "nt"
+            and context.run_faster_whisper_subprocess is not None
+        ):
+            if effective_config.model_path is None:
+                raise ValueError("faster-whisper backend requires a resolved model path.")
+            return context.run_faster_whisper_subprocess(
+                Path(audio_path),
+                effective_config.model_path,
+                effective_config,
+                context.verbose,
+            )
+
+        return self.normalize_output(backend.transcribe(audio_path, effective_config))
+
+
+class Qwen3ASRAdapter(_BaseASRAdapter):
+    backend_name = "qwen3-asr"
+
+    def transcribe(self, audio_path: str, config: ASRConfig, context: ASRExecutionContext) -> ASRResult:
+        backend = Qwen3ASRBackend()
+        effective_config = replace(
+            config,
+            model_path=context.resolved_model_path,
+            log_callback=print if context.verbose else config.log_callback,
+        )
+        return self.normalize_output(backend.transcribe(audio_path, effective_config))
+
+
+_ADAPTER_REGISTRY: dict[str, type[_BaseASRAdapter]] = {
+    "mock": MockASRAdapter,
+    "faster-whisper": FasterWhisperASRAdapter,
+    "qwen3-asr": Qwen3ASRAdapter,
+}
+
+
+def list_asr_adapters() -> list[str]:
+    """Return registered adapter names in deterministic order."""
+
+    return sorted(_ADAPTER_REGISTRY)
+
+
+def get_asr_adapter(name: str) -> ASRAdapter:
+    """Return adapter instance by backend name."""
+
+    adapter_class = _ADAPTER_REGISTRY.get(name)
+    if adapter_class is None:
+        available = ", ".join(list_asr_adapters())
+        raise ValueError(f"No ASR adapter registered for backend '{name}'. Available adapters: {available}")
+    return adapter_class()

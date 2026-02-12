@@ -138,7 +138,7 @@ All agents must update this file when completing or modifying tasks.
 
 ### Whisper / Qwen / others
 
-- [ ] ASR backend adapter (generic)
+- [x] ASR backend adapter (generic) (`src/asr/adapters.py`, `src/asr/registry.py`, `cli.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/ASR_ARCHITECTURE.md`)
 - [ ] WhisperX backend
 - [x] Qwen ASR backend
 - [x]  faster-whisper backend (pilot)
@@ -258,3 +258,5 @@ All agents must update this file when completing or modifying tasks.
 - 2026-02-12 – Added explicit forced-alignment path (separate `src/align/` contract/validator), marked alignment-capable backend metadata, and blocked alignment backends from ASR-only CLI mode with capability/contract tests (`src/align/base.py`, `src/align/validation.py`, `src/align/__init__.py`, `src/asr/registry.py`, `cli.py`, `tests/test_alignment.py`, `tests/test_cli.py`, `tests/test_asr_registry.py`, `docs/Data-contracts.md`, `docs/Integration.md`, `docs/STATUS.md`).
 
 - 2026-02-12 – Added qwen3-asr Hugging Face snapshot validation in model resolution (config/tokenizer/weights checks) covering explicit --model-path, model-id cache hits, and model-id downloads, with deterministic error messaging tests (`src/asr/model_resolution.py`, `tests/test_model_resolution.py`, `docs/STATUS.md`).
+
+- 2026-02-12 – Added ASR adapter abstraction + adapter registry dispatch in CLI (standardized model-loading/transcribe plumbing, backend-kwargs filtering hook, canonical output normalization path), plus explicit capability validation (`supports_segment_timestamps` required, alignment disallowed for ASR mode) and deterministic adapter-dispatch tests/docs updates (`src/asr/adapters.py`, `src/asr/registry.py`, `src/asr/__init__.py`, `cli.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/ASR_ARCHITECTURE.md`, `docs/STATUS.md`).

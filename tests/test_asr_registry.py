@@ -4,10 +4,13 @@ from unittest.mock import patch
 
 from src.asr import (
     ASRConfig,
+    get_asr_adapter,
     get_backend,
+    list_asr_adapters,
     list_backend_status,
     list_backends,
     list_declared_backends,
+    validate_backend_capabilities,
 )
 
 
@@ -22,7 +25,6 @@ class ASRRegistryTests(unittest.TestCase):
             registry_module = importlib.import_module("src.asr.registry")
             registry_module = importlib.reload(registry_module)
             self.assertIn("qwen3-asr", registry_module.list_backends())
-
 
     def test_declared_backends_lists_all_names(self) -> None:
         self.assertEqual(list_declared_backends(), ["faster-whisper", "mock", "qwen3-asr", "qwen3-forced-aligner"])
@@ -51,6 +53,7 @@ class ASRRegistryTests(unittest.TestCase):
         backend = get_backend("faster-whisper")
 
         self.assertEqual(backend.name, "faster-whisper")
+        self.assertTrue(backend.capabilities.supports_segment_timestamps)
         self.assertFalse(backend.capabilities.supports_alignment)
         self.assertFalse(backend.capabilities.supports_word_timestamps)
 
@@ -58,9 +61,9 @@ class ASRRegistryTests(unittest.TestCase):
         backend = get_backend("mock")
 
         self.assertEqual(backend.name, "mock")
+        self.assertTrue(backend.capabilities.supports_segment_timestamps)
         self.assertFalse(backend.capabilities.supports_alignment)
         self.assertFalse(backend.capabilities.supports_word_timestamps)
-
 
     def test_qwen3_asr_backend_does_not_mark_alignment_capability(self) -> None:
         with patch("importlib.util.find_spec", side_effect=lambda name: object()):
@@ -81,6 +84,23 @@ class ASRRegistryTests(unittest.TestCase):
     def test_get_backend_unknown_raises(self) -> None:
         with self.assertRaisesRegex(ValueError, "Unknown ASR backend"):
             get_backend("missing")
+
+    def test_validate_backend_capabilities_rejects_alignment_when_disallowed(self) -> None:
+        backend = get_backend("mock")
+        validate_backend_capabilities(
+            backend,
+            requires_segment_timestamps=True,
+            allows_alignment_backends=False,
+        )
+
+    def test_adapter_registry_returns_backend_adapter(self) -> None:
+        adapter = get_asr_adapter("mock")
+        self.assertEqual(adapter.backend_name, "mock")
+        self.assertIn("mock", list_asr_adapters())
+
+    def test_adapter_registry_unknown_backend_raises(self) -> None:
+        with self.assertRaisesRegex(ValueError, "No ASR adapter registered"):
+            get_asr_adapter("qwen3-forced-aligner")
 
     def test_asr_config_defaults(self) -> None:
         config = ASRConfig(backend_name="mock")
