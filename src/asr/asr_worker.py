@@ -28,10 +28,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--device", required=True, choices=("cpu", "cuda", "auto"))
     parser.add_argument("--compute-type", required=True, choices=("float16", "float32", "auto"))
     parser.add_argument("--result-path", required=True)
-    parser.add_argument("--asr-language")
-    parser.add_argument("--asr-beam-size", required=True, type=int)
-    parser.add_argument("--asr-temperature", required=True, type=float)
-    parser.add_argument("--asr-best-of", required=True, type=int)
+    parser.add_argument("--asr-language", default=None)
+    parser.add_argument("--asr-beam-size", type=int)
+    parser.add_argument("--asr-temperature", type=float)
+    parser.add_argument("--asr-best-of", type=int)
     parser.add_argument("--asr-no-speech-threshold", type=float, default=None)
     parser.add_argument("--asr-logprob-threshold", type=float, default=None)
     parser.add_argument("--verbose", action="store_true")
@@ -62,7 +62,10 @@ def _run_minimal_whisper_preflight(*, audio_path: str, model_path: Path, device:
     model = WhisperModel(str(model_path), device=device, compute_type=compute_type)
     print("asr-worker: minimal preflight transcribe start")
     raw_segments, _info = model.transcribe(audio_path, vad_filter=False)
-    first_segment = next(raw_segments, None)
+    it = iter(raw_segments)
+    first_segment = next(it, None)
+
+
     if first_segment is not None:
         print("asr-worker: minimal preflight first segment observed")
     print("asr-worker: minimal preflight transcribe end")

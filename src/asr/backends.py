@@ -130,7 +130,8 @@ def validate_asr_result(raw_data: Any, *, source: str = "ASR data") -> ASRResult
     }
 
 
-def parse_asr_result(raw_data: dict[str, Any], *, source: str = "ASR data") -> ASRResult:
+def parse_asr_result(raw_data: Any, *, source: str = "ASR data") -> ASRResult:
+
     """Parse untyped JSON payload into a validated ASRResult contract."""
 
     return validate_asr_result(raw_data, source=source)
