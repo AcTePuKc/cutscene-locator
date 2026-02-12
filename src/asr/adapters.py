@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Protocol, TypeAlias
@@ -86,7 +87,7 @@ class ASRAdapter(Protocol):
         """Execute transcription using the backend adapter."""
 
 
-class _BaseASRAdapter:
+class _BaseASRAdapter(ABC):
     backend_name: str
 
     def load_model(self, config: ASRConfig, context: ASRExecutionContext) -> object | None:
@@ -118,6 +119,10 @@ class _BaseASRAdapter:
 
     def normalize_output(self, raw_result: ASRResult) -> ASRResult:
         return raw_result
+
+    @abstractmethod
+    def transcribe(self, audio_path: str, config: ASRConfig, context: ASRExecutionContext) -> ASRResult:
+        """Execute transcription using the backend adapter."""
 
 
 class MockASRAdapter(_BaseASRAdapter):
@@ -216,7 +221,7 @@ def list_asr_adapters() -> list[str]:
     return sorted(_ADAPTER_REGISTRY)
 
 
-def get_asr_adapter(name: str) -> ASRAdapter:
+def get_asr_adapter(name: str) -> _BaseASRAdapter:
     """Return adapter instance by backend name."""
 
     adapter_class = _ADAPTER_REGISTRY.get(name)

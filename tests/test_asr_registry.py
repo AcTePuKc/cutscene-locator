@@ -192,7 +192,7 @@ class ASRRegistryTests(unittest.TestCase):
             result = dispatch_asr_transcription(
                 audio_path="audio.wav",
                 config=ASRConfig(backend_name="mock"),
-                context=object(),
+                context=ASRExecutionContext(resolved_model_path=None, verbose=False),
             )
 
         self.assertEqual(result["meta"]["backend"], "mock")
@@ -222,7 +222,7 @@ class ASRRegistryTests(unittest.TestCase):
                 dispatch_asr_transcription(
                     audio_path="audio.wav",
                     config=ASRConfig(backend_name="qwen3-forced-aligner"),
-                    context=object(),
+                    context=ASRExecutionContext(resolved_model_path=None, verbose=False),
                 )
 
     def test_asr_config_defaults(self) -> None:
