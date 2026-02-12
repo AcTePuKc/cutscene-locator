@@ -227,7 +227,7 @@ Readiness preconditions summary:
 Common deterministic failure messages:
 
 - Declared but disabled backend: `ASR backend '<name>' is declared but currently disabled... missing optional dependencies ... Install with: pip install 'cutscene-locator[<extra>]'`.
-- qwen3 layout error: `Resolved qwen3-asr model is missing required artifacts...`.
+- qwen3 layout error: `Resolved qwen3-asr model is missing required artifacts...` (required core artifacts: `config.json`, tokenizer assets, `tokenizer_config.json`, and model weights; `processor_config.json`/`preprocessor_config.json` optional).
 - whisperx layout error: `Resolved whisperx model is missing required files...`.
 - CUDA request failure: `Requested --device cuda, but CUDA is unavailable... Manual rerun with --device cpu.`.
 
