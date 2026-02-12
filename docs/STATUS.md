@@ -266,3 +266,4 @@ All agents must update this file when completing or modifying tasks.
 - 2026-02-12 – Clarified ASR-vs-alignment model family support with a backend/mode matrix in CLI docs, documented deterministic loaded-when-requested model resolution/no-fallback policy, and added a docs consistency test to prevent drift between registry backend names and docs (`docs/CLI.md`, `tests/test_docs_consistency.py`, `docs/STATUS.md`).
 
 - 2026-02-12 – Expanded shared ASR adapter dispatch with registry capability preflight in adapter execution (single CLI dispatch path, no-fallback failure propagation, and deterministic adapter invocation tests) (`src/asr/adapters.py`, `src/asr/__init__.py`, `cli.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/STATUS.md`).
+- 2026-02-12 – Added additional forced-alignment contract validation coverage for malformed spans and missing timestamps while keeping capability-gating behavior explicit (`tests/test_alignment.py`, `docs/STATUS.md`).
