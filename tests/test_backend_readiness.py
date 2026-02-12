@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from src.asr.model_resolution import ModelResolutionError, validate_model_artifact_layout
 from src.asr.readiness import collect_backend_readiness, supported_readiness_backends
+from src.asr.registry import BackendStatus
 
 
 class BackendReadinessTests(unittest.TestCase):
@@ -70,7 +71,19 @@ class BackendReadinessTests(unittest.TestCase):
             return object()
 
         with patch("src.asr.readiness.find_spec", side_effect=fake_find_spec):
-            row = collect_backend_readiness(backend="vibevoice", model_dir=None)
+            with patch(
+                "src.asr.readiness.list_backend_status",
+                return_value=[
+                    BackendStatus(
+                        name="vibevoice",
+                        enabled=False,
+                        missing_dependencies=("vibevoice", "torch"),
+                        reason="missing optional dependencies: vibevoice, torch",
+                        install_extra="asr_vibevoice",
+                    )
+                ],
+            ):
+                row = collect_backend_readiness(backend="vibevoice", model_dir=None)
 
         self.assertEqual(row.missing_dependencies, ("vibevoice", "torch"))
         self.assertFalse(row.registry_enabled)

@@ -29,7 +29,7 @@ class BackendReadiness:
 _BACKEND_RUNTIME_PRECONDITIONS: dict[str, tuple[str, tuple[str, ...], str]] = {
     "qwen3-asr": (
         "asr_qwen3",
-        ("torch", "transformers"),
+        ("torch", "qwen_asr"),
         "Transformers ASR snapshot: config + tokenizer + tokenizer_config + processor/preprocessor + weights.",
     ),
     "whisperx": (

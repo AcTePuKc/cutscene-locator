@@ -25,6 +25,7 @@ asr_whisperx = [
   "huggingface_hub>=0.20.0",
 ]
 asr_qwen3 = [
+  "qwen-asr>=0.1.0",
   "transformers>=4.46.0",
   "torch>=2.2.0",
   "huggingface_hub>=0.20.0",
