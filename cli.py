@@ -443,8 +443,6 @@ def _run_asr_preflight_only(
         cuda_probe_label=cuda_probe_label,
     )
     print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
-    if args.verbose:
-        print("Verbose: ASR preflight-only checks passed.")
     return 0
 
 

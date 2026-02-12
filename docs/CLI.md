@@ -249,7 +249,9 @@ This mode is designed for deterministic QA and CI diagnostics and performs only:
 - model resolution via existing model-resolution rules,
 - backend-specific device probing via the same device resolution logic used by runtime execution.
 
-It prints one structured JSON line (sorted keys, no extra whitespace) to stdout. Example:
+Stdout contract: preflight-only emits **exactly one line** containing one JSON object serialized with sorted keys and compact separators (`json.dumps(..., sort_keys=True, separators=(",", ":"))`). No additional stdout lines are allowed in this mode (including when `--verbose` is provided).
+
+Example:
 
 ```bash
 cutscene-locator --asr-preflight-only --asr-backend faster-whisper --model-path models/faster-whisper/tiny
@@ -264,8 +266,9 @@ Example output shape:
 Behavior notes:
 
 - Skips `--input`, `--script`, and `--out` requirements in preflight-only mode.
+- Performs only backend availability/capability validation, model resolution, and device resolution.
+- Does not run ffmpeg preflight, ingest/preprocess, transcription, matching, scene reconstruction, or exports.
 - Still enforces backend/model/device validation failures with deterministic error messages.
-- Does not run ffmpeg preflight or produce output artifacts.
 
 ---
 

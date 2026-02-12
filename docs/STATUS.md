@@ -325,3 +325,6 @@ Contract notes:
 - 2026-02-12 – Added lightweight `--asr-preflight-only` CLI path that reuses backend registry/capability checks, model resolution, and backend-specific device probe logic, prints deterministic structured JSON for QA logs, and exits before ingest/transcribe/match/export; added success/failure CLI tests and docs usage notes (`cli.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/STATUS.md`).
 
 - 2026-02-12 – Tightened `apply_cross_chunk_continuity` return typing by rebuilding merged segments as explicit `ASRSegment` payloads and metadata as explicit `ASRMeta`, then returning a typed `ASRResult`; added boundary-merge regression coverage asserting contract-shaped keys/meta survive merge normalization (`src/asr/adapters.py`, `tests/test_adapters.py`, `docs/STATUS.md`).
+
+- 2026-02-12 – Hardened `--asr-preflight-only` stdout determinism: emits exactly one machine-parseable JSON line (including with `--verbose`), with no stage/success log leakage, while preserving preflight-only scope to backend availability validation + model resolution + device resolution; updated CLI tests and preflight docs contract (`cli.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/STATUS.md`).
+
