@@ -281,7 +281,7 @@ class ModelResolutionTests(unittest.TestCase):
 
             self.assertIn("Found files: config.json", str(exc_info.exception))
 
-    def test_qwen3_validation_accepts_transformers_snapshot(self) -> None:
+    def test_qwen3_validation_accepts_snapshot_without_processor_configs(self) -> None:
         with tempfile.TemporaryDirectory() as temp_home:
             model_dir = Path(temp_home) / "models" / "qwen3-asr"
             model_dir.mkdir(parents=True, exist_ok=True)
@@ -315,6 +315,8 @@ class ModelResolutionTests(unittest.TestCase):
                 "one of model.safetensors, pytorch_model.bin, model.safetensors.index.json, pytorch_model.bin.index.json",
                 message,
             )
+            self.assertNotIn("one of processor_config.json", message)
+            self.assertNotIn("one of preprocessor_config.json", message)
             self.assertIn("Found files: config.json", message)
 
     def test_qwen3_validation_error_message_is_deterministic(self) -> None:
