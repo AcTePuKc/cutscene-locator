@@ -21,6 +21,106 @@ class _FakePipeline:
 
 
 class Qwen3ASRBackendTests(unittest.TestCase):
+    def test_pipeline_smoke_contract_for_qwen3_variants(self) -> None:
+        backend = Qwen3ASRBackend()
+        fake_torch = types.SimpleNamespace(cuda=types.SimpleNamespace(is_available=lambda: False))
+        pipeline_calls: list[dict[str, object]] = []
+        transcribe_calls: list[dict[str, object]] = []
+
+        def _pipeline(**kwargs: object):
+            pipeline_calls.append(kwargs)
+
+            def _transcribe(audio_path: str, return_timestamps: bool):
+                transcribe_calls.append(
+                    {
+                        "audio_path": audio_path,
+                        "return_timestamps": return_timestamps,
+                    }
+                )
+                return {
+                    "chunks": [
+                        {"timestamp": (0.0, 0.9), "text": "variant line one"},
+                        {"timestamp": (1.0, 2.5), "text": "variant line two"},
+                    ]
+                }
+
+            return _transcribe
+
+        fake_transformers = types.SimpleNamespace(pipeline=_pipeline)
+
+        def _fake_import(name: str):
+            if name == "torch":
+                return fake_torch
+            if name == "transformers":
+                return fake_transformers
+            raise ModuleNotFoundError(name)
+
+        with patch("src.asr.qwen3_asr_backend.import_module", side_effect=_fake_import):
+            backend.transcribe(
+                "in.wav",
+                ASRConfig(
+                    backend_name="qwen3-asr",
+                    model_path=Path("models/Qwen3-ASR-1.7B"),
+                    device="cpu",
+                ),
+            )
+
+        self.assertEqual(len(pipeline_calls), 1)
+        self.assertEqual(
+            pipeline_calls[0],
+            {
+                "task": "automatic-speech-recognition",
+                "model": "models/Qwen3-ASR-1.7B",
+                "device": -1,
+                "trust_remote_code": True,
+            },
+        )
+        self.assertEqual(
+            transcribe_calls,
+            [{"audio_path": "in.wav", "return_timestamps": True}],
+        )
+
+    def test_pipeline_smoke_rejects_non_tuple_timestamps(self) -> None:
+        backend = Qwen3ASRBackend()
+        fake_torch = types.SimpleNamespace(cuda=types.SimpleNamespace(is_available=lambda: False))
+
+        def _pipeline(**kwargs: object):
+            del kwargs
+
+            def _transcribe(audio_path: str, return_timestamps: bool):
+                del audio_path
+                del return_timestamps
+                return {
+                    "chunks": [
+                        {
+                            "timestamp": [0.0, 1.0],
+                            "text": "invalid list timestamp should fail",
+                        }
+                    ]
+                }
+
+            return _transcribe
+
+        fake_transformers = types.SimpleNamespace(pipeline=_pipeline)
+
+        def _fake_import(name: str):
+            if name == "torch":
+                return fake_torch
+            if name == "transformers":
+                return fake_transformers
+            raise ModuleNotFoundError(name)
+
+        with patch("src.asr.qwen3_asr_backend.import_module", side_effect=_fake_import):
+            with self.assertRaisesRegex(ValueError, "invalid timestamp format"):
+                backend.transcribe(
+                    "in.wav",
+                    ASRConfig(
+                        backend_name="qwen3-asr",
+                        model_path=Path("models/Qwen3-ASR-0.6B"),
+                        device="cpu",
+                    ),
+                )
+
     def test_missing_dependency_has_clear_install_hint(self) -> None:
         backend = Qwen3ASRBackend()
 
