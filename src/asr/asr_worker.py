@@ -6,36 +6,19 @@ import argparse
 import json
 import os
 import sys
-from importlib import import_module
 from pathlib import Path
+
+from .backends import parse_asr_result
+from .config import ASRConfig
+from .faster_whisper_backend import FasterWhisperBackend
 
 
 def _configure_runtime_environment(*, device: str, verbose: bool = False) -> None:
     """Set worker-local progress env guards before ASR backend imports."""
 
+    del device, verbose
     os.environ["TQDM_DISABLE"] = "1"
     os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
-
-    if device != "cuda":
-        return
-
-    try:
-        tqdm_module = import_module("tqdm")
-        tqdm_callable = getattr(tqdm_module, "tqdm", None)
-        if tqdm_callable is not None:
-            setattr(tqdm_callable, "monitor_interval", 0)
-
-        tqdm_std_module = getattr(tqdm_module, "std", None)
-        tqdm_std_class = getattr(tqdm_std_module, "tqdm", None) if tqdm_std_module is not None else None
-        if tqdm_std_class is not None:
-            setattr(tqdm_std_class, "monitor_interval", 0)
-    except Exception as exc:
-        if verbose:
-            print(
-                "asr-worker: warning: failed to disable tqdm monitor thread for cuda: "
-                f"{exc}",
-                flush=True,
-            )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -52,10 +35,11 @@ def build_parser() -> argparse.ArgumentParser:
 def _print_verbose_environment_dump() -> None:
     """Print diagnostic runtime details for worker environment parity checks."""
 
-    ctranslate2_module = import_module("ctranslate2")
+    import ctranslate2
+
     print(f"asr-worker: sys.executable={sys.executable}")
     print(f"asr-worker: sys.path[0:3]={sys.path[0:3]}")
-    print(f"asr-worker: ctranslate2.__file__={getattr(ctranslate2_module, '__file__', 'unknown')}")
+    print(f"asr-worker: ctranslate2.__file__={getattr(ctranslate2, '__file__', 'unknown')}")
     env_subset = {
         "PATH": os.environ.get("PATH"),
         "CUDA_PATH": os.environ.get("CUDA_PATH"),
@@ -67,12 +51,9 @@ def _print_verbose_environment_dump() -> None:
 def _run_minimal_whisper_preflight(*, audio_path: str, model_path: Path, device: str, compute_type: str) -> None:
     """Run a minimal direct faster-whisper call in-worker before backend execution."""
 
-    faster_whisper_module = import_module("faster_whisper")
-    whisper_model_class = getattr(faster_whisper_module, "WhisperModel", None)
-    if whisper_model_class is None:
-        raise ValueError("Installed faster-whisper package is missing WhisperModel.")
+    from faster_whisper import WhisperModel
 
-    model = whisper_model_class(str(model_path), device=device, compute_type=compute_type)
+    model = WhisperModel(str(model_path), device=device, compute_type=compute_type)
     print("asr-worker: minimal preflight transcribe start")
     raw_segments, _info = model.transcribe(audio_path, vad_filter=False)
     first_segment = next(raw_segments, None)
@@ -85,12 +66,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     _configure_runtime_environment(device=args.device, verbose=args.verbose)
 
-    asr_module = import_module("src.asr")
-    asr_config_class = asr_module.ASRConfig
-    backend_class = asr_module.FasterWhisperBackend
-    parse_asr_result = asr_module.parse_asr_result
-
-    backend = backend_class()
+    backend = FasterWhisperBackend()
 
     if args.verbose:
         _print_verbose_environment_dump()
@@ -111,7 +87,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         result = backend.transcribe(
             audio_path=args.audio_path,
-            config=asr_config_class(
+            config=ASRConfig(
                 backend_name="faster-whisper",
                 model_path=Path(args.model_path),
                 device=args.device,

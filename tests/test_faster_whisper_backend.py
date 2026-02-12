@@ -158,7 +158,7 @@ class FasterWhisperBackendTests(unittest.TestCase):
         assert fake_factory.instance is not None
         self.assertEqual(
             fake_factory.instance.calls[0]["kwargs"],
-            {"vad_filter": False, "language": None},
+            {"vad_filter": False, "language": None, "beam_size": 1, "best_of": 1, "temperature": 0.0},
         )
 
 
