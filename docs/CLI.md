@@ -109,6 +109,7 @@ Current declared backends (exact names):
 - `mock` (always enabled)
 - `faster-whisper` (enabled when optional runtime dependencies are installed)
 - `qwen3-asr` (enabled only when optional runtime dependencies are installed)
+- `whisperx` (enabled only when optional runtime dependencies are installed)
 - `qwen3-forced-aligner` (declared alignment backend; rejected in ASR transcription mode)
 
 #### Backend/model family support matrix
@@ -118,6 +119,7 @@ Current declared backends (exact names):
 | `mock` | local fixture JSON (for example `tests/fixtures/mock_asr_valid.json`) | `asr` | none | mock ASR JSON with `segments[]` and `meta` | ASR transcript contract (`ASRResult`) |
 | `faster-whisper` | `Systran/faster-whisper-tiny`, `Systran/faster-whisper-small` | `asr` | `asr_faster_whisper` | CTranslate2 snapshot (for example `model.bin` + tokenizer assets) | ASR transcript contract (`ASRResult`) |
 | `qwen3-asr` | `Qwen/Qwen3-ASR-0.6B`, `Qwen/Qwen3-ASR-1.7B` | `asr` | `asr_qwen3` | Transformers ASR snapshot (`config.json`, tokenizer assets, `tokenizer_config.json`, processor/preprocessor config, model weights) | ASR transcript contract (`ASRResult`) |
+| `whisperx` | local CTranslate2 Whisper snapshots compatible with WhisperX | `asr` | `asr_whisperx` | CTranslate2 snapshot (for example `model.bin` + tokenizer assets) | ASR transcript contract (`ASRResult`) |
 | `qwen3-forced-aligner` | `Qwen/Qwen3-ForcedAligner-0.6B` | `alignment` | `asr_qwen3` | canonical WAV + caller-provided `reference_spans[]` + aligner model snapshot | Alignment contract (`AlignmentResult`, `docs/Data-contracts.md`) |
 | `vibevoice` *(planned)* | `VibeVoice-*` *(TBD)* | `asr` *(planned)* | TBD | TBD | Pending (not implemented) |
 
@@ -130,12 +132,13 @@ Mode gating is explicit and deterministic:
 Backend validation behavior is explicit:
 
 - If you request an **unknown backend name** (not declared), the CLI returns the existing `Unknown ASR backend` error with available enabled backends.
-- If you request a **declared but disabled backend**, the CLI returns an actionable error including exact missing optional dependencies and an install command for the matching extra (for example `pip install 'cutscene-locator[asr_qwen3]'`).
+- If you request a **declared but disabled backend**, the CLI returns an actionable error including exact missing optional dependencies and an install command for the matching extra (for example `pip install 'cutscene-locator[asr_qwen3]'` or `pip install 'cutscene-locator[asr_whisperx]'`).
 
 Install extras:
 
 - `pip install 'cutscene-locator[asr_faster_whisper]'`
 - `pip install 'cutscene-locator[asr_qwen3]'`
+- `pip install 'cutscene-locator[asr_whisperx]'`
 
 Backend dependency expectations:
 
@@ -150,6 +153,9 @@ Backend dependency expectations:
 - `qwen3-forced-aligner`
   - Install: `pip install 'cutscene-locator[asr_qwen3]'`
   - Includes: `torch`, `transformers`, `huggingface_hub`.
+- `whisperx`
+  - Install: `pip install 'cutscene-locator[asr_whisperx]'`
+  - Includes: `whisperx`, `torch`, `huggingface_hub`.
 
 Default:
 
@@ -214,6 +220,9 @@ Backend-specific compatibility caveats:
   - Accepted model-id examples include `Qwen/Qwen3-ASR-0.6B` and `Qwen/Qwen3-ASR-1.7B`.
   - `--model-id` must resolve to a full Transformers ASR snapshot containing `config.json`, tokenizer assets, `tokenizer_config.json`, processor/preprocessor config (`processor_config.json` or `preprocessor_config.json`), and model weights.
   - Incomplete local folders are rejected with deterministic validation errors.
+- `whisperx`
+  - `--model-id` must resolve to a local CTranslate2 Whisper snapshot directory containing `config.json`, `model.bin`, and tokenizer/vocabulary assets.
+  - Standard Transformers checkpoints are rejected by deterministic snapshot validation.
 
 ### `--revision <revision>`
 
