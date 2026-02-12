@@ -137,7 +137,7 @@ def _normalize_qwen_segments(raw_result: Any) -> list[dict[str, float | str]]:
                 "segment_id": f"seg_{index:04d}",
                 "start": float(start),
                 "end": float(end),
-                "text": text.strip(),
+                "text": text,
             }
         )
 

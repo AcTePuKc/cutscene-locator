@@ -38,6 +38,7 @@ def normalize_asr_segments_for_contract(
     - negative, NaN, and infinite timestamps are rejected
     - end must be greater than or equal to start; zero-length entries are dropped
     - final ordering is stable and deterministic by (start, end, original_index)
+    - text payload is preserved exactly as provided by backend output
     """
 
     normalized: list[tuple[Decimal, Decimal, int, dict[str, float | str]]] = []
@@ -63,17 +64,17 @@ def normalize_asr_segments_for_contract(
             continue
 
         normalized_segment: dict[str, float | str] = {
-            "segment_id": segment_id.strip(),
+            "segment_id": segment_id,
             "start": float(start),
             "end": float(end),
-            "text": text.strip(),
+            "text": text,
         }
 
         speaker = segment.get("speaker")
         if speaker is not None:
             if not isinstance(speaker, str) or not speaker.strip():
                 raise TimestampNormalizationError(f"{segment_path}.speaker must be a non-empty string")
-            normalized_segment["speaker"] = speaker.strip()
+            normalized_segment["speaker"] = speaker
 
         normalized.append((start, end, index, normalized_segment))
 

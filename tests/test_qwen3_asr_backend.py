@@ -59,7 +59,7 @@ class Qwen3ASRBackendTests(unittest.TestCase):
         self.assertEqual(result["segments"][0]["segment_id"], "seg_0001")
         self.assertEqual(result["segments"][0]["start"], 0.0)
         self.assertEqual(result["segments"][0]["end"], 1.0)
-        self.assertEqual(result["segments"][0]["text"], "hello")
+        self.assertEqual(result["segments"][0]["text"], " hello ")
 
 
     def test_timestamp_normalization_is_stable_for_backend_edge_fixture(self) -> None:
