@@ -232,20 +232,15 @@ class ASRWorkerTests(unittest.TestCase):
         self.assertEqual(captured["audio_path"], "in.wav")
         self.assertEqual(captured["config"].backend_name, "qwen3-asr")
 
-    def test_main_unsupported_backend_has_deterministic_error_message(self) -> None:
-        with self.assertRaisesRegex(
-            ValueError,
-            "Unsupported --asr-backend 'invalid-backend' for ASR worker. "
-            "Expected one of: faster-whisper, qwen3-asr, whisperx, vibevoice.",
-        ):
+
+    def test_main_requires_asr_backend_argument(self) -> None:
+        with self.assertRaises(SystemExit) as ctx:
             asr_worker.main(
                 [
-                    "--asr-backend",
-                    "invalid-backend",
                     "--audio-path",
                     "in.wav",
                     "--model-path",
-                    "models/invalid-backend",
+                    "models/faster-whisper",
                     "--device",
                     "cpu",
                     "--compute-type",
@@ -254,6 +249,16 @@ class ASRWorkerTests(unittest.TestCase):
                     "out.json",
                 ]
             )
+
+        self.assertEqual(ctx.exception.code, 2)
+
+    def test_build_runtime_backend_unsupported_backend_has_deterministic_error_message(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "Unsupported --asr-backend 'invalid-backend' for ASR worker. "
+            "Expected one of: faster-whisper, qwen3-asr, whisperx, vibevoice.",
+        ):
+            asr_worker._build_runtime_backend("invalid-backend")
 
 
 if __name__ == "__main__":
