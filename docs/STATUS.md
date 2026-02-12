@@ -110,6 +110,7 @@ All agents must update this file when completing or modifying tasks.
 - [x] Worker JSON → validated `ASRResult` parsing in parent CLI + typed metadata access (`cli.py`, `src/asr/backends.py`, `src/asr/__init__.py`, `tests/test_asr.py`)
 - [x] Windows CUDA worker hardening: removed worker `--progress`, set CUDA-only tqdm/HF env in worker pre-import path, and improved native abort diagnostics (`src/asr/asr_worker.py`, `src/asr/faster_whisper_backend.py`, `cli.py`, `tests/test_asr_worker.py`, `tests/test_faster_whisper_backend.py`, `tests/test_cli.py`, `docs/Integration-issues.md`)
 - [x] faster-whisper CUDA preflight diagnostics in CLI (ctranslate2 version/device count + compute-type mitigation guidance) (`cli.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/Integration-issues.md`)
+- [x] ASR worker verbose environment dump + in-worker minimal WhisperModel preflight transcribe (`src/asr/asr_worker.py`, `tests/test_asr_worker.py`)
 
 ### Device handling
 
@@ -218,6 +219,7 @@ All agents must update this file when completing or modifying tasks.
 - 2026-02-11 – Fixed faster-whisper 1.2.1 worker crash by removing unsupported `progress` transcribe kwarg while preserving CUDA subprocess isolation (`src/asr/faster_whisper_backend.py`, `tests/test_faster_whisper_backend.py`, `docs/STATUS.md`).
 
 - 2026-02-11 – Added transcribe kwarg signature filtering guard in faster-whisper backend to prevent runtime kwarg incompatibilities across versions (`src/asr/faster_whisper_backend.py`, `tests/test_faster_whisper_backend.py`, `docs/STATUS.md`).
+- 2026-02-11 – Added ASR worker verbose runtime dump (`sys.executable`, `sys.path`, `ctranslate2.__file__`, env subset) plus minimal in-worker WhisperModel transcribe preflight before backend execution (`src/asr/asr_worker.py`, `tests/test_asr_worker.py`, `docs/STATUS.md`).
 
 - 2026-02-11 – Hardened Windows CUDA faster-whisper worker by removing worker progress arg, setting CUDA tqdm/HF env pre-import, tightening worker/parent ASRResult typing, and improving native-abort diagnostics (`src/asr/asr_worker.py`, `src/asr/faster_whisper_backend.py`, `cli.py`, `tests/test_asr_worker.py`, `tests/test_faster_whisper_backend.py`, `tests/test_cli.py`, `docs/Integration-issues.md`, `docs/STATUS.md`).
 - 2026-02-11 – Added faster-whisper CUDA preflight diagnostics (ctranslate2 version/device count/device/compute-type) and strengthened CUDA abort guidance with float32-first + compatibility matrix note (`cli.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/Integration-issues.md`, `docs/STATUS.md`).
