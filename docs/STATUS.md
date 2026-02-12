@@ -171,6 +171,7 @@ Contract notes:
 
 ## Milestone 3 – Quality and tooling
 
+- [x] CLI docs/parser flag parity consistency test (`tests/test_docs_consistency.py`, `docs/CLI.md`, `cli.py`)
 - [ ] Unit test coverage for core modules
 - [ ] Test fixtures (audio + script)
 - [ ] Integration test (optional, gated)
@@ -198,6 +199,8 @@ Contract notes:
 ---
 
 ## Change log (manual)
+
+- 2026-02-12 – Brought `docs/CLI.md` into parser parity by documenting every `build_parser()` flag with defaults/valid ranges/backend applicability, and added deterministic docs consistency test to fail on CLI/docs drift (`docs/CLI.md`, `tests/test_docs_consistency.py`, `cli.py`, `docs/STATUS.md`).
 
 > Keep this short. One line per meaningful change.
 

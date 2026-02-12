@@ -58,5 +58,61 @@ class DocsConsistencyTests(unittest.TestCase):
                     self.assertIn(item["milestone_checkbox"], milestone_two_section)
 
 
+class DocsCliFlagParityTests(unittest.TestCase):
+    def test_cli_parser_flags_have_documented_sections(self) -> None:
+        from cli import build_parser
+
+        parser = build_parser()
+        documented = Path("docs/CLI.md").read_text(encoding="utf-8")
+
+        expected_headings: dict[str, str] = {
+            "--input": "### `--input`",
+            "--script": "### `--script`",
+            "--out": "### `--out`",
+            "--asr-backend": "### `--asr-backend <name>`",
+            "--mock-asr": "### `--mock-asr <file>`",
+            "--model-path": "### `--model-path <path>`",
+            "--model-id": "### `--model-id <repo_id>`",
+            "--revision": "### `--revision <revision>`",
+            "--auto-download": "### `--auto-download <tiny|base|small>`",
+            "--device": "### `--device <cpu|cuda|auto>`",
+            "--compute-type": "### `--compute-type <float16|float32|auto>`",
+            "--chunk": "### `--chunk <seconds>`",
+            "--scene-gap": "### `--scene-gap <seconds>`",
+            "--ffmpeg-path": "### `--ffmpeg-path <path>`",
+            "--keep-wav": "### `--keep-wav`",
+            "--verbose": "### `--verbose`",
+            "--version": "### `--version`",
+            "--match-threshold": "### `--match-threshold <float>`",
+            "--match-quick-threshold": "### `--match-quick-threshold <float>`",
+            "--match-length-bucket-size": "### `--match-length-bucket-size <int>`",
+            "--match-max-length-bucket-delta": "### `--match-max-length-bucket-delta <int>`",
+            "--match-monotonic-window": "### `--match-monotonic-window <int>`",
+            "--match-progress-every": "### `--match-progress-every <int>`",
+            "--asr-vad-filter": "### `--asr-vad-filter <on|off>`",
+            "--asr-merge-short-segments": "### `--asr-merge-short-segments <seconds>`",
+            "--asr-language": "### `--asr-language <language>`",
+            "--asr-beam-size": "### `--asr-beam-size <int>`",
+            "--asr-temperature": "### `--asr-temperature <float>`",
+            "--asr-best-of": "### `--asr-best-of <int>`",
+            "--asr-no-speech-threshold": "### `--asr-no-speech-threshold <float>`",
+            "--asr-logprob-threshold": "### `--asr-logprob-threshold <float>`",
+            "--progress": "### `--progress <on|off>`",
+        }
+
+        parser_flags = sorted(
+            option
+            for action in parser._actions
+            for option in action.option_strings
+            if option.startswith("--") and option not in {"--help"}
+        )
+
+        self.assertEqual(sorted(expected_headings), parser_flags)
+
+        for flag, heading in expected_headings.items():
+            with self.subTest(flag=flag):
+                self.assertIn(heading, documented)
+
+
 if __name__ == "__main__":
     unittest.main()

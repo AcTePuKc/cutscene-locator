@@ -40,6 +40,10 @@ Accepted formats:
 
 If video is provided, audio is extracted using ffmpeg.
 
+- Default: none (required)
+- Valid values: path to a single input media file
+- Backend applicability: all backends (pre-ASR ingest step)
+
 ---
 
 ### `--script`
@@ -56,6 +60,10 @@ Must contain at least:
 - `id`
 - `original`
 
+- Default: none (required)
+- Valid values: path to `.tsv` or `.csv` containing required columns
+- Backend applicability: all backends (matching/alignment requires script rows)
+
 ---
 
 ### `--out`
@@ -65,6 +73,10 @@ Output directory.
 - Created if it does not exist.
 - Temporary files are written under:
   - `<out>/_tmp/`
+
+- Default: none (required)
+- Valid values: writable directory path
+- Backend applicability: all backends (common export/output path)
 
 ---
 
@@ -76,6 +88,8 @@ Chunk size in seconds.
 
 - Default: `300`
 - Use `0` to disable chunking.
+- Valid range: integer `>= 0`
+- Backend applicability: all backends (preprocessing before ASR/alignment)
 
 Example:
 
@@ -92,6 +106,8 @@ Example:
 Time gap threshold for starting a new scene.
 
 - Default: `10`
+- Valid range: integer (recommended `>= 0`)
+- Backend applicability: all backends (scene reconstruction after matching)
 
 ---
 
@@ -169,6 +185,10 @@ Default:
 
 ```
 
+- Default: `mock`
+- Valid values: declared backend names from registry (`mock`, `faster-whisper`, `qwen3-asr`, `whisperx`, `vibevoice`, and alignment-only backends such as `qwen3-forced-aligner` that are rejected in ASR mode)
+- Backend applicability: selector for backend-specific execution path
+
 ---
 
 ### `--mock-asr <file>`
@@ -184,6 +204,10 @@ Example:
 --asr-backend mock --mock-asr tests/fixtures/asr.json
 
 ```
+
+- Default: none
+- Valid values: path to deterministic mock ASR JSON contract fixture
+- Backend applicability: required for `mock`; ignored by `faster-whisper`/`qwen3-asr`/`whisperx`/`vibevoice`
 
 ---
 
@@ -203,6 +227,10 @@ Model loading policy is deterministic and loaded only when requested:
 4. Else resolve via local `models/` directory convention.
 
 If the selected backend/model artifacts are missing or invalid, the CLI fails with a clear error. It never silently changes backend, model family, or mode.
+
+- Default: none
+- Valid values: existing local filesystem path
+- Backend applicability: model-loading backends (`faster-whisper`, `qwen3-asr`, `whisperx`, `vibevoice`); not used by `mock`
 
 ### `--model-id <repo_id>`
 
@@ -228,6 +256,22 @@ Backend-specific compatibility caveats:
   - `--model-id` must resolve to a local CTranslate2 Whisper snapshot directory containing `config.json`, `model.bin`, and tokenizer/vocabulary assets.
   - Standard Transformers checkpoints are rejected by deterministic snapshot validation.
 
+- Default: none
+- Valid values: non-empty Hugging Face repo id string
+- Backend applicability: model-loading backends (`faster-whisper`, `qwen3-asr`, `whisperx`, `vibevoice`); not useful for `mock`
+
+### `--auto-download <tiny|base|small>`
+
+Optional convenience selector for deterministic backend-specific model-id mapping.
+
+- Default: none
+- Valid choices: `tiny`, `base`, `small`
+- Validation rule: mutually exclusive with `--model-path` and `--model-id`
+- Backend applicability:
+  - `faster-whisper`: supported (mapped to known faster-whisper repos)
+  - `qwen3-asr` / `whisperx` / `vibevoice`: currently no documented size mapping; use `--model-id` or `--model-path`
+  - `mock`: not applicable
+
 ### `--revision <revision>`
 
 Optional Hugging Face revision when used with `--model-id`.
@@ -235,9 +279,17 @@ Optional Hugging Face revision when used with `--model-id`.
 - Example: `--revision main`
 - If omitted, cache folder uses `default`.
 
+- Default: `default` cache key when omitted
+- Valid values: non-empty revision string (branch/tag/commit)
+- Backend applicability: applies only with `--model-id` model-resolution flow
+
 ### `--device <cpu|cuda|auto>`
 
 Selects ASR execution device.
+
+- Default: `auto`
+- Valid choices: `cpu`, `cuda`, `auto`
+- Backend applicability: runtime ASR backends (`faster-whisper`, `qwen3-asr`, `whisperx`, `vibevoice`); no effect for `mock`
 
 ### `--compute-type <float16|float32|auto>`
 
@@ -256,6 +308,74 @@ When `--asr-backend faster-whisper` is selected, CLI prints an ASR preflight lin
 
 If CUDA ASR aborts, first retry with `--compute-type float32`, then verify torch/ctranslate2 CUDA wheel compatibility (see faster-whisper issue #1086).
 
+- Default: `auto`
+- Valid choices: `float16`, `float32`, `auto`
+- Backend applicability: primarily `faster-whisper`; `whisperx` consumes resolved value; `qwen3-asr`/`vibevoice` ignore this setting
+
+### `--asr-language <language>`
+
+Optional ASR language hint.
+
+- Default: backend/runtime default (`None` at CLI level)
+- Valid values: language code/name string accepted by selected backend runtime
+- Backend applicability:
+  - `faster-whisper`: passed to `model.transcribe(language=...)`
+  - `whisperx`: passed at model-load time
+  - `vibevoice`: passed to runtime transcription call
+  - `qwen3-asr`: currently not consumed by backend implementation
+  - `mock`: not applicable
+
+### `--asr-beam-size <int>`
+
+Beam search width for ASR decoding where supported.
+
+- Default: `1`
+- Valid range: integer `>= 1`
+- Backend applicability:
+  - `faster-whisper`: consumed when value differs from default
+  - `qwen3-asr` / `whisperx` / `vibevoice` / `mock`: currently not consumed
+
+### `--asr-temperature <float>`
+
+Sampling temperature for ASR decoding where supported.
+
+- Default: `0.0`
+- Valid range: float `>= 0.0`
+- Backend applicability:
+  - `faster-whisper`: always passed
+  - `qwen3-asr` / `whisperx` / `vibevoice` / `mock`: currently not consumed
+
+### `--asr-best-of <int>`
+
+Number of sampling candidates for temperature-based decoding.
+
+- Default: `1`
+- Valid range: integer `>= 1`
+- Deterministic guard: when `--asr-temperature` is `0.0`, `--asr-best-of` must remain `1`
+- Backend applicability:
+  - `faster-whisper`: passed only when `temperature > 0.0` and `best_of != 1`
+  - `qwen3-asr` / `whisperx` / `vibevoice` / `mock`: currently not consumed
+
+### `--asr-no-speech-threshold <float>`
+
+Optional silence/no-speech detection threshold.
+
+- Default: unset (`None`)
+- Valid range: float in `[0.0, 1.0]`
+- Backend applicability:
+  - `faster-whisper`: forwarded when set
+  - `qwen3-asr` / `whisperx` / `vibevoice` / `mock`: currently not consumed
+
+### `--asr-logprob-threshold <float>`
+
+Optional low-confidence token log-probability threshold.
+
+- Default: unset (`None`)
+- Valid range: float in `[0.0, 1.0]`
+- Backend applicability:
+  - `faster-whisper`: forwarded when set
+  - `qwen3-asr` / `whisperx` / `vibevoice` / `mock`: currently not consumed
+
 ### `--progress <on|off>`
 
 Controls progress behavior for ASR/model-resolution operations.
@@ -266,6 +386,8 @@ Controls progress behavior for ASR/model-resolution operations.
 - Windows default: `off` (sets `HF_HUB_DISABLE_PROGRESS_BARS=1`)
 - Non-Windows default: `on`
 - Useful for avoiding native aborts in tqdm monitor threads on some Windows environments.
+- Valid choices: `on`, `off`
+- Backend applicability: model download progress + runtime guard behavior (not transcription quality)
 
 ---
 
@@ -275,6 +397,8 @@ Minimum confidence score for “high-confidence” matches.
 
 - Default: `0.85`
 - Lower scores are still exported but flagged.
+- Valid range: float (recommended `[0.0, 1.0]`)
+- Backend applicability: all backends (post-ASR matching)
 
 ### `--match-quick-threshold <float>`
 
@@ -282,18 +406,24 @@ Quick-filter minimum token-overlap score used before expensive fuzzy scoring.
 
 - Default: `0.25`
 - Set to `0.0` to disable quick-filter pruning.
+- Valid range: float (recommended `[0.0, 1.0]`)
+- Backend applicability: all backends (post-ASR matching)
 
 ### `--match-length-bucket-size <int>`
 
 Token-count bucket size used by matching candidate indexes.
 
 - Default: `4`
+- Valid range: integer `> 0`
+- Backend applicability: all backends (post-ASR matching)
 
 ### `--match-max-length-bucket-delta <int>`
 
 How many neighboring length buckets to include when searching candidates.
 
 - Default: `3`
+- Valid range: integer `>= 0`
+- Backend applicability: all backends (post-ASR matching)
 
 ### `--match-monotonic-window <int>`
 
@@ -301,18 +431,24 @@ Optional monotonic alignment window in script-row indexes.
 
 - Default: `0` (disabled)
 - When > 0, later segments search only from previous best row forward by this window, which can reduce comparisons and enforce timeline consistency.
+- Valid range: integer `>= 0`
+- Backend applicability: all backends (post-ASR matching)
 
 ### `--match-progress-every <int>`
 
 Verbose matching progress interval (segments).
 
 - Default: `50`
+- Valid range: integer `> 0`
+- Backend applicability: all backends (verbose matching logs)
 
 ### `--asr-vad-filter <on|off>`
 
 Controls ASR backend VAD segmentation filter where supported.
 
 - Default: `off`
+- Valid choices: `on`, `off`
+- Backend applicability: `faster-whisper` currently consumes this setting; other backends currently ignore it
 
 ### `--asr-merge-short-segments <seconds>`
 
@@ -320,6 +456,8 @@ Post-ASR deterministic merge threshold for short adjacent segments.
 
 - Default: `0.0` (disabled)
 - When > 0, segments shorter than threshold are merged into the previous segment to stabilize segment counts across runs/devices.
+- Valid range: float `>= 0.0`
+- Backend applicability: currently applied in `faster-whisper` post-processing path
 
 ---
 
@@ -328,6 +466,10 @@ Post-ASR deterministic merge threshold for short adjacent segments.
 Do not delete intermediate WAV files.
 
 Useful for debugging ffmpeg preprocessing.
+
+- Default: disabled (`False`)
+- Valid values: switch flag (present/absent)
+- Backend applicability: all backends (preprocessing artifact retention)
 
 ---
 
@@ -339,11 +481,19 @@ If not provided:
 
 - `ffmpeg` is resolved from PATH.
 
+- Default: auto-resolve from `PATH`
+- Valid values: executable path to `ffmpeg`
+- Backend applicability: all backends (mandatory media preprocessing dependency)
+
 ---
 
 ### `--verbose`
 
 Enable verbose logging.
+
+- Default: disabled (`False`)
+- Valid values: switch flag (present/absent)
+- Backend applicability: all backends
 
 ---
 
@@ -351,11 +501,19 @@ Enable verbose logging.
 
 Print version and exit.
 
+- Default: disabled (`False`)
+- Valid values: switch flag (present/absent)
+- Backend applicability: global CLI behavior
+
 ---
 
 ### `--help`
 
 Print help and exit.
+
+- Default: disabled (`False`)
+- Valid values: switch flag (present/absent)
+- Backend applicability: global CLI behavior
 
 ---
 
@@ -403,3 +561,11 @@ Given the same:
 - configuration
 
 The CLI must produce identical outputs.
+
+- Default: `mock`
+- Valid values: declared backend names from registry (`mock`, `faster-whisper`, `qwen3-asr`, `whisperx`, `vibevoice`, and alignment-only backends such as `qwen3-forced-aligner` that are rejected in ASR mode)
+- Backend applicability: selector for backend-specific execution path
+
+- Default: none
+- Valid values: path to deterministic mock ASR JSON contract fixture
+- Backend applicability: required for `mock`; ignored by `faster-whisper`/`qwen3-asr`/`whisperx`/`vibevoice`
