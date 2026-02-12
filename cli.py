@@ -73,6 +73,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--match-progress-every", type=int, default=50)
     parser.add_argument("--asr-vad-filter", choices=("on", "off"), default="off")
     parser.add_argument("--asr-merge-short-segments", type=float, default=0.0)
+    parser.add_argument("--asr-language")
+    parser.add_argument("--asr-beam-size", type=int, default=1)
+    parser.add_argument("--asr-temperature", type=float, default=0.0)
+    parser.add_argument("--asr-best-of", type=int, default=1)
+    parser.add_argument("--asr-no-speech-threshold", type=float, default=None)
+    parser.add_argument("--asr-logprob-threshold", type=float, default=None)
     parser.add_argument("--progress", choices=("on", "off"), default=None)
     return parser
 
@@ -142,6 +148,20 @@ def _validate_asr_options(args: argparse.Namespace) -> None:
         raise CliError("Invalid --match-monotonic-window value. Expected an integer greater than or equal to 0.")
     if args.asr_merge_short_segments < 0:
         raise CliError("Invalid --asr-merge-short-segments value. Expected a float greater than or equal to 0.")
+
+    if args.asr_beam_size < 1:
+        raise CliError("Invalid --asr-beam-size value. Expected an integer greater than or equal to 1.")
+    if args.asr_temperature < 0.0:
+        raise CliError("Invalid --asr-temperature value. Expected a float greater than or equal to 0.0.")
+    if args.asr_best_of < 1:
+        raise CliError("Invalid --asr-best-of value. Expected an integer greater than or equal to 1.")
+    if args.asr_temperature == 0.0 and args.asr_best_of > 1:
+        raise CliError("Invalid ASR decode options: --asr-best-of must be 1 when --asr-temperature is 0.0.")
+
+    if args.asr_no_speech_threshold is not None and not (0.0 <= args.asr_no_speech_threshold <= 1.0):
+        raise CliError("Invalid --asr-no-speech-threshold value. Expected a float in [0.0, 1.0].")
+    if args.asr_logprob_threshold is not None and not (0.0 <= args.asr_logprob_threshold <= 1.0):
+        raise CliError("Invalid --asr-logprob-threshold value. Expected a float in [0.0, 1.0].")
 
     if args.revision is not None and args.model_id is None:
         raise CliError("--revision requires --model-id.")
@@ -217,7 +237,19 @@ def _run_faster_whisper_subprocess(
             asr_config.compute_type,
             "--result-path",
             str(result_path),
+            "--asr-beam-size",
+            str(asr_config.beam_size),
+            "--asr-temperature",
+            str(asr_config.temperature),
+            "--asr-best-of",
+            str(asr_config.best_of),
         ]
+        if asr_config.language is not None:
+            cmd.extend(["--asr-language", asr_config.language])
+        if asr_config.no_speech_threshold is not None:
+            cmd.extend(["--asr-no-speech-threshold", str(asr_config.no_speech_threshold)])
+        if asr_config.log_prob_threshold is not None:
+            cmd.extend(["--asr-logprob-threshold", str(asr_config.log_prob_threshold)])
         if verbose:
             cmd.append("--verbose")
 
@@ -334,7 +366,12 @@ def main(
             auto_download=args.auto_download,
             device=args.device,
             compute_type=args.compute_type,
-            language=None,
+            language=args.asr_language,
+            beam_size=args.asr_beam_size,
+            temperature=args.asr_temperature,
+            best_of=1 if args.asr_temperature == 0.0 else args.asr_best_of,
+            no_speech_threshold=args.asr_no_speech_threshold,
+            log_prob_threshold=args.asr_logprob_threshold,
             vad_filter=args.asr_vad_filter == "on",
             merge_short_segments_seconds=args.asr_merge_short_segments,
             ffmpeg_path=ffmpeg_binary,
@@ -395,6 +432,11 @@ def main(
                 device=asr_config.device,
                 compute_type=asr_config.compute_type,
                 language=asr_config.language,
+                beam_size=asr_config.beam_size,
+                temperature=asr_config.temperature,
+                best_of=asr_config.best_of,
+                no_speech_threshold=asr_config.no_speech_threshold,
+                log_prob_threshold=asr_config.log_prob_threshold,
                 vad_filter=asr_config.vad_filter,
                 merge_short_segments_seconds=asr_config.merge_short_segments_seconds,
                 ffmpeg_path=asr_config.ffmpeg_path,
@@ -497,6 +539,9 @@ def main(
             f"model_path={resolved_model_path if resolved_model_path is not None else asr_config.model_path} "
             f"model_id={asr_config.model_id} revision={asr_config.revision} "
             f"auto_download={asr_config.auto_download} download_progress={args.progress} "
+            f"language={asr_config.language} beam_size={asr_config.beam_size} temperature={asr_config.temperature} "
+            f"best_of={asr_config.best_of} no_speech_threshold={asr_config.no_speech_threshold} "
+            f"log_prob_threshold={asr_config.log_prob_threshold} "
             f"vad_filter={asr_config.vad_filter} merge_short_segments={asr_config.merge_short_segments_seconds}"
         )
         print(

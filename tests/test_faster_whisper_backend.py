@@ -123,7 +123,7 @@ class FasterWhisperBackendTests(unittest.TestCase):
         self.assertEqual(fake_factory.instance.compute_type, "float16")
         self.assertEqual(
             fake_factory.instance.calls[0]["kwargs"],
-            {"vad_filter": False, "language": None},
+            {"vad_filter": False, "temperature": 0.0},
         )
 
     def test_cuda_transcribe_uses_no_progress_kwargs(self) -> None:
@@ -158,7 +158,7 @@ class FasterWhisperBackendTests(unittest.TestCase):
         assert fake_factory.instance is not None
         self.assertEqual(
             fake_factory.instance.calls[0]["kwargs"],
-            {"vad_filter": False, "language": None, "beam_size": 1, "best_of": 1, "temperature": 0.0},
+            {"vad_filter": False, "temperature": 0.0},
         )
 
 
@@ -210,7 +210,7 @@ class FasterWhisperBackendTests(unittest.TestCase):
         self.assertEqual(result["segments"][0]["text"], "No kwargs")
         self.assertTrue(
             any(
-                "filtered unsupported transcribe kwargs: language, vad_filter" in log
+                "filtered unsupported transcribe kwargs: language, temperature, vad_filter" in log
                 for log in logs
             )
         )
@@ -235,7 +235,34 @@ class FasterWhisperBackendTests(unittest.TestCase):
                         ),
                     )
 
-        self.assertIn("asr: transcribe kwargs={'vad_filter': False, 'language': 'en'}", logs)
+        self.assertIn("asr: transcribe kwargs={'vad_filter': False, 'temperature': 0.0, 'language': 'en'}", logs)
+
+
+
+    def test_temperature_zero_does_not_pass_best_of_even_if_configured(self) -> None:
+        backend = FasterWhisperBackend()
+        fake_factory = _FakeWhisperModelFactory()
+        fake_module = types.SimpleNamespace(WhisperModel=fake_factory)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = _create_fake_model_dir(Path(temp_dir))
+            with patch("src.asr.faster_whisper_backend.import_module", return_value=fake_module):
+                with patch("src.asr.faster_whisper_backend.version", return_value="1.2.1"):
+                    backend.transcribe(
+                        "in.wav",
+                        ASRConfig(
+                            backend_name="faster-whisper",
+                            model_path=model_path,
+                            best_of=5,
+                            temperature=0.0,
+                        ),
+                    )
+
+        self.assertIsNotNone(fake_factory.instance)
+        assert fake_factory.instance is not None
+        passed_kwargs = fake_factory.instance.calls[0]["kwargs"]
+        self.assertNotIn("progress", passed_kwargs)
+        self.assertNotIn("best_of", passed_kwargs)
 
 
     def test_merge_short_segments_merges_adjacent_short_segments(self) -> None:

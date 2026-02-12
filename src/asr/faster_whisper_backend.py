@@ -114,10 +114,18 @@ class FasterWhisperBackend:
 
         transcribe_kwargs: dict[str, object] = {
             "vad_filter": config.vad_filter,
-            "language": config.language if config.language is not None else None,
+            "temperature": config.temperature,
         }
-        if resolved_device == "cuda":
-            transcribe_kwargs.update({"beam_size": 1, "best_of": 1, "temperature": 0.0})
+        if config.language is not None:
+            transcribe_kwargs["language"] = config.language
+        if config.beam_size != 1:
+            transcribe_kwargs["beam_size"] = config.beam_size
+        if config.temperature > 0.0 and config.best_of != 1:
+            transcribe_kwargs["best_of"] = config.best_of
+        if config.no_speech_threshold is not None:
+            transcribe_kwargs["no_speech_threshold"] = config.no_speech_threshold
+        if config.log_prob_threshold is not None:
+            transcribe_kwargs["log_prob_threshold"] = config.log_prob_threshold
         transcribe_kwargs = self._filter_supported_transcribe_kwargs(
             model.transcribe,
             transcribe_kwargs,
