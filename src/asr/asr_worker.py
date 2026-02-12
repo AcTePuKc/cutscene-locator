@@ -52,7 +52,7 @@ def _configure_runtime_environment(*, device: str, verbose: bool = False) -> Non
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m src.asr.asr_worker")
-    parser.add_argument("--asr-backend", required=True)
+    parser.add_argument("--asr-backend", required=True, choices=_WORKER_RUNTIME_BACKENDS)
     parser.add_argument("--audio-path", required=True)
     parser.add_argument("--model-path", required=True)
     parser.add_argument("--device", required=True, choices=("cpu", "cuda", "auto"))
@@ -66,6 +66,46 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--asr-logprob-threshold", type=float, default=None)
     parser.add_argument("--verbose", action="store_true")
     return parser
+
+
+def _build_runtime_asr_config(args: argparse.Namespace) -> ASRConfig:
+    common_kwargs = {
+        "backend_name": args.asr_backend,
+        "model_path": Path(args.model_path),
+        "device": args.device,
+        "compute_type": args.compute_type,
+        "language": args.asr_language,
+        "log_callback": print if args.verbose else None,
+    }
+    if args.asr_backend == "faster-whisper":
+        return ASRConfig(
+            **common_kwargs,
+            beam_size=args.asr_beam_size,
+            temperature=args.asr_temperature,
+            best_of=args.asr_best_of,
+            no_speech_threshold=args.asr_no_speech_threshold,
+            log_prob_threshold=args.asr_logprob_threshold,
+        )
+    if args.asr_backend == "qwen3-asr":
+        return ASRConfig(
+            **common_kwargs,
+            beam_size=args.asr_beam_size,
+            temperature=args.asr_temperature,
+            best_of=args.asr_best_of,
+        )
+    if args.asr_backend in {"whisperx", "vibevoice"}:
+        return ASRConfig(
+            **common_kwargs,
+            beam_size=args.asr_beam_size,
+            temperature=args.asr_temperature,
+            best_of=args.asr_best_of,
+        )
+
+    supported = ", ".join(_WORKER_RUNTIME_BACKENDS)
+    raise ValueError(
+        f"Unsupported --asr-backend '{args.asr_backend}' for ASR worker. "
+        f"Expected one of: {supported}."
+    )
 
 
 def _print_verbose_environment_dump(*, backend_name: str) -> None:
@@ -134,22 +174,12 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"asr-worker: warning: minimal preflight failed; continuing: {exc}")
 
     print("asr-worker: backend.transcribe begin", flush=True)
+    runtime_config = _build_runtime_asr_config(args)
+
     try:
         result: ASRResult = backend.transcribe(
             audio_path=args.audio_path,
-            config=ASRConfig(
-                backend_name=args.asr_backend,
-                model_path=Path(args.model_path),
-                device=args.device,
-                compute_type=args.compute_type,
-                language=args.asr_language,
-                beam_size=args.asr_beam_size,
-                temperature=args.asr_temperature,
-                best_of=args.asr_best_of,
-                no_speech_threshold=args.asr_no_speech_threshold,
-                log_prob_threshold=args.asr_logprob_threshold,
-                log_callback=print if args.verbose else None,
-            ),
+            config=runtime_config,
         )
     except Exception:
         print("worker step failed: backend.transcribe", flush=True)
