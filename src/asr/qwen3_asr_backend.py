@@ -11,6 +11,7 @@ from .backends import validate_asr_result
 from .base import ASRResult
 from .config import ASRConfig
 from .device import resolve_device_with_details
+from .timestamp_normalization import normalize_asr_segments_for_contract
 
 
 class Qwen3ASRBackend:
@@ -70,7 +71,10 @@ class Qwen3ASRBackend:
                 "Verify input audio and model compatibility."
             ) from exc
 
-        segments = _normalize_qwen_segments(raw_result)
+        segments = normalize_asr_segments_for_contract(
+            _normalize_qwen_segments(raw_result),
+            source="qwen3-asr",
+        )
 
         backend_version = "unknown"
         try:

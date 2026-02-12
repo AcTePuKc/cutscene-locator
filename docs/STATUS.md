@@ -145,7 +145,7 @@ All agents must update this file when completing or modifying tasks.
 - [x] Declared-vs-enabled backend status metadata + disabled-backend CLI guidance (`src/asr/registry.py`, `cli.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/CLI.md`)
 - [x]  faster-whisper auto-download mapping (tiny/base/small → HF repo)
 - [x]  CUDA enablement notes + detection (ctranslate2/whisper backend)
-- [ ] Timestamp normalization across backends
+- [x] Timestamp normalization across backends (`src/asr/timestamp_normalization.py`, `src/asr/faster_whisper_backend.py`, `src/asr/qwen3_asr_backend.py`, `tests/test_asr.py`, `tests/test_faster_whisper_backend.py`, `tests/test_qwen3_asr_backend.py`, `tests/fixtures/asr_timestamp_edges_faster_whisper.json`, `tests/fixtures/asr_timestamp_edges_qwen3.json`)
 
 ### Advanced alignment
 
@@ -192,6 +192,8 @@ All agents must update this file when completing or modifying tasks.
 - 2026-02-12 – Hardened qwen3-asr model snapshot validation with deterministic required-artifact checks across explicit --model-path, model-id cache hits, and post-download model-id paths; added valid/invalid snapshot layout tests (`src/asr/model_resolution.py`, `tests/test_model_resolution.py`, `docs/STATUS.md`).
 - 2026-02-12 – Refined backend discovery UX by adding structured backend `reason` status, exposing declared backend listing, preserving enabled-only lookup semantics, and improving disabled-backend CLI install guidance/messages with tests/docs updates (`src/asr/registry.py`, `src/asr/__init__.py`, `cli.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/STATUS.md`).
 - 2026-02-12 – Docs sync: updated CLI backend names/dependency extras and `--model-id` compatibility caveats; clarified explicit unchecked Milestone 2 next-work items (`docs/CLI.md`, `docs/STATUS.md`).
+- 2026-02-12 – Added deterministic timestamp normalization contract for real ASR backends (numeric finite seconds, non-negative times, half-up rounding to 6 decimals, stable start/end ordering, zero-length drop, and strict rejection of pathological timings) and covered edge fixtures for empty/overlap/float precision/pathological cases (`src/asr/timestamp_normalization.py`, `src/asr/faster_whisper_backend.py`, `src/asr/qwen3_asr_backend.py`, `tests/test_asr.py`, `tests/test_faster_whisper_backend.py`, `tests/test_qwen3_asr_backend.py`, `tests/fixtures/asr_timestamp_edges_faster_whisper.json`, `tests/fixtures/asr_timestamp_edges_qwen3.json`, `docs/STATUS.md`).
+
 - 2026-02-11 – Milestone 1 Phase 1 CLI skeleton + ffmpeg preflight completed (`cli.py`, `tests/test_cli.py`).
 - 2026-02-11 – Milestone 1 Phase 2 script ingestion + normalization completed (`src/ingest/script_parser.py`, `src/match/normalization.py`, `cli.py`, `tests/test_script_parser.py`, `tests/test_cli.py`).
 

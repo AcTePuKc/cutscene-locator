@@ -1,3 +1,4 @@
+import json
 import tempfile
 import types
 import unittest
@@ -59,6 +60,29 @@ class _FakeWhisperModelNoKwargsFactory:
         self.instance = _FakeWhisperModelNoKwargs(model_path, device, compute_type)
         return self.instance
 
+
+
+
+class _FakeWhisperModelFromFixture:
+    def __init__(self, model_path: str, device: str, compute_type: str, fixture_segments: list[dict[str, object]]) -> None:
+        del model_path
+        del device
+        del compute_type
+        self.fixture_segments = fixture_segments
+
+    def transcribe(self, audio_path: str, **kwargs: object):
+        del audio_path
+        del kwargs
+        segments = [_FakeSegment(float(item["start"]), float(item["end"]), str(item["text"])) for item in self.fixture_segments]
+        return segments, object()
+
+
+class _FakeWhisperModelFromFixtureFactory:
+    def __init__(self, fixture_segments: list[dict[str, object]]) -> None:
+        self.fixture_segments = fixture_segments
+
+    def __call__(self, model_path: str, device: str, compute_type: str) -> _FakeWhisperModelFromFixture:
+        return _FakeWhisperModelFromFixture(model_path, device, compute_type, self.fixture_segments)
 
 def _create_fake_model_dir(base_dir: Path) -> Path:
     model_dir = base_dir / "faster-whisper"
@@ -287,6 +311,27 @@ class FasterWhisperBackendTests(unittest.TestCase):
         self.assertEqual(result["segments"][0]["segment_id"], "seg_0001")
         self.assertIn("Hello there", result["segments"][0]["text"])
         self.assertIn("General Kenobi", result["segments"][0]["text"])
+
+
+    def test_timestamp_normalization_is_stable_for_backend_edge_fixture(self) -> None:
+        backend = FasterWhisperBackend()
+        fixture = json.loads(Path("tests/fixtures/asr_timestamp_edges_faster_whisper.json").read_text(encoding="utf-8"))
+        fake_factory = _FakeWhisperModelFromFixtureFactory(fixture["raw_segments"])
+        fake_module = types.SimpleNamespace(WhisperModel=fake_factory)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = _create_fake_model_dir(Path(temp_dir))
+            with patch("src.asr.faster_whisper_backend.import_module", return_value=fake_module):
+                with patch("src.asr.faster_whisper_backend.version", return_value="1.2.1"):
+                    result = backend.transcribe(
+                        "in.wav",
+                        ASRConfig(
+                            backend_name="faster-whisper",
+                            model_path=model_path,
+                        ),
+                    )
+
+        self.assertEqual(result["segments"], fixture["expected"])
 
 
 if __name__ == "__main__":
