@@ -33,9 +33,29 @@ def _cuda_probe_ctranslate2() -> tuple[bool, str]:
         return False, "installed ctranslate2 build does not expose CUDA runtime support"
 
     try:
-        cuda_device_count = int(cuda_count_getter())
+        raw_cuda_device_count: object = cuda_count_getter()
     except Exception as exc:
         return False, f"ctranslate2 CUDA check failed: {exc}"
+
+    if isinstance(raw_cuda_device_count, bool):
+        cuda_device_count = int(raw_cuda_device_count)
+    elif isinstance(raw_cuda_device_count, int):
+        cuda_device_count = raw_cuda_device_count
+    elif isinstance(raw_cuda_device_count, float | str):
+        try:
+            cuda_device_count = int(raw_cuda_device_count)
+        except (TypeError, ValueError):
+            return (
+                False,
+                "ctranslate2 CUDA check returned a non-numeric device count: "
+                f"{raw_cuda_device_count!r}",
+            )
+    else:
+        return (
+            False,
+            "ctranslate2 CUDA check returned a non-numeric device count: "
+            f"{raw_cuda_device_count!r}",
+        )
 
     if cuda_device_count > 0:
         return True, f"ctranslate2 detected {cuda_device_count} CUDA device(s)"
