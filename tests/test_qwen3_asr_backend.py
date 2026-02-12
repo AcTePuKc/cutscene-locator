@@ -20,6 +20,14 @@ class _FakeQwen3Model:
         }
 
 
+class _TorchModuleWithTo:
+    def __init__(self) -> None:
+        self.to_calls: list[str] = []
+
+    def to(self, device: str) -> None:
+        self.to_calls.append(device)
+
+
 class Qwen3ASRBackendTests(unittest.TestCase):
     def test_model_init_and_transcribe_call_shape(self) -> None:
         backend = Qwen3ASRBackend()
@@ -40,7 +48,9 @@ class Qwen3ASRBackendTests(unittest.TestCase):
             @classmethod
             def from_pretrained(cls, model_path: str, **kwargs: object):
                 from_pretrained_calls.append({"model_path": model_path, **kwargs})
-                return _FakeModel()
+                model = _FakeModel()
+                model.model = _TorchModuleWithTo()
+                return model
 
         fake_qwen_asr = types.SimpleNamespace(Qwen3ASRModel=_FakeQwen3ASRModel)
 
@@ -61,7 +71,6 @@ class Qwen3ASRBackendTests(unittest.TestCase):
             [
                 {
                     "model_path": "models/Qwen3-ASR-1.7B",
-                    "device": "cpu",
                     "torch_dtype": "float32",
                 }
             ],
@@ -92,7 +101,9 @@ class Qwen3ASRBackendTests(unittest.TestCase):
             def from_pretrained(cls, model_path: str, **kwargs: object):
                 del model_path
                 del kwargs
-                return _FakeModel()
+                model = _FakeModel()
+                model.model = _TorchModuleWithTo()
+                return model
 
         fake_qwen_asr = types.SimpleNamespace(Qwen3ASRModel=_FakeQwen3ASRModel)
 
@@ -125,7 +136,9 @@ class Qwen3ASRBackendTests(unittest.TestCase):
             def from_pretrained(cls, model_path: str, **kwargs: object):
                 del model_path
                 del kwargs
-                return _FakeQwen3Model()
+                model = _FakeQwen3Model()
+                model.model = _TorchModuleWithTo()
+                return model
 
         fake_qwen_asr = types.SimpleNamespace(Qwen3ASRModel=_FakeQwen3ASRModel)
 
@@ -183,7 +196,9 @@ class Qwen3ASRBackendTests(unittest.TestCase):
             def from_pretrained(cls, model_path: str, **kwargs: object):
                 del model_path
                 del kwargs
-                return _FakeQwen3Model()
+                model = _FakeQwen3Model()
+                model.model = _TorchModuleWithTo()
+                return model
 
         fake_qwen_asr = types.SimpleNamespace(Qwen3ASRModel=_FakeQwen3ASRModel)
 
@@ -201,6 +216,61 @@ class Qwen3ASRBackendTests(unittest.TestCase):
                 )
 
         self.assertIn("Supported options are: language, return_timestamps, device, torch_dtype", str(ctx.exception))
+
+    def test_device_move_fails_with_explicit_loader_mismatch_error(self) -> None:
+        backend = Qwen3ASRBackend()
+
+        class _FakeModelWithoutTo:
+            def transcribe(self, audio_path: str, **kwargs: object):
+                del audio_path
+                del kwargs
+                return {"chunks": [{"timestamp": (0.0, 1.0), "text": "hello"}]}
+
+        class _FakeQwen3ASRModel:
+            @classmethod
+            def from_pretrained(cls, model_path: str, **kwargs: object):
+                del model_path
+                del kwargs
+                return _FakeModelWithoutTo()
+
+        fake_qwen_asr = types.SimpleNamespace(Qwen3ASRModel=_FakeQwen3ASRModel)
+
+        with patch("src.asr.qwen3_asr_backend.import_module", return_value=fake_qwen_asr):
+            with self.assertRaisesRegex(ValueError, "device transfer is unsupported"):
+                backend.transcribe(
+                    "in.wav",
+                    ASRConfig(backend_name="qwen3-asr", model_path=Path("models/qwen3"), device="cpu"),
+                )
+
+    def test_device_move_uses_top_level_to_when_model_attribute_missing(self) -> None:
+        backend = Qwen3ASRBackend()
+        to_calls: list[str] = []
+
+        class _FakeModelWithTo:
+            def to(self, device: str) -> None:
+                to_calls.append(device)
+
+            def transcribe(self, audio_path: str, **kwargs: object):
+                del audio_path
+                del kwargs
+                return {"chunks": [{"timestamp": (0.0, 1.0), "text": "hello"}]}
+
+        class _FakeQwen3ASRModel:
+            @classmethod
+            def from_pretrained(cls, model_path: str, **kwargs: object):
+                del model_path
+                del kwargs
+                return _FakeModelWithTo()
+
+        fake_qwen_asr = types.SimpleNamespace(Qwen3ASRModel=_FakeQwen3ASRModel)
+
+        with patch("src.asr.qwen3_asr_backend.import_module", return_value=fake_qwen_asr):
+            backend.transcribe(
+                "in.wav",
+                ASRConfig(backend_name="qwen3-asr", model_path=Path("models/qwen3"), device="cuda"),
+            )
+
+        self.assertEqual(to_calls, ["cuda"])
 
     def test_timestamp_normalization_is_stable_for_backend_edge_fixture(self) -> None:
         backend = Qwen3ASRBackend()
@@ -220,7 +290,9 @@ class Qwen3ASRBackendTests(unittest.TestCase):
             def from_pretrained(cls, model_path: str, **kwargs: object):
                 del model_path
                 del kwargs
-                return _FakeModel()
+                model = _FakeModel()
+                model.model = _TorchModuleWithTo()
+                return model
 
         fake_qwen_asr = types.SimpleNamespace(Qwen3ASRModel=_FakeQwen3ASRModel)
 
@@ -246,7 +318,9 @@ class Qwen3ASRBackendTests(unittest.TestCase):
             def from_pretrained(cls, model_path: str, **kwargs: object):
                 del model_path
                 del kwargs
-                return _FakeModel()
+                model = _FakeModel()
+                model.model = _TorchModuleWithTo()
+                return model
 
         fake_qwen_asr = types.SimpleNamespace(Qwen3ASRModel=_FakeQwen3ASRModel)
 

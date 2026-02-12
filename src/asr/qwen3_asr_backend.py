@@ -44,10 +44,10 @@ class Qwen3ASRBackend:
 
         _validate_supported_options(config)
 
-        model_init_kwargs: dict[str, object] = {
-            "device": resolved_device,
-            "torch_dtype": _resolve_torch_dtype(config.compute_type),
-        }
+        model_init_kwargs: dict[str, object] = {}
+        resolved_torch_dtype = _resolve_torch_dtype(config.compute_type)
+        if resolved_torch_dtype is not None:
+            model_init_kwargs["torch_dtype"] = resolved_torch_dtype
 
         try:
             model = qwen_model_class.from_pretrained(
@@ -66,6 +66,8 @@ class Qwen3ASRBackend:
                 "confirm this model repo supports qwen_asr Qwen3ASRModel loading; "
                 "and check optional runtime dependencies are installed despite extras installation."
             ) from exc
+
+        _move_model_to_device_or_raise(model, resolved_device)
 
         inference_kwargs: dict[str, object] = {
             "language": config.language,
@@ -106,10 +108,44 @@ class Qwen3ASRBackend:
         )
 
 
-def _resolve_torch_dtype(compute_type: str) -> str:
+def _resolve_torch_dtype(compute_type: str) -> str | None:
     if compute_type == "auto":
         return "auto"
+    if compute_type in {"float16", "float32", "bfloat16"}:
+        return compute_type
     return compute_type
+
+
+def _move_model_to_device_or_raise(model: object, device: str) -> None:
+    candidate_names = ("model",)
+    transfer_candidates: list[tuple[str, object]] = []
+
+    for candidate_name in candidate_names:
+        candidate = getattr(model, candidate_name, None)
+        if candidate is not None:
+            transfer_candidates.append((f"Qwen3ASRModel.{candidate_name}", candidate))
+    transfer_candidates.append(("Qwen3ASRModel", model))
+
+    for candidate_label, candidate in transfer_candidates:
+        to_method = getattr(candidate, "to", None)
+        if not callable(to_method):
+            continue
+
+        try:
+            to_method(device)
+        except Exception as exc:  # pragma: no cover - runtime/API specific
+            raise ValueError(
+                "qwen3-asr model loaded but device transfer failed. "
+                f"Attempted `{candidate_label}.to('{device}')`. "
+                "This indicates a loader/API mismatch between cutscene-locator and the installed qwen_asr runtime."
+            ) from exc
+        return
+
+    raise ValueError(
+        "qwen3-asr model loaded but device transfer is unsupported by installed runtime object. "
+        "Expected `Qwen3ASRModel.model.to(device)` or `Qwen3ASRModel.to(device)` after from_pretrained(). "
+        "This indicates a loader/API mismatch between cutscene-locator and the installed qwen_asr runtime."
+    )
 
 
 def _validate_supported_options(config: ASRConfig) -> None:
