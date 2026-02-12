@@ -222,6 +222,8 @@ Contract notes:
 
 > Keep this short. One line per meaningful change.
 
+- 2026-02-12 – Updated qwen3-asr pipeline initialization failure messaging to match the core model artifact contract (config/tokenizer/tokenizer_config/weights; processor/preprocessor optional) and include concise runtime debugging hints; added backend error-message regression coverage (`src/asr/qwen3_asr_backend.py`, `tests/test_qwen3_asr_backend.py`, `docs/STATUS.md`).
+
 - YYYY-MM-DD – Initial STATUS.md created
 - 2026-02-12 – Fixed static ASR adapter return-path typing by replacing docstring-only `ASRAdapter` protocol methods with explicit ellipsis stubs (signature-preserving), and added adapter-registry coverage to assert each registered adapter exposes callable `transcribe` (`src/asr/adapters.py`, `tests/test_asr_registry.py`, `docs/STATUS.md`).
 - 2026-02-12 – Fixed adapter callback typing contract for injected faster-whisper helper callbacks by introducing explicit keyword-only callback protocols, aligning adapter invocation semantics, and adding CLI/adapter dispatch tests for callback injection paths (`src/asr/adapters.py`, `cli.py`, `tests/test_cli.py`, `tests/test_asr_registry.py`, `docs/STATUS.md`).

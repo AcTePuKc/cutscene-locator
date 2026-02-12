@@ -54,9 +54,12 @@ class Qwen3ASRBackend:
                 f"'{config.model_path}'. Ensure this directory is a compatible Transformers ASR "
                 "snapshot with required artifacts: config.json, tokenizer assets "
                 "(tokenizer.json/tokenizer.model/vocab.json), tokenizer_config.json, "
-                "processor/preprocessor config (processor_config.json or "
-                "preprocessor_config.json), and model weights "
-                "(model.safetensors/pytorch_model.bin or sharded index json)."
+                "and model weights (model.safetensors/pytorch_model.bin or sharded index json). "
+                "processor_config.json / preprocessor_config.json are optional. "
+                "Runtime hints: verify transformers/torch version compatibility; confirm this "
+                "model repo supports Transformers pipeline(task='automatic-speech-recognition') "
+                "loading for qwen3-asr; and check optional runtime dependencies are installed "
+                "despite extras installation."
             ) from exc
 
         try:

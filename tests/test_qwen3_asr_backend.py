@@ -61,6 +61,31 @@ class Qwen3ASRBackendTests(unittest.TestCase):
         self.assertEqual(result["segments"][0]["end"], 1.0)
         self.assertEqual(result["segments"][0]["text"], " hello ")
 
+    def test_model_init_error_mentions_core_contract_and_runtime_hints(self) -> None:
+        backend = Qwen3ASRBackend()
+        fake_transformers = types.SimpleNamespace(
+            pipeline=lambda **kwargs: (_ for _ in ()).throw(RuntimeError("init failed")),
+        )
+
+        with patch("src.asr.qwen3_asr_backend.import_module", return_value=fake_transformers):
+            with self.assertRaisesRegex(ValueError, r"config\.json") as ctx:
+                backend.transcribe(
+                    "in.wav",
+                    ASRConfig(
+                        backend_name="qwen3-asr",
+                        model_path=Path("models/qwen3"),
+                        device="cpu",
+                    ),
+                )
+
+        message = str(ctx.exception)
+        self.assertIn("tokenizer_config.json", message)
+        self.assertIn("processor_config.json / preprocessor_config.json are optional", message)
+        self.assertNotIn("processor/preprocessor config", message)
+        self.assertIn("transformers/torch version compatibility", message)
+        self.assertIn("model repo supports Transformers pipeline", message)
+        self.assertIn("optional runtime dependencies", message)
+
 
     def test_timestamp_normalization_is_stable_for_backend_edge_fixture(self) -> None:
         backend = Qwen3ASRBackend()
