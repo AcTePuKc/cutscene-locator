@@ -221,7 +221,7 @@ Readiness preconditions summary:
 | --- | --- | --- | --- |
 | `faster-whisper` | `faster_whisper.WhisperModel(...)` (CTranslate2 runtime path) | `ctranslate2` | No automatic backend/device switching; rerun the same backend with `--device cpu`. |
 | `qwen3-asr` | `transformers.pipeline(...)` (torch runtime path) | `torch` | No automatic backend/device switching; rerun the same backend with `--device cpu`. |
-| `whisperx` | `whisperx.load_model(..., device=...)` (torch runtime path) | `torch` | No automatic backend/device switching; rerun the same backend with `--device cpu`. |
+| `whisperx` | `whisperx.load_model(..., device=...)` (CTranslate2 Whisper runtime path via WhisperX) | `ctranslate2` | No automatic backend/device switching; rerun the same backend with `--device cpu`. |
 | `vibevoice` | `vibevoice.transcribe_file(..., device=...)` (torch runtime path) | `torch` | No automatic backend/device switching; rerun the same backend with `--device cpu`. |
 
 Common deterministic failure messages:

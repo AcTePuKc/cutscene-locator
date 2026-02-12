@@ -102,9 +102,9 @@ def _cuda_probe_torch() -> tuple[bool, str]:
 def select_cuda_probe(backend_name: str) -> tuple[Callable[[], bool], str]:
     """Return deterministic CUDA checker and probe label for backend runtime."""
 
-    if backend_name == "faster-whisper":
+    if backend_name in {"faster-whisper", "whisperx"}:
         return (lambda: _cuda_probe_ctranslate2()[0]), "ctranslate2"
-    if backend_name in {"qwen3-asr", "whisperx", "vibevoice"}:
+    if backend_name in {"qwen3-asr", "vibevoice"}:
         return (lambda: _cuda_probe_torch()[0]), "torch"
     return (lambda: _cuda_probe_ctranslate2()[0]), "ctranslate2"
 

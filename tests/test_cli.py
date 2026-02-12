@@ -93,7 +93,7 @@ class CliPhaseOneTests(unittest.TestCase):
             self.assertNotIn(forbidden, stdout.getvalue())
 
     def test_asr_preflight_only_includes_backend_probe_label(self) -> None:
-        scenarios = (("faster-whisper", "ctranslate2"), ("qwen3-asr", "torch"))
+        scenarios = (("faster-whisper", "ctranslate2"), ("qwen3-asr", "torch"), ("whisperx", "ctranslate2"))
         for backend_name, expected_probe_label in scenarios:
             with self.subTest(backend=backend_name):
                 stdout = io.StringIO()
