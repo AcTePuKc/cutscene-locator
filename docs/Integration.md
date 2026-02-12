@@ -167,7 +167,7 @@ Forced alignment is a distinct pipeline path and must not be routed through the 
 Forced alignment input:
 
 - canonical audio path
-- known transcript text (script/original text provided by caller)
+- known transcript/script spans (`reference_spans[]` with `ref_id` + `text`) provided by caller
 
 Forced alignment output must conform to the alignment contract in `docs/Data-contracts.md`:
 

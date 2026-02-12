@@ -25,7 +25,7 @@ class ASRRegistryTests(unittest.TestCase):
 
 
     def test_declared_backends_lists_all_names(self) -> None:
-        self.assertEqual(list_declared_backends(), ["faster-whisper", "mock", "qwen3-asr"])
+        self.assertEqual(list_declared_backends(), ["faster-whisper", "mock", "qwen3-asr", "qwen3-forced-aligner"])
 
     def test_registry_reports_disabled_backend_dependencies(self) -> None:
         def fake_find_spec(name: str) -> object | None:
@@ -37,6 +37,7 @@ class ASRRegistryTests(unittest.TestCase):
             statuses = {status.name: status for status in list_backend_status()}
 
         self.assertIn("qwen3-asr", statuses)
+        self.assertIn("qwen3-forced-aligner", statuses)
         qwen_status = statuses["qwen3-asr"]
         self.assertFalse(qwen_status.enabled)
         self.assertEqual(qwen_status.missing_dependencies, ("torch", "transformers"))
@@ -61,11 +62,19 @@ class ASRRegistryTests(unittest.TestCase):
         self.assertFalse(backend.capabilities.supports_word_timestamps)
 
 
-    def test_qwen3_backend_marks_alignment_capability(self) -> None:
+    def test_qwen3_asr_backend_does_not_mark_alignment_capability(self) -> None:
         with patch("importlib.util.find_spec", side_effect=lambda name: object()):
             registry_module = importlib.import_module("src.asr.registry")
             registry_module = importlib.reload(registry_module)
             backend = registry_module.get_backend("qwen3-asr")
+
+        self.assertFalse(backend.capabilities.supports_alignment)
+
+    def test_qwen3_forced_aligner_marks_alignment_capability(self) -> None:
+        with patch("importlib.util.find_spec", side_effect=lambda name: object()):
+            registry_module = importlib.import_module("src.asr.registry")
+            registry_module = importlib.reload(registry_module)
+            backend = registry_module.get_backend("qwen3-forced-aligner")
 
         self.assertTrue(backend.capabilities.supports_alignment)
 

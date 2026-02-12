@@ -98,6 +98,18 @@ All ASR backends must produce output that conforms to this structure.
 
 Forced alignment uses a separate contract from ASR transcript generation.
 
+### Alignment input contract
+
+```json
+{
+  "audio_path": "out/_tmp/audio/input_chunk_000.wav",
+  "reference_spans": [
+    {"ref_id": "M01_001", "text": "You don't get it."},
+    {"ref_id": "M01_002", "text": "Yeah."}
+  ]
+}
+```
+
 ### Alignment JSON schema
 
 ```json
