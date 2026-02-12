@@ -10,12 +10,32 @@ from importlib import import_module
 from pathlib import Path
 
 
-def _configure_runtime_environment(*, device: str) -> None:
+def _configure_runtime_environment(*, device: str, verbose: bool = False) -> None:
     """Set worker-local progress env guards before ASR backend imports."""
 
-    del device
     os.environ["TQDM_DISABLE"] = "1"
     os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+
+    if device != "cuda":
+        return
+
+    try:
+        tqdm_module = import_module("tqdm")
+        tqdm_callable = getattr(tqdm_module, "tqdm", None)
+        if tqdm_callable is not None:
+            setattr(tqdm_callable, "monitor_interval", 0)
+
+        tqdm_std_module = getattr(tqdm_module, "std", None)
+        tqdm_std_class = getattr(tqdm_std_module, "tqdm", None) if tqdm_std_module is not None else None
+        if tqdm_std_class is not None:
+            setattr(tqdm_std_class, "monitor_interval", 0)
+    except Exception as exc:
+        if verbose:
+            print(
+                "asr-worker: warning: failed to disable tqdm monitor thread for cuda: "
+                f"{exc}",
+                flush=True,
+            )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -63,7 +83,7 @@ def _run_minimal_whisper_preflight(*, audio_path: str, model_path: Path, device:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    _configure_runtime_environment(device=args.device)
+    _configure_runtime_environment(device=args.device, verbose=args.verbose)
 
     asr_module = import_module("src.asr")
     asr_config_class = asr_module.ASRConfig
@@ -87,21 +107,38 @@ def main(argv: list[str] | None = None) -> int:
             except Exception as exc:
                 print(f"asr-worker: warning: minimal preflight failed; continuing: {exc}")
 
-    result = backend.transcribe(
-        audio_path=args.audio_path,
-        config=asr_config_class(
-            backend_name="faster-whisper",
-            model_path=Path(args.model_path),
-            device=args.device,
-            compute_type=args.compute_type,
-            log_callback=print if args.verbose else None,
-        ),
-    )
-    serialized_result = parse_asr_result(result, source="faster-whisper worker")
+    print("asr-worker: backend.transcribe begin", flush=True)
+    try:
+        result = backend.transcribe(
+            audio_path=args.audio_path,
+            config=asr_config_class(
+                backend_name="faster-whisper",
+                model_path=Path(args.model_path),
+                device=args.device,
+                compute_type=args.compute_type,
+                log_callback=print if args.verbose else None,
+            ),
+        )
+    except Exception:
+        print("worker step failed: backend.transcribe", flush=True)
+        raise
+    print("asr-worker: backend.transcribe end", flush=True)
+
+    try:
+        serialized_result = parse_asr_result(result, source="faster-whisper worker")
+    except Exception:
+        print("worker step failed: parse_asr_result", flush=True)
+        raise
+    print("asr-worker: parse_asr_result end", flush=True)
 
     result_path = Path(args.result_path)
     result_path.parent.mkdir(parents=True, exist_ok=True)
-    result_path.write_text(json.dumps(serialized_result, ensure_ascii=False), encoding="utf-8")
+    try:
+        result_path.write_text(json.dumps(serialized_result, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        print("worker step failed: write_result_json", flush=True)
+        raise
+    print("asr-worker: write_result_json end", flush=True)
     return 0
 
 

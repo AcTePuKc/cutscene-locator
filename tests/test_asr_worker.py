@@ -26,6 +26,11 @@ class ASRWorkerTests(unittest.TestCase):
         captured_env: dict[str, str | None] = {}
 
         def _import_module(name: str):
+            if name == "tqdm":
+                return types.SimpleNamespace(
+                    tqdm=types.SimpleNamespace(monitor_interval=10),
+                    std=types.SimpleNamespace(tqdm=types.SimpleNamespace(monitor_interval=10)),
+                )
             self.assertEqual(name, "src.asr")
             captured_env["TQDM_DISABLE"] = asr_worker.os.environ.get("TQDM_DISABLE")
             captured_env["HF_HUB_DISABLE_PROGRESS_BARS"] = asr_worker.os.environ.get("HF_HUB_DISABLE_PROGRESS_BARS")
@@ -68,6 +73,24 @@ class ASRWorkerTests(unittest.TestCase):
             asr_worker._configure_runtime_environment(device="cpu")
             self.assertEqual(asr_worker.os.environ.get("TQDM_DISABLE"), "1")
             self.assertEqual(asr_worker.os.environ.get("HF_HUB_DISABLE_PROGRESS_BARS"), "1")
+
+    def test_configure_runtime_environment_disables_tqdm_monitor_for_cuda(self) -> None:
+        fake_tqdm = types.SimpleNamespace(monitor_interval=10)
+        fake_tqdm_std = types.SimpleNamespace(tqdm=types.SimpleNamespace(monitor_interval=10))
+        fake_module = types.SimpleNamespace(tqdm=fake_tqdm, std=fake_tqdm_std)
+
+        with patch("src.asr.asr_worker.import_module", return_value=fake_module):
+            asr_worker._configure_runtime_environment(device="cuda")
+
+        self.assertEqual(fake_tqdm.monitor_interval, 0)
+        self.assertEqual(fake_tqdm_std.tqdm.monitor_interval, 0)
+
+    def test_configure_runtime_environment_tqdm_disable_failure_logs_in_verbose_mode(self) -> None:
+        with patch("src.asr.asr_worker.import_module", side_effect=RuntimeError("boom")):
+            with patch("sys.stdout", new_callable=StringIO) as stdout:
+                asr_worker._configure_runtime_environment(device="cuda", verbose=True)
+
+        self.assertIn("failed to disable tqdm monitor thread for cuda: boom", stdout.getvalue())
 
     def test_main_serializes_validated_asr_result_contract(self) -> None:
         fake_result: ASRResult = {
@@ -147,6 +170,11 @@ class ASRWorkerTests(unittest.TestCase):
                 return fake_result
 
         def _import_module(name: str):
+            if name == "tqdm":
+                return types.SimpleNamespace(
+                    tqdm=types.SimpleNamespace(monitor_interval=10),
+                    std=types.SimpleNamespace(tqdm=types.SimpleNamespace(monitor_interval=10)),
+                )
             if name == "src.asr":
                 return types.SimpleNamespace(
                     ASRConfig=lambda **kwargs: types.SimpleNamespace(**kwargs),
@@ -190,6 +218,10 @@ class ASRWorkerTests(unittest.TestCase):
         self.assertIn("asr-worker: ctranslate2.__file__=/tmp/ctranslate2/__init__.py", output)
         self.assertIn("asr-worker: env={'PATH': '/bin', 'CUDA_PATH': None, 'CUDNN_PATH': None}", output)
         self.assertIn("asr-worker: minimal preflight skipped on cuda", output)
+        self.assertIn("asr-worker: backend.transcribe begin", output)
+        self.assertIn("asr-worker: backend.transcribe end", output)
+        self.assertIn("asr-worker: parse_asr_result end", output)
+        self.assertIn("asr-worker: write_result_json end", output)
 
     def test_main_verbose_cpu_runs_preflight_with_vad_disabled(self) -> None:
         fake_result: ASRResult = {
@@ -216,6 +248,11 @@ class ASRWorkerTests(unittest.TestCase):
                 return fake_result
 
         def _import_module(name: str):
+            if name == "tqdm":
+                return types.SimpleNamespace(
+                    tqdm=types.SimpleNamespace(monitor_interval=10),
+                    std=types.SimpleNamespace(tqdm=types.SimpleNamespace(monitor_interval=10)),
+                )
             if name == "src.asr":
                 return types.SimpleNamespace(
                     ASRConfig=lambda **kwargs: types.SimpleNamespace(**kwargs),
@@ -255,7 +292,12 @@ class ASRWorkerTests(unittest.TestCase):
         self.assertEqual(captured["preflight_vad_filter"], False)
         self.assertIn("asr-worker: minimal preflight transcribe start", stdout.getvalue())
         self.assertIn("asr-worker: minimal preflight first segment observed", stdout.getvalue())
-        self.assertIn("asr-worker: minimal preflight transcribe end", stdout.getvalue())
+        output = stdout.getvalue()
+        self.assertIn("asr-worker: minimal preflight transcribe end", output)
+        self.assertIn("asr-worker: backend.transcribe begin", output)
+        self.assertIn("asr-worker: backend.transcribe end", output)
+        self.assertIn("asr-worker: parse_asr_result end", output)
+        self.assertIn("asr-worker: write_result_json end", output)
 
     def test_main_verbose_preflight_failure_is_non_fatal(self) -> None:
         fake_result: ASRResult = {
@@ -277,6 +319,11 @@ class ASRWorkerTests(unittest.TestCase):
                 return fake_result
 
         def _import_module(name: str):
+            if name == "tqdm":
+                return types.SimpleNamespace(
+                    tqdm=types.SimpleNamespace(monitor_interval=10),
+                    std=types.SimpleNamespace(tqdm=types.SimpleNamespace(monitor_interval=10)),
+                )
             if name == "src.asr":
                 return types.SimpleNamespace(
                     ASRConfig=lambda **kwargs: types.SimpleNamespace(**kwargs),
@@ -312,7 +359,12 @@ class ASRWorkerTests(unittest.TestCase):
 
         self.assertEqual(code, 0)
         self.assertEqual(payload["segments"][0]["segment_id"], "seg_0001")
-        self.assertIn("asr-worker: warning: minimal preflight failed; continuing: preflight boom", stdout.getvalue())
+        output = stdout.getvalue()
+        self.assertIn("asr-worker: warning: minimal preflight failed; continuing: preflight boom", output)
+        self.assertIn("asr-worker: backend.transcribe begin", output)
+        self.assertIn("asr-worker: backend.transcribe end", output)
+        self.assertIn("asr-worker: parse_asr_result end", output)
+        self.assertIn("asr-worker: write_result_json end", output)
 
 
 if __name__ == "__main__":
