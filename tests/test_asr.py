@@ -279,8 +279,20 @@ class CudaProbeSelectionTests(unittest.TestCase):
 
 class ParseASRResultTypingTests(unittest.TestCase):
     def test_parse_accepts_mapping_inputs(self) -> None:
-        class _MappingPayload(dict[str, object]):
-            pass
+        from collections.abc import Mapping
+
+        class _MappingPayload(Mapping[str, object]):
+            def __init__(self, payload: dict[str, object]) -> None:
+                self._payload = payload
+
+            def __getitem__(self, key: str) -> object:
+                return self._payload[key]
+
+            def __iter__(self):
+                return iter(self._payload)
+
+            def __len__(self) -> int:
+                return len(self._payload)
 
         payload = _MappingPayload(
             {

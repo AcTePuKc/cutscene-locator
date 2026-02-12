@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from .base import ASRMeta, ASRResult, ASRSegment
 from .config import ASRConfig
@@ -28,7 +29,7 @@ class MockASRBackend:
         except json.JSONDecodeError as exc:
             raise ValueError(f"Mock ASR JSON parse error in '{self.mock_json_path}': {exc.msg}") from exc
 
-        if not isinstance(raw_data, dict):
+        if not isinstance(raw_data, Mapping):
             raise ValueError(f"{self.mock_json_path}: root must be an object")
 
         raw_meta_obj = raw_data.get("meta")
@@ -69,10 +70,10 @@ def _require_numeric_timestamp(value: Any, *, path: str) -> float | int:
     return value
 
 
-def validate_asr_result(raw_data: Any, *, source: str = "ASR data") -> ASRResult:
+def validate_asr_result(raw_data: object, *, source: str = "ASR data") -> ASRResult:
     """Validate and return ASR JSON that matches the internal data contract."""
 
-    if not isinstance(raw_data, dict):
+    if not isinstance(raw_data, Mapping):
         raise ValueError(f"{source}: root must be an object")
 
     segments_raw = raw_data.get("segments")
