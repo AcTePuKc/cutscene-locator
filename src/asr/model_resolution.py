@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import platform
+import inspect
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from importlib import import_module
@@ -169,21 +170,24 @@ def _snapshot_download_with_progress(
     repo_id: str,
     local_dir: str,
     revision: str | None,
-    progress_enabled: bool,
 ) -> None:
-    kwargs = {
+    kwargs: dict[str, object] = {
         "repo_id": repo_id,
         "local_dir": local_dir,
         "revision": revision,
     }
-    if not progress_enabled:
-        kwargs["local_dir_use_symlinks"] = False
+    signature = inspect.signature(snapshot_download)
+    accepts_var_kwargs = any(
+        parameter.kind == inspect.Parameter.VAR_KEYWORD
+        for parameter in signature.parameters.values()
+    )
 
-    try:
-        snapshot_download(**kwargs)
-    except TypeError:
-        kwargs.pop("local_dir_use_symlinks", None)
-        snapshot_download(**kwargs)
+    if not accepts_var_kwargs:
+        kwargs = {
+            key: value for key, value in kwargs.items() if key in signature.parameters
+        }
+
+    snapshot_download(**kwargs)
 
 def _default_download_url(*, backend_name: str, model_size: str) -> str:
     if backend_name != "mock" or model_size != "tiny":
@@ -253,7 +257,6 @@ def _download_faster_whisper_snapshot(
             repo_id=repo_id,
             local_dir=str(model_dir),
             revision=None,
-            progress_enabled=progress_enabled,
         )
     except Exception as exc:  # pragma: no cover - message validated through tests
         raise ModelResolutionError(
@@ -312,7 +315,6 @@ def _download_model_id_snapshot(
             repo_id=model_id,
             revision=revision,
             local_dir=str(model_dir),
-            progress_enabled=progress_enabled,
         )
     except Exception as exc:  # pragma: no cover - validated in tests
         raise ModelResolutionError(
