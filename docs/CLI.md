@@ -193,12 +193,57 @@ Controls progress behavior for ASR/model-resolution operations.
 
 ---
 
-### `--confidence-threshold <float>`
+### `--match-threshold <float>`
 
 Minimum confidence score for “high-confidence” matches.
 
 - Default: `0.85`
 - Lower scores are still exported but flagged.
+
+### `--match-quick-threshold <float>`
+
+Quick-filter minimum token-overlap score used before expensive fuzzy scoring.
+
+- Default: `0.25`
+- Set to `0.0` to disable quick-filter pruning.
+
+### `--match-length-bucket-size <int>`
+
+Token-count bucket size used by matching candidate indexes.
+
+- Default: `4`
+
+### `--match-max-length-bucket-delta <int>`
+
+How many neighboring length buckets to include when searching candidates.
+
+- Default: `3`
+
+### `--match-monotonic-window <int>`
+
+Optional monotonic alignment window in script-row indexes.
+
+- Default: `0` (disabled)
+- When > 0, later segments search only from previous best row forward by this window, which can reduce comparisons and enforce timeline consistency.
+
+### `--match-progress-every <int>`
+
+Verbose matching progress interval (segments).
+
+- Default: `50`
+
+### `--asr-vad-filter <on|off>`
+
+Controls ASR backend VAD segmentation filter where supported.
+
+- Default: `off`
+
+### `--asr-merge-short-segments <seconds>`
+
+Post-ASR deterministic merge threshold for short adjacent segments.
+
+- Default: `0.0` (disabled)
+- When > 0, segments shorter than threshold are merged into the previous segment to stabilize segment counts across runs/devices.
 
 ---
 

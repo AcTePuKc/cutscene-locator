@@ -22,6 +22,8 @@ class ASRConfig:
     device: DeviceType = "auto"
     compute_type: ComputeType = "auto"
     language: str | None = None
+    vad_filter: bool = False
+    merge_short_segments_seconds: float = 0.0
     ffmpeg_path: str | None = None
     download_progress: bool | None = None
     progress_callback: Callable[[float], None] | None = None

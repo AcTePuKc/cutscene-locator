@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 from src.asr.base import ASRResult
 from src.ingest.script_parser import load_script_table
-from src.match.engine import match_segments_to_script
+from src.match.engine import MatchingConfig, match_segments_to_script
 
 
 class MatchingEngineTests(unittest.TestCase):
@@ -72,7 +72,7 @@ class MatchingEngineTests(unittest.TestCase):
         output = match_segments_to_script(
             asr_result=asr_result,
             script_table=script_table,
-            low_confidence_threshold=1.0,
+            config=MatchingConfig(low_confidence_threshold=1.0),
         )
 
         self.assertFalse(output.matches[0].low_confidence)
@@ -100,7 +100,7 @@ class MatchingEngineTests(unittest.TestCase):
             match_segments_to_script(
                 asr_result=asr_result,
                 script_table=script_table,
-                low_confidence_threshold=1.1,
+                config=MatchingConfig(low_confidence_threshold=1.1),
             )
 
     def test_invalid_progress_every_raises(self) -> None:
@@ -126,7 +126,7 @@ class MatchingEngineTests(unittest.TestCase):
             match_segments_to_script(
                 asr_result=asr_result,
                 script_table=script_table,
-                progress_every=0,
+                config=MatchingConfig(progress_every=0),
             )
 
     def test_progress_logger_reports_final_progress(self) -> None:
@@ -158,11 +158,30 @@ class MatchingEngineTests(unittest.TestCase):
         match_segments_to_script(
             asr_result=asr_result,
             script_table=script_table,
+            config=MatchingConfig(progress_every=10),
             progress_logger=progress_logger,
-            progress_every=10,
         )
 
         progress_logger.assert_called_once_with("Verbose: matching progress 2/2 segments")
+
+    def test_monotonic_window_biases_following_rows(self) -> None:
+        script_table = load_script_table(Path("tests/fixtures/script_sample.tsv"))
+        asr_result: ASRResult = {
+            "segments": [
+                {"segment_id": "seg_0001", "start": 0.0, "end": 1.0, "text": "hello world"},
+                {"segment_id": "seg_0002", "start": 1.2, "end": 2.0, "text": "general kenobi"},
+            ],
+            "meta": {"backend": "mock", "model": "unknown", "version": "1.0", "device": "cpu"},
+        }
+
+        output = match_segments_to_script(
+            asr_result=asr_result,
+            script_table=script_table,
+            config=MatchingConfig(monotonic_window=1),
+        )
+
+        self.assertEqual(output.matches[0].matched_id, "M01_001")
+        self.assertIn(output.matches[1].matched_id, {"M01_002", "M01_003"})
 
 
 if __name__ == "__main__":
