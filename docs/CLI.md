@@ -167,7 +167,7 @@ Authoritative definition for diagnostics:
 - **Declared but disabled backend** means the backend key is registered in code but currently not runnable in this environment. Causes include:
   - missing optional dependencies,
   - feature flag disabled,
-  - experimental backend not enabled by default.
+  - experimental backend disabled by default.
 - Dependency-gated errors include actionable install-extra guidance when disabled due to missing optional dependencies (for example: `Install with: pip install 'cutscene-locator[asr_qwen3]'`).
 
 Install extras:
@@ -217,12 +217,12 @@ This checklist verifies, per backend:
 
 Readiness preconditions summary:
 
-| backend | runtime API used by backend implementation | CUDA probe label in preflight (`device.cuda_probe_label`) | CPU rerun behavior |
+| backend | runtime API used by backend implementation | CUDA probe label in preflight (`device.cuda_probe_label`) | CPU rerun policy (no autoswitch) |
 | --- | --- | --- | --- |
-| `faster-whisper` | `faster_whisper.WhisperModel(...)` (CTranslate2 runtime path) | `ctranslate2` | No automatic backend/device switching; manual rerun with `--device cpu`. |
-| `qwen3-asr` | `transformers.pipeline(...)` (torch runtime path) | `torch` | No automatic backend/device switching; manual rerun with `--device cpu`. |
-| `whisperx` | `whisperx.load_model(..., device=...)` (CTranslate2 Whisper runtime path via WhisperX) | `ctranslate2` | No automatic backend/device switching; manual rerun with `--device cpu`. |
-| `vibevoice` | `vibevoice.transcribe_file(..., device=...)` (torch runtime path) | `torch` | No automatic backend/device switching; manual rerun with `--device cpu`. |
+| `faster-whisper` | `faster_whisper.WhisperModel(...)` (CTranslate2 runtime path) | `ctranslate2` | Do not perform automatic backend/device switching; manual rerun with `--device cpu`. |
+| `qwen3-asr` | `transformers.pipeline(...)` (torch runtime path) | `torch` | Do not perform automatic backend/device switching; manual rerun with `--device cpu`. |
+| `whisperx` | `whisperx.load_model(..., device=...)` (CTranslate2 Whisper runtime path via WhisperX) | `ctranslate2` | Do not perform automatic backend/device switching; manual rerun with `--device cpu`. |
+| `vibevoice` | `vibevoice.transcribe_file(..., device=...)` (torch runtime path) | `torch` | Do not perform automatic backend/device switching; manual rerun with `--device cpu`. |
 
 Common deterministic failure messages:
 

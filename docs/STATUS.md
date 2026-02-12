@@ -207,6 +207,7 @@ Contract notes:
 
 ## Change log (manual)
 
+- 2026-02-12 – Standardized no-autoswitch CUDA wording to use explicit manual rerun with `--device cpu` in CLI readiness matrix language, clarified declared-but-disabled backend docs wording (including experimental-backend-disabled-by-default), kept CLI disabled-backend runtime errors deterministic/actionable with install-extra hints only for missing optional dependencies, and extended docs/CLI regression coverage for no-autoswitch phrasing and disabled-backend definitions (`docs/CLI.md`, `cli.py`, `tests/test_docs_consistency.py`, `tests/test_cli.py`, `docs/STATUS.md`).
 - 2026-02-12 – Unified qwen3-asr artifact contract wording across model-resolution/readiness/docs, keeping only core artifacts required (`config.json`, tokenizer assets, `tokenizer_config.json`, model weights) while treating `processor_config.json`/`preprocessor_config.json` as optional; retained regression coverage for pass-without-processor-configs and missing-core failures (`src/asr/model_resolution.py`, `src/asr/readiness.py`, `docs/CLI.md`, `docs/Data-contracts.md`, `tests/test_model_resolution.py`, `docs/STATUS.md`).
 
 - 2026-02-12 – Simplified qwen3-asr `dtype` resolver/loader kwargs to remove redundant `None`-guarding and redundant branching: `_resolve_dtype` now returns `str` passthrough deterministically and `from_pretrained` init kwargs are constructed directly with `dtype`, preserving no-`device` init and post-load device-move behavior (`src/asr/qwen3_asr_backend.py`, `docs/STATUS.md`).
