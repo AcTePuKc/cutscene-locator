@@ -1189,7 +1189,7 @@ class Qwen3ReadinessSmokeTests(unittest.TestCase):
         if qwen_model_class is None:
             self.skipTest("Installed qwen_asr package does not expose Qwen3ASRModel")
 
-        model = qwen_model_class.from_pretrained(str(model_path), torch_dtype="auto")
+        model = qwen_model_class.from_pretrained(str(model_path), dtype="auto")
 
         torch_module = getattr(model, "model", None)
         if torch_module is not None and callable(getattr(torch_module, "to", None)):

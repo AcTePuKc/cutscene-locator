@@ -71,7 +71,7 @@ class Qwen3ASRBackendTests(unittest.TestCase):
             [
                 {
                     "model_path": "models/Qwen3-ASR-1.7B",
-                    "torch_dtype": "float32",
+                    "dtype": "float32",
                 }
             ],
         )
@@ -215,7 +215,7 @@ class Qwen3ASRBackendTests(unittest.TestCase):
                     ),
                 )
 
-        self.assertIn("Supported options are: language, return_timestamps, device, torch_dtype", str(ctx.exception))
+        self.assertIn("Supported options are: language, return_timestamps, device, dtype", str(ctx.exception))
 
     def test_device_move_fails_with_explicit_loader_mismatch_error(self) -> None:
         backend = Qwen3ASRBackend()

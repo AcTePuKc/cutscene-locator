@@ -12,7 +12,7 @@ from .base import ASRResult, ASRSegment
 from .config import ASRConfig
 from .timestamp_normalization import normalize_asr_segments_for_contract
 
-_SUPPORTED_INFERENCE_OPTIONS = ("language", "return_timestamps", "device", "torch_dtype")
+_SUPPORTED_INFERENCE_OPTIONS = ("language", "return_timestamps", "device", "dtype")
 
 
 class Qwen3ASRBackend:
@@ -45,9 +45,9 @@ class Qwen3ASRBackend:
         _validate_supported_options(config)
 
         model_init_kwargs: dict[str, object] = {}
-        resolved_torch_dtype = _resolve_torch_dtype(config.compute_type)
-        if resolved_torch_dtype is not None:
-            model_init_kwargs["torch_dtype"] = resolved_torch_dtype
+        resolved_dtype = _resolve_dtype(config.compute_type)
+        if resolved_dtype is not None:
+            model_init_kwargs["dtype"] = resolved_dtype
 
         try:
             model = qwen_model_class.from_pretrained(
@@ -108,7 +108,7 @@ class Qwen3ASRBackend:
         )
 
 
-def _resolve_torch_dtype(compute_type: str) -> str | None:
+def _resolve_dtype(compute_type: str) -> str | None:
     if compute_type == "auto":
         return "auto"
     if compute_type in {"float16", "float32", "bfloat16"}:
