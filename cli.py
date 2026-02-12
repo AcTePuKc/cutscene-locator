@@ -119,6 +119,12 @@ def _validate_backend(args: argparse.Namespace) -> None:
     if registration.name == "mock" and not args.mock_asr_path:
         raise CliError("--mock-asr is required when --asr-backend mock is used.")
 
+    if registration.capabilities.supports_alignment:
+        raise CliError(
+            f"'{registration.name}' is an alignment backend and cannot be used with --asr-backend. "
+            "Use the alignment pipeline path instead of ASR-only transcription mode."
+        )
+
 
 
 

@@ -46,6 +46,15 @@ class ASRRegistryTests(unittest.TestCase):
         self.assertFalse(backend.capabilities.supports_alignment)
         self.assertFalse(backend.capabilities.supports_word_timestamps)
 
+
+    def test_qwen3_backend_marks_alignment_capability(self) -> None:
+        with patch("importlib.util.find_spec", side_effect=lambda name: object()):
+            registry_module = importlib.import_module("src.asr.registry")
+            registry_module = importlib.reload(registry_module)
+            backend = registry_module.get_backend("qwen3-asr")
+
+        self.assertTrue(backend.capabilities.supports_alignment)
+
     def test_get_backend_unknown_raises(self) -> None:
         with self.assertRaisesRegex(ValueError, "Unknown ASR backend"):
             get_backend("missing")

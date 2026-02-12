@@ -56,9 +56,15 @@ def _missing_dependencies(required_dependencies: tuple[str, ...]) -> tuple[str, 
 
 
 def _build_declared_registry() -> dict[str, DeclaredBackend]:
-    capabilities = BackendCapabilities(
+    default_capabilities = BackendCapabilities(
         supports_word_timestamps=False,
         supports_alignment=False,
+        supports_diarization=False,
+        max_audio_duration=None,
+    )
+    alignment_capabilities = BackendCapabilities(
+        supports_word_timestamps=False,
+        supports_alignment=True,
         supports_diarization=False,
         max_audio_duration=None,
     )
@@ -67,7 +73,7 @@ def _build_declared_registry() -> dict[str, DeclaredBackend]:
             registration=BackendRegistration(
                 name="faster-whisper",
                 backend_class=FasterWhisperBackend,
-                capabilities=capabilities,
+                capabilities=default_capabilities,
             ),
             required_dependencies=(),
         ),
@@ -75,7 +81,7 @@ def _build_declared_registry() -> dict[str, DeclaredBackend]:
             registration=BackendRegistration(
                 name="mock",
                 backend_class=MockASRBackend,
-                capabilities=capabilities,
+                capabilities=default_capabilities,
             ),
             required_dependencies=(),
         ),
@@ -83,7 +89,7 @@ def _build_declared_registry() -> dict[str, DeclaredBackend]:
             registration=BackendRegistration(
                 name="qwen3-asr",
                 backend_class=Qwen3ASRBackend,
-                capabilities=capabilities,
+                capabilities=alignment_capabilities,
             ),
             required_dependencies=("torch", "transformers"),
             install_extra="asr_qwen3",

@@ -80,6 +80,35 @@ class CliPhaseOneTests(unittest.TestCase):
         self.assertIn("missing torch, transformers", stderr.getvalue())
         self.assertIn("cutscene-locator[asr_qwen3]", stderr.getvalue())
 
+
+    def test_alignment_backend_rejected_in_asr_mode(self) -> None:
+        stderr = io.StringIO()
+        alignment_registration = SimpleNamespace(
+            name="qwen3-asr",
+            capabilities=SimpleNamespace(supports_alignment=True),
+        )
+        with patch("cli.get_backend", return_value=alignment_registration):
+            with patch("cli.list_backend_status", return_value=[]):
+                with redirect_stderr(stderr):
+                    code = cli.main(
+                        [
+                            "--input",
+                            "in.wav",
+                            "--script",
+                            "script.tsv",
+                            "--out",
+                            "out",
+                            "--asr-backend",
+                            "qwen3-asr",
+                        ],
+                        which=lambda _: "/usr/bin/ffmpeg",
+                        runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                    )
+
+        self.assertEqual(code, 1)
+        self.assertIn("alignment backend", stderr.getvalue())
+        self.assertIn("alignment pipeline path", stderr.getvalue())
+
     def test_mock_backend_requires_mock_asr(self) -> None:
         stderr = io.StringIO()
         with redirect_stderr(stderr):
