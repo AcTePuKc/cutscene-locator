@@ -93,5 +93,38 @@ class BackendReadinessTests(unittest.TestCase):
         self.assertIn("torch CUDA probe", row.cuda_preflight_reason)
 
 
+    def test_collect_backend_readiness_uses_ctranslate2_probe_for_whisperx(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            whisperx_dir = Path(temp_dir) / "whisperx"
+            whisperx_dir.mkdir(parents=True)
+            for name in ("config.json", "model.bin", "tokenizer.json"):
+                (whisperx_dir / name).write_text("{}", encoding="utf-8")
+
+            def fake_find_spec(name: str):
+                if name in {"whisperx", "ctranslate2"}:
+                    return object()
+                return None
+
+            with patch("src.asr.readiness.find_spec", side_effect=fake_find_spec):
+                with patch(
+                    "src.asr.readiness.list_backend_status",
+                    return_value=[
+                        BackendStatus(
+                            name="whisperx",
+                            enabled=True,
+                            missing_dependencies=(),
+                            reason="enabled",
+                            install_extra="asr_whisperx",
+                        )
+                    ],
+                ):
+                    row = collect_backend_readiness(backend="whisperx", model_dir=whisperx_dir)
+
+        self.assertEqual(row.required_dependencies, ("whisperx", "ctranslate2"))
+        self.assertEqual(row.missing_dependencies, ())
+        self.assertEqual(row.cuda_probe_label, "ctranslate2")
+        self.assertIn("ctranslate2 CUDA probe", row.cuda_preflight_reason)
+
+
 if __name__ == "__main__":
     unittest.main()
