@@ -185,6 +185,9 @@ def _run_faster_whisper_subprocess(
         result_path = Path(temp_dir) / "asr_result.json"
         cmd = [
             sys.executable,
+            "-u",
+            "-X",
+            "faulthandler",
             "-m",
             "src.asr.asr_worker",
             "--audio-path",
