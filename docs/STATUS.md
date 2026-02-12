@@ -148,7 +148,7 @@ All agents must update this file when completing or modifying tasks.
 
 ### Advanced alignment
 
-- [x] Forced alignment support (explicit `src/align/` contract + validator, ASR capability gating in CLI/registry, tests/docs updates) (`src/align/base.py`, `src/align/validation.py`, `src/align/__init__.py`, `src/asr/registry.py`, `cli.py`, `tests/test_alignment.py`, `tests/test_cli.py`, `tests/test_asr_registry.py`, `docs/Data-contracts.md`, `docs/Integration.md`)
+- [ ] Forced alignment support
 - [ ] Word-level timestamps (optional)
 - [ ] Cross-chunk continuity handling
 
@@ -187,6 +187,7 @@ All agents must update this file when completing or modifying tasks.
 > Keep this short. One line per meaningful change.
 
 - YYYY-MM-DD – Initial STATUS.md created
+- 2026-02-12 – Docs sync: updated CLI backend names/dependency extras and `--model-id` compatibility caveats; clarified explicit unchecked Milestone 2 next-work items (`docs/CLI.md`, `docs/STATUS.md`).
 - 2026-02-11 – Milestone 1 Phase 1 CLI skeleton + ffmpeg preflight completed (`cli.py`, `tests/test_cli.py`).
 - 2026-02-11 – Milestone 1 Phase 2 script ingestion + normalization completed (`src/ingest/script_parser.py`, `src/match/normalization.py`, `cli.py`, `tests/test_script_parser.py`, `tests/test_cli.py`).
 

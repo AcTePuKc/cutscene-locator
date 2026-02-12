@@ -104,11 +104,11 @@ Backends are split into two sets:
 - **declared backends**: implemented in code.
 - **enabled backends**: declared backends whose optional dependencies are installed.
 
-Current declared backends:
+Current declared backends (exact names):
 
 - `mock` (always enabled)
-- `faster-whisper` (enabled when runtime can import backend deps)
-- `qwen3-asr` (enabled only when `torch` + `transformers` are installed)
+- `faster-whisper` (enabled when optional runtime dependencies are installed)
+- `qwen3-asr` (enabled only when optional runtime dependencies are installed)
 
 If you request a backend that is declared but disabled, the CLI fails with an actionable message listing missing dependencies and the exact extras target.
 
@@ -116,6 +116,17 @@ Install extras:
 
 - `pip install 'cutscene-locator[asr_faster_whisper]'`
 - `pip install 'cutscene-locator[asr_qwen3]'`
+
+Backend dependency expectations:
+
+- `mock`
+  - No optional extra required.
+- `faster-whisper`
+  - Install: `pip install 'cutscene-locator[asr_faster_whisper]'`
+  - Includes: `faster-whisper`, `huggingface_hub`.
+- `qwen3-asr`
+  - Install: `pip install 'cutscene-locator[asr_qwen3]'`
+  - Includes: `torch`, `transformers`, `huggingface_hub`.
 
 Default:
 
@@ -158,7 +169,18 @@ Hugging Face repo id to download as a deterministic local snapshot cache.
 - Example: `openai/whisper-tiny`
 - Cached under: `<cache>/models/<backend>/<sanitized_repo_id>/<revision_or_default>/`
 - On cache hit, model resolution returns the cached path immediately (no `snapshot_download` call).
-- Requires `huggingface_hub` only when downloading.
+- Requires `huggingface_hub` when downloading (cache hits do not re-download).
+
+Backend-specific compatibility caveats:
+
+- `mock`
+  - `--model-id` is unsupported for practical use (mock backend reads `--mock-asr` JSON and does not load a model artifact).
+- `faster-whisper`
+  - `--model-id` should resolve to a faster-whisper CTranslate2 snapshot (for example, `Systran/faster-whisper-*`).
+  - Standard Transformers checkpoints (for example, `openai/whisper-*`) are not compatible with faster-whisper runtime loading.
+- `qwen3-asr`
+  - `--model-id` must resolve to a full Transformers snapshot containing `config.json`, tokenizer assets, and model weights.
+  - Incomplete local folders are rejected with deterministic validation errors.
 
 ### `--revision <revision>`
 
