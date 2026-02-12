@@ -67,10 +67,10 @@ class ASRAdapter(Protocol):
     backend_name: str
 
     def load_model(self, config: ASRConfig, context: ASRExecutionContext) -> object | None:
-        """Load backend model resources and return runtime model handle when applicable."""
+        ...
 
     def build_backend_kwargs(self, config: ASRConfig) -> dict[str, object]:
-        """Build backend-native transcribe kwargs from canonical config."""
+        ...
 
     def filter_backend_kwargs(
         self,
@@ -78,13 +78,13 @@ class ASRAdapter(Protocol):
         *,
         allowed_keys: set[str],
     ) -> dict[str, object]:
-        """Filter backend-native kwargs to a deterministic supported subset."""
+        ...
 
     def normalize_output(self, raw_result: ASRResult) -> ASRResult:
-        """Normalize backend output into canonical ASRResult."""
+        ...
 
     def transcribe(self, audio_path: str, config: ASRConfig, context: ASRExecutionContext) -> ASRResult:
-        """Execute transcription using the backend adapter."""
+        ...
 
 
 class _BaseASRAdapter(ABC):
