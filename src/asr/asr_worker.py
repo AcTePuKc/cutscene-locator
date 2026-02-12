@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 from .backends import parse_asr_result
+from .base import ASRBackend, ASRResult
 from .config import ASRConfig
 from .faster_whisper_backend import FasterWhisperBackend
 from .qwen3_asr_backend import Qwen3ASRBackend
@@ -24,7 +25,7 @@ _WORKER_RUNTIME_BACKENDS: tuple[str, ...] = (
 )
 
 
-def _build_runtime_backend(backend_name: str) -> object:
+def _build_runtime_backend(backend_name: str) -> ASRBackend:
     if backend_name == "faster-whisper":
         return FasterWhisperBackend()
     if backend_name == "qwen3-asr":
@@ -134,7 +135,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print("asr-worker: backend.transcribe begin", flush=True)
     try:
-        result = backend.transcribe(
+        result: ASRResult = backend.transcribe(
             audio_path=args.audio_path,
             config=ASRConfig(
                 backend_name=args.asr_backend,

@@ -83,6 +83,28 @@ class MockASRBackendTests(unittest.TestCase):
         self.assertIsInstance(result["segments"], list)
         self.assertEqual(result["segments"][0]["segment_id"], "seg_0001")
 
+
+    def test_parse_asr_result_rejects_missing_required_segment_key(self) -> None:
+        with self.assertRaisesRegex(ValueError, r"segments\[0\]\.segment_id must be a non-empty string"):
+            parse_asr_result(
+                {
+                    "segments": [
+                        {
+                            "start": 0.0,
+                            "end": 0.5,
+                            "text": "hello",
+                        }
+                    ],
+                    "meta": {
+                        "backend": "mock",
+                        "model": "unknown",
+                        "version": "1.0",
+                        "device": "cpu",
+                    },
+                },
+                source="inline",
+            )
+
     def test_validate_rejects_empty_text(self) -> None:
         with self.assertRaisesRegex(ValueError, r"segments\[0\]\.text must be a non-empty string"):
             validate_asr_result(

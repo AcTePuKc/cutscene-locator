@@ -5,6 +5,8 @@ from __future__ import annotations
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any
 
+from .base import ASRSegment
+
 _TIMESTAMP_SCALE_DECIMALS = 6
 _TIMESTAMP_QUANTIZER = Decimal("1").scaleb(-_TIMESTAMP_SCALE_DECIMALS)
 
@@ -27,10 +29,10 @@ def _as_decimal_seconds(value: Any, *, path: str) -> Decimal:
 
 
 def normalize_asr_segments_for_contract(
-    segments: list[dict[str, Any]],
+    segments: list[ASRSegment],
     *,
     source: str,
-) -> list[dict[str, float | str]]:
+) -> list[ASRSegment]:
     """Normalize backend segments deterministically for contract validation.
 
     Rules:
@@ -41,7 +43,7 @@ def normalize_asr_segments_for_contract(
     - text payload is preserved exactly as provided by backend output
     """
 
-    normalized: list[tuple[Decimal, Decimal, int, dict[str, float | str]]] = []
+    normalized: list[tuple[Decimal, Decimal, int, ASRSegment]] = []
 
     for index, segment in enumerate(segments):
         segment_path = f"{source}: segments[{index}]"
@@ -63,7 +65,7 @@ def normalize_asr_segments_for_contract(
         if end == start:
             continue
 
-        normalized_segment: dict[str, float | str] = {
+        normalized_segment: ASRSegment = {
             "segment_id": segment_id,
             "start": float(start),
             "end": float(end),
