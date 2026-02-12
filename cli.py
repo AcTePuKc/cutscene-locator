@@ -262,6 +262,8 @@ def _run_faster_whisper_subprocess(
             "faulthandler",
             "-m",
             "src.asr.asr_worker",
+            "--asr-backend",
+            asr_config.backend_name,
             "--audio-path",
             str(audio_path),
             "--model-path",
