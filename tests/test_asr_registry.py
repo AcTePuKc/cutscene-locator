@@ -301,6 +301,28 @@ class ASRRegistryTests(unittest.TestCase):
             },
         )
 
+    def test_qwen_adapter_resolves_device_with_backend_selected_probe(self) -> None:
+        from src.asr.adapters import Qwen3ASRAdapter
+
+        adapter = Qwen3ASRAdapter()
+        config = ASRConfig(backend_name="qwen3-asr", device="cuda")
+        context = ASRExecutionContext(resolved_model_path=Path("models/qwen3"), verbose=False)
+
+        with patch("src.asr.adapters.select_cuda_probe", return_value=(lambda: True, "torch")) as select_probe:
+            with patch("src.asr.adapters.resolve_device_with_details") as resolve_device:
+                resolve_device.return_value = type("R", (), {"resolved": "cuda"})()
+                with patch("src.asr.adapters.Qwen3ASRBackend.transcribe", return_value={
+                    "segments": [{"segment_id": "seg_0001", "start": 0.0, "end": 0.1, "text": "ok"}],
+                    "meta": {"backend": "qwen3-asr", "model": "qwen3", "version": "1", "device": "cuda"},
+                }) as transcribe:
+                    adapter.transcribe("audio.wav", config, context)
+
+        select_probe.assert_called_once_with("qwen3-asr")
+        resolve_device.assert_called_once()
+        self.assertEqual(resolve_device.call_args.kwargs["cuda_probe_reason_label"], "torch")
+        self.assertEqual(transcribe.call_args.args[1].device, "cuda")
+
+
 
 if __name__ == "__main__":
     unittest.main()

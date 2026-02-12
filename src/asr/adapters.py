@@ -12,7 +12,7 @@ from typing import Any, Protocol, TypeAlias
 from .backends import MockASRBackend
 from .base import ASRResult
 from .config import ASRConfig
-from .device import resolve_device_with_details
+from .device import resolve_device_with_details, select_cuda_probe
 from .faster_whisper_backend import FasterWhisperBackend
 from .qwen3_asr_backend import Qwen3ASRBackend
 from .whisperx_backend import WhisperXBackend
@@ -283,7 +283,12 @@ class FasterWhisperASRAdapter(_BaseASRAdapter):
             log_callback=print if context.verbose else config.log_callback,
         )
 
-        resolution = resolve_device_with_details(effective_config.device)
+        cuda_checker, cuda_probe_label = select_cuda_probe(self.backend_name)
+        resolution = resolve_device_with_details(
+            effective_config.device,
+            cuda_available_checker=cuda_checker,
+            cuda_probe_reason_label=cuda_probe_label,
+        )
         if context.faster_whisper_preflight is not None:
             context.faster_whisper_preflight(device=resolution.resolved, compute_type=effective_config.compute_type)
 
@@ -314,6 +319,13 @@ class Qwen3ASRAdapter(_BaseASRAdapter):
             model_path=context.resolved_model_path,
             log_callback=print if context.verbose else config.log_callback,
         )
+        cuda_checker, cuda_probe_label = select_cuda_probe(self.backend_name)
+        resolution = resolve_device_with_details(
+            effective_config.device,
+            cuda_available_checker=cuda_checker,
+            cuda_probe_reason_label=cuda_probe_label,
+        )
+        effective_config = replace(effective_config, device=resolution.resolved)
         return self.normalize_output(backend.transcribe(audio_path, effective_config))
 
 
@@ -327,6 +339,13 @@ class WhisperXASRAdapter(_BaseASRAdapter):
             model_path=context.resolved_model_path,
             log_callback=print if context.verbose else config.log_callback,
         )
+        cuda_checker, cuda_probe_label = select_cuda_probe(self.backend_name)
+        resolution = resolve_device_with_details(
+            effective_config.device,
+            cuda_available_checker=cuda_checker,
+            cuda_probe_reason_label=cuda_probe_label,
+        )
+        effective_config = replace(effective_config, device=resolution.resolved)
         return self.normalize_output(backend.transcribe(audio_path, effective_config))
 
 
@@ -340,6 +359,13 @@ class VibeVoiceASRAdapter(_BaseASRAdapter):
             model_path=context.resolved_model_path,
             log_callback=print if context.verbose else config.log_callback,
         )
+        cuda_checker, cuda_probe_label = select_cuda_probe(self.backend_name)
+        resolution = resolve_device_with_details(
+            effective_config.device,
+            cuda_available_checker=cuda_checker,
+            cuda_probe_reason_label=cuda_probe_label,
+        )
+        effective_config = replace(effective_config, device=resolution.resolved)
         return self.normalize_output(backend.transcribe(audio_path, effective_config))
 
 

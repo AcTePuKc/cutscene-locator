@@ -305,3 +305,5 @@ Contract notes:
 - [x] Typed snapshot artifact schema definitions for model validation (faster-whisper/whisperx/qwen3-asr) to keep deterministic error messages while improving static typing (`src/asr/model_resolution.py`, `tests/test_model_resolution.py`)
 
 - 2026-02-12 – Made model snapshot artifact schemas strongly typed and extended schema validation tests across faster-whisper/whisperx/qwen3-asr while preserving runtime error text format (`src/asr/model_resolution.py`, `tests/test_model_resolution.py`, `docs/STATUS.md`).
+
+- [x] Backend-specific CUDA probe routing in ASR adapter dispatch with centralized torch/ctranslate2 selection and deterministic reason labels (`src/asr/device.py`, `src/asr/adapters.py`, `src/asr/qwen3_asr_backend.py`, `src/asr/whisperx_backend.py`, `src/asr/vibevoice_backend.py`, `tests/test_asr.py`, `tests/test_asr_registry.py`)

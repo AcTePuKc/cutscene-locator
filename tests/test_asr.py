@@ -12,7 +12,7 @@ from src.asr import (
     validate_asr_result,
 )
 from src.asr.timestamp_normalization import normalize_asr_segments_for_contract
-from src.asr.device import _cuda_probe_ctranslate2
+from src.asr.device import _cuda_probe_ctranslate2, select_cuda_probe
 
 
 class MockASRBackendTests(unittest.TestCase):
@@ -196,6 +196,57 @@ class CTranslate2CudaProbeTests(unittest.TestCase):
         self.assertEqual(reason, "ctranslate2 CUDA check failed: probe failed")
 
 
+
+
+class CudaProbeSelectionTests(unittest.TestCase):
+    def test_select_cuda_probe_routes_torch_backends(self) -> None:
+        checker, label = select_cuda_probe("qwen3-asr")
+        self.assertEqual(label, "torch")
+        with unittest.mock.patch("src.asr.device.import_module", side_effect=ModuleNotFoundError()):
+            self.assertFalse(checker())
+
+    def test_select_cuda_probe_routes_faster_whisper_to_ctranslate2(self) -> None:
+        checker, label = select_cuda_probe("faster-whisper")
+        self.assertEqual(label, "ctranslate2")
+        with unittest.mock.patch("src.asr.device.import_module", side_effect=ModuleNotFoundError()):
+            self.assertFalse(checker())
+
+    def test_qwen_cuda_uses_torch_probe_when_ctranslate2_missing(self) -> None:
+        fake_torch = type("Torch", (), {"cuda": type("Cuda", (), {"is_available": staticmethod(lambda: True)})()})
+
+        def _fake_import(name: str):
+            if name == "ctranslate2":
+                raise ModuleNotFoundError(name)
+            if name == "torch":
+                return fake_torch
+            raise ModuleNotFoundError(name)
+
+        with unittest.mock.patch("src.asr.device.import_module", side_effect=_fake_import):
+            checker, label = select_cuda_probe("qwen3-asr")
+            resolution = resolve_device_with_details(
+                "cuda",
+                cuda_available_checker=checker,
+                cuda_probe_reason_label=label,
+            )
+
+        self.assertEqual(resolution.resolved, "cuda")
+        self.assertIn("torch CUDA probe reported available", resolution.reason)
+
+    def test_faster_whisper_cuda_still_uses_ctranslate2_probe(self) -> None:
+        def _fake_import(name: str):
+            raise ModuleNotFoundError(name)
+
+        with unittest.mock.patch("src.asr.device.import_module", side_effect=_fake_import):
+            checker, label = select_cuda_probe("faster-whisper")
+            with self.assertRaisesRegex(ValueError, "Reason: ctranslate2 CUDA probe reported unavailable"):
+                resolve_device_with_details(
+                    "cuda",
+                    cuda_available_checker=checker,
+                    cuda_probe_reason_label=label,
+                )
+
+
+
 class DeviceResolutionTests(unittest.TestCase):
     def test_auto_prefers_cuda_when_available(self) -> None:
         resolved = resolve_device("auto", cuda_available_checker=lambda: True)
@@ -218,6 +269,14 @@ class DeviceResolutionTests(unittest.TestCase):
     def test_cuda_unavailable_error_mentions_cuda_doc(self) -> None:
         with self.assertRaisesRegex(ValueError, "docs/CUDA.md"):
             resolve_device_with_details("cuda", cuda_available_checker=lambda: False)
+
+    def test_cuda_unavailable_error_includes_probe_reason_label(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Reason: torch CUDA probe reported unavailable"):
+            resolve_device_with_details(
+                "cuda",
+                cuda_available_checker=lambda: False,
+                cuda_probe_reason_label="torch",
+            )
 
     def test_mock_backend_uses_config_model_and_resolved_device_meta(self) -> None:
         result = MockASRBackend(Path("tests/fixtures/mock_asr_valid.json")).transcribe(

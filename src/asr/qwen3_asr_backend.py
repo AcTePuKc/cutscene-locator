@@ -10,7 +10,6 @@ from typing import Any
 from .backends import validate_asr_result
 from .base import ASRResult
 from .config import ASRConfig
-from .device import resolve_device_with_details
 from .timestamp_normalization import normalize_asr_segments_for_contract
 
 
@@ -24,23 +23,15 @@ class Qwen3ASRBackend:
                 "Provide --model-id or --model-path."
             )
 
-        resolution = resolve_device_with_details(config.device)
-        resolved_device = resolution.resolved
+        resolved_device = config.device if config.device in {"cpu", "cuda"} else "cpu"
 
         try:
-            torch_module = import_module("torch")
             transformers_module = import_module("transformers")
         except ModuleNotFoundError as exc:
             raise ValueError(
                 "qwen3-asr backend requires optional dependencies. "
                 "Install them with: pip install 'cutscene-locator[asr_qwen3]'"
             ) from exc
-
-        if resolved_device == "cuda" and not bool(torch_module.cuda.is_available()):
-            raise ValueError(
-                "Requested --device cuda, but CUDA is not available in this environment. "
-                "Use --device cpu or follow docs/CUDA.md."
-            )
 
         pipeline_factory = getattr(transformers_module, "pipeline", None)
         if pipeline_factory is None:
