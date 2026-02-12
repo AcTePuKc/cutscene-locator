@@ -204,6 +204,7 @@ Contract notes:
 
 ## Change log (manual)
 
+- 2026-02-12 – Replaced misleading CUDA "fallback" terminology with explicit CPU rerun wording in backend readiness/CUDA guidance docs, and added a docs consistency test that blocks reintroduction of CPU fallback phrasing in that context (`docs/CLI.md`, `docs/Integration-issues.md`, `tests/test_docs_consistency.py`, `docs/STATUS.md`).
 - 2026-02-12 – Verified backend CUDA probe source by actual runtime API usage (`faster-whisper`→`ctranslate2`; `qwen3-asr`/`whisperx`/`vibevoice`→`torch`), exposed probe label in `--asr-preflight-only` JSON (`device.cuda_probe_label`), aligned CLI backend matrix/docs, and added regression tests tying backend selection to declared probe label (`cli.py`, `src/asr/device.py`, `tests/test_cli.py`, `tests/test_asr.py`, `docs/CLI.md`, `docs/STATUS.md`).
 
 - 2026-02-12 – Relaxed qwen3-asr snapshot contract to require only core deterministic artifacts (`config.json`, tokenizer assets, `tokenizer_config.json`, model weights) while treating `processor_config.json`/`preprocessor_config.json` as optional; added regression coverage for config-absent valid layouts and kept deterministic missing-core failures (`src/asr/model_resolution.py`, `tests/test_model_resolution.py`, `docs/CLI.md`, `docs/Data-contracts.md`, `docs/STATUS.md`).
