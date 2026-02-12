@@ -254,3 +254,17 @@ Some Windows + CUDA + ASR backend combinations may abort in native code (for exa
 - Never pass `progress=` into `WhisperModel.transcribe(...)`; `faster-whisper` 1.2.1 does not accept it.
 - Add an ASR preflight print before transcription with `ctranslate2` version, CUDA device count, selected device, and selected compute type.
 - If worker exits with `-1073740791` / `3221226505`, advise `--compute-type float32` first and verify torch/ctranslate2 CUDA wheel compatibility with the installed CUDA runtime/driver (see faster-whisper issue #1086).
+
+
+## 14. Backend mode limits and support matrix
+
+### Description
+
+Backends do not all support the same mode. ASR transcript-generation and forced-alignment are separate paths and must not be mixed.
+
+### Handling
+
+- `vibevoice` supports ASR transcript-generation mode only.
+- `qwen3-forced-aligner` supports forced-alignment mode only.
+- CLI ASR mode (`--asr-backend`) must reject alignment-only backends with deterministic error text.
+- Missing optional backend dependencies must produce deterministic install guidance (matching backend extra name).

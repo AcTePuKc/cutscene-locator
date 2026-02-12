@@ -28,7 +28,7 @@ class ASRRegistryTests(unittest.TestCase):
             self.assertIn("qwen3-asr", registry_module.list_backends())
 
     def test_declared_backends_lists_all_names(self) -> None:
-        self.assertEqual(list_declared_backends(), ["faster-whisper", "mock", "qwen3-asr", "qwen3-forced-aligner", "whisperx"])
+        self.assertEqual(list_declared_backends(), ["faster-whisper", "mock", "qwen3-asr", "qwen3-forced-aligner", "vibevoice", "whisperx"])
 
     def test_registry_reports_disabled_backend_dependencies(self) -> None:
         def fake_find_spec(name: str) -> object | None:
@@ -68,6 +68,26 @@ class ASRRegistryTests(unittest.TestCase):
         self.assertEqual(
             whisperx_status.reason,
             "missing optional dependencies: whisperx, torch",
+        )
+
+
+    def test_registry_reports_vibevoice_disabled_dependencies(self) -> None:
+        def fake_find_spec(name: str) -> object | None:
+            if name in {"vibevoice", "torch"}:
+                return None
+            return object()
+
+        with patch("src.asr.registry.find_spec", side_effect=fake_find_spec):
+            statuses = {status.name: status for status in list_backend_status()}
+
+        self.assertIn("vibevoice", statuses)
+        vibevoice_status = statuses["vibevoice"]
+        self.assertFalse(vibevoice_status.enabled)
+        self.assertEqual(vibevoice_status.missing_dependencies, ("vibevoice", "torch"))
+        self.assertEqual(vibevoice_status.install_extra, "asr_vibevoice")
+        self.assertEqual(
+            vibevoice_status.reason,
+            "missing optional dependencies: vibevoice, torch",
         )
 
     def test_get_backend_returns_faster_whisper_capabilities(self) -> None:
@@ -114,6 +134,17 @@ class ASRRegistryTests(unittest.TestCase):
         self.assertFalse(backend.capabilities.supports_word_timestamps)
         self.assertTrue(backend.capabilities.supports_diarization)
 
+
+    def test_vibevoice_backend_capabilities(self) -> None:
+        with patch("importlib.util.find_spec", side_effect=lambda name: object()):
+            registry_module = importlib.import_module("src.asr.registry")
+            registry_module = importlib.reload(registry_module)
+            backend = registry_module.get_backend("vibevoice")
+
+        self.assertTrue(backend.capabilities.supports_segment_timestamps)
+        self.assertFalse(backend.capabilities.supports_alignment)
+        self.assertFalse(backend.capabilities.supports_word_timestamps)
+
     def test_get_backend_unknown_raises(self) -> None:
         with self.assertRaisesRegex(ValueError, "Unknown ASR backend"):
             get_backend("missing")
@@ -130,6 +161,7 @@ class ASRRegistryTests(unittest.TestCase):
         adapter = get_asr_adapter("mock")
         self.assertEqual(adapter.backend_name, "mock")
         self.assertIn("mock", list_asr_adapters())
+        self.assertIn("vibevoice", list_asr_adapters())
 
     def test_adapter_registry_unknown_backend_raises(self) -> None:
         with self.assertRaisesRegex(ValueError, "No ASR adapter registered"):

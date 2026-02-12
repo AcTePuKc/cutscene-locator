@@ -83,6 +83,37 @@ class CliPhaseOneTests(unittest.TestCase):
 
 
 
+
+    def test_declared_but_disabled_vibevoice_backend_exits_with_actionable_error(self) -> None:
+        stderr = io.StringIO()
+        disabled_backend = SimpleNamespace(
+            name="vibevoice",
+            enabled=False,
+            missing_dependencies=("vibevoice", "torch"),
+            install_extra="asr_vibevoice",
+        )
+        with patch("cli.list_backend_status", return_value=[disabled_backend]):
+            with redirect_stderr(stderr):
+                code = cli.main(
+                    [
+                        "--input",
+                        "in.wav",
+                        "--script",
+                        "script.tsv",
+                        "--out",
+                        "out",
+                        "--asr-backend",
+                        "vibevoice",
+                    ],
+                    which=lambda _: "/usr/bin/ffmpeg",
+                    runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                )
+
+        self.assertEqual(code, 1)
+        self.assertIn("declared but currently disabled", stderr.getvalue())
+        self.assertIn("Missing optional dependencies: vibevoice, torch", stderr.getvalue())
+        self.assertIn("pip install 'cutscene-locator[asr_vibevoice]'", stderr.getvalue())
+
     def test_enabled_backend_path_unchanged(self) -> None:
         stderr = io.StringIO()
         enabled_backend = SimpleNamespace(
