@@ -22,6 +22,7 @@ from src.asr import (
     MockASRBackend,
     Qwen3ASRBackend,
     get_backend,
+    list_backend_status,
     parse_asr_result,
     resolve_device_with_details,
 )
@@ -97,6 +98,19 @@ def _validate_required_args(args: argparse.Namespace) -> None:
 
 
 def _validate_backend(args: argparse.Namespace) -> None:
+    backend_status_by_name = {status.name: status for status in list_backend_status()}
+    status = backend_status_by_name.get(args.asr_backend)
+    if status is not None and not status.enabled:
+        missing = ", ".join(status.missing_dependencies)
+        message = (
+            f"'{status.name}' is installed in code but disabled: missing {missing}."
+        )
+        if status.install_extra is not None:
+            message = (
+                f"{message} Install extras: `cutscene-locator[{status.install_extra}]`."
+            )
+        raise CliError(message)
+
     try:
         registration = get_backend(args.asr_backend)
     except ValueError as exc:
