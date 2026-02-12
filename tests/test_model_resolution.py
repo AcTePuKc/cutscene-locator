@@ -250,6 +250,66 @@ class ModelResolutionTests(unittest.TestCase):
                 resolve_model_path(ASRConfig(backend_name="faster-whisper", model_path=model_dir))
 
 
+
+    def test_qwen3_validation_accepts_transformers_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_home:
+            model_dir = Path(temp_home) / "models" / "qwen3-asr"
+            model_dir.mkdir(parents=True, exist_ok=True)
+            (model_dir / "config.json").write_text("{}", encoding="utf-8")
+            (model_dir / "tokenizer.json").write_text("{}", encoding="utf-8")
+            (model_dir / "model.safetensors").write_text("weights", encoding="utf-8")
+
+            resolved = resolve_model_path(
+                ASRConfig(backend_name="qwen3-asr", model_path=model_dir)
+            )
+
+            self.assertEqual(resolved, model_dir)
+
+    def test_qwen3_validation_reports_missing_required_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_home:
+            model_dir = Path(temp_home) / "models" / "qwen3-asr"
+            model_dir.mkdir(parents=True, exist_ok=True)
+            (model_dir / "config.json").write_text("{}", encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                ModelResolutionError,
+                "Resolved qwen3-asr model is missing required artifacts",
+            ) as exc_info:
+                resolve_model_path(ASRConfig(backend_name="qwen3-asr", model_path=model_dir))
+
+            message = str(exc_info.exception)
+            self.assertIn("one of tokenizer.json, tokenizer.model, vocab.json", message)
+            self.assertIn(
+                "one of model.safetensors, pytorch_model.bin, model.safetensors.index.json, pytorch_model.bin.index.json",
+                message,
+            )
+            self.assertIn("Found files: config.json", message)
+
+    def test_qwen3_validation_error_message_is_deterministic(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_home:
+            model_dir = Path(temp_home) / "models" / "qwen3-asr"
+            model_dir.mkdir(parents=True, exist_ok=True)
+            (model_dir / "junk.bin").write_text("x", encoding="utf-8")
+            (model_dir / "config.json").write_text("{}", encoding="utf-8")
+
+            expected_message = (
+                "Resolved qwen3-asr model is missing required artifacts: "
+                "one of model.safetensors, pytorch_model.bin, model.safetensors.index.json, "
+                "pytorch_model.bin.index.json, one of tokenizer.json, tokenizer.model, vocab.json. "
+                "Expected a Hugging Face Transformers model snapshot containing config + tokenizer + "
+                "model weights. Provide a full local snapshot via --model-path, or use --model-id/"
+                "--auto-download to fetch a complete repository before retrying. "
+                "Found files: config.json, junk.bin"
+            )
+
+            with self.assertRaises(ModelResolutionError) as first:
+                resolve_model_path(ASRConfig(backend_name="qwen3-asr", model_path=model_dir))
+            with self.assertRaises(ModelResolutionError) as second:
+                resolve_model_path(ASRConfig(backend_name="qwen3-asr", model_path=model_dir))
+
+            self.assertEqual(str(first.exception), expected_message)
+            self.assertEqual(str(second.exception), expected_message)
+
     def test_faster_whisper_snapshot_download_progress_off_does_not_pass_tqdm_class(self) -> None:
         with tempfile.TemporaryDirectory() as temp_home:
             snapshot_kwargs: list[dict[str, object]] = []
