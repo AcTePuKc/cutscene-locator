@@ -345,6 +345,37 @@ class CliPhaseOneTests(unittest.TestCase):
         self.assertIn("Missing optional dependencies: vibevoice, torch", stderr.getvalue())
         self.assertIn("pip install 'cutscene-locator[asr_vibevoice]'", stderr.getvalue())
 
+    def test_declared_but_disabled_backend_without_missing_deps_uses_reason_without_install_hint(self) -> None:
+        stderr = io.StringIO()
+        disabled_backend = SimpleNamespace(
+            name="experimental-asr",
+            enabled=False,
+            missing_dependencies=(),
+            reason="feature flag disabled",
+            install_extra="asr_experimental",
+        )
+        with patch("cli.list_backend_status", return_value=[disabled_backend]):
+            with redirect_stderr(stderr):
+                code = cli.main(
+                    [
+                        "--input",
+                        "in.wav",
+                        "--script",
+                        "script.tsv",
+                        "--out",
+                        "out",
+                        "--asr-backend",
+                        "experimental-asr",
+                    ],
+                    which=lambda _: "/usr/bin/ffmpeg",
+                    runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                )
+
+        self.assertEqual(code, 1)
+        self.assertIn("declared but currently disabled", stderr.getvalue())
+        self.assertIn("Reason: feature flag disabled", stderr.getvalue())
+        self.assertNotIn("Install with:", stderr.getvalue())
+
     def test_enabled_backend_path_unchanged(self) -> None:
         stderr = io.StringIO()
         enabled_backend = SimpleNamespace(

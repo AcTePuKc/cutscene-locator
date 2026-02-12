@@ -114,7 +114,8 @@ def _validate_backend(args: argparse.Namespace) -> None:
             missing = ", ".join(missing_deps)
             message = f"{message} Missing optional dependencies: {missing}."
         else:
-            message = f"{message} Reason: {status.reason}."
+            reason = getattr(status, "reason", "disabled by configuration")
+            message = f"{message} Reason: {reason}."
         if missing_deps and status.install_extra is not None:
             message = (
                 f"{message} Install with: `pip install 'cutscene-locator[{status.install_extra}]'`."

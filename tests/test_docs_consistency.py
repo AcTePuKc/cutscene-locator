@@ -155,7 +155,7 @@ class DocsDeclaredDisabledDefinitionTests(unittest.TestCase):
             "**Declared but disabled backend**",
             "missing optional dependencies",
             "feature flag",
-            "experimental backend not enabled by default",
+            "experimental backend disabled by default",
             "Dependency-gated errors include actionable install-extra guidance when disabled due to missing optional dependencies",
         )
 
@@ -169,7 +169,7 @@ class DocsCudaRerunWordingTests(unittest.TestCase):
         cli_doc = Path("docs/CLI.md").read_text(encoding="utf-8")
         integration_issues_doc = Path("docs/Integration-issues.md").read_text(encoding="utf-8")
 
-        self.assertIn("CPU rerun behavior", cli_doc)
+        self.assertIn("CPU rerun policy (no autoswitch)", cli_doc)
         self.assertNotIn("CPU fallback semantics", cli_doc)
 
         context_docs = (
@@ -198,6 +198,11 @@ class DocsCudaRerunWordingTests(unittest.TestCase):
                     doc_text,
                     re.compile(r"manual\s+rerun\s+with\s+`?--device\s+cpu`?", re.IGNORECASE),
                     "CUDA guidance must use manual rerun wording rather than fallback phrasing.",
+                )
+                self.assertRegex(
+                    doc_text,
+                    re.compile(r"Do not perform automatic backend/device switching", re.IGNORECASE),
+                    "Readiness and CUDA guidance must keep the no-autoswitch policy explicit.",
                 )
 
 
