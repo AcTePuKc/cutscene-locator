@@ -67,6 +67,12 @@ def _is_model_present(path: Path) -> bool:
 def _validate_model_repo_snapshot(*, backend_name: str, model_dir: Path) -> None:
     """Validate backend-specific required files for model directories."""
 
+    found_files = (
+        ", ".join(sorted(path.name for path in model_dir.iterdir()))
+        if model_dir.is_dir()
+        else "<none>"
+    )
+
     if backend_name == "faster-whisper":
         required_paths = [
             model_dir / "config.json",
@@ -89,10 +95,48 @@ def _validate_model_repo_snapshot(*, backend_name: str, model_dir: Path) -> None
 
         if missing:
             missing_display = ", ".join(sorted(missing))
-            found_files = ", ".join(sorted(path.name for path in model_dir.iterdir())) if model_dir.is_dir() else "<none>"
             raise ModelResolutionError(
                 "Resolved faster-whisper model is missing required files: "
                 f"{missing_display}. Expected a CTranslate2-converted Whisper model directory. "
+                f"Found files: {found_files}"
+            )
+
+    if backend_name == "qwen3-asr":
+        missing: list[str] = []
+
+        if not (model_dir / "config.json").exists():
+            missing.append("config.json")
+
+        tokenizer_assets = [
+            "tokenizer.json",
+            "tokenizer.model",
+            "vocab.json",
+        ]
+        has_tokenizer_asset = any((model_dir / filename).exists() for filename in tokenizer_assets)
+        if not has_tokenizer_asset:
+            missing.append("one of tokenizer.json, tokenizer.model, vocab.json")
+
+        model_weight_assets = [
+            "model.safetensors",
+            "pytorch_model.bin",
+            "model.safetensors.index.json",
+            "pytorch_model.bin.index.json",
+        ]
+        has_model_weights = any((model_dir / filename).exists() for filename in model_weight_assets)
+        if not has_model_weights:
+            missing.append(
+                "one of model.safetensors, pytorch_model.bin, "
+                "model.safetensors.index.json, pytorch_model.bin.index.json"
+            )
+
+        if missing:
+            missing_display = ", ".join(sorted(missing))
+            raise ModelResolutionError(
+                "Resolved qwen3-asr model is missing required artifacts: "
+                f"{missing_display}. Expected a Hugging Face Transformers model snapshot "
+                "containing config + tokenizer + model weights. "
+                "Provide a full local snapshot via --model-path, or use --model-id/--auto-download "
+                "to fetch a complete repository before retrying. "
                 f"Found files: {found_files}"
             )
 
