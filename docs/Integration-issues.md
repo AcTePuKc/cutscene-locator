@@ -282,15 +282,15 @@ These backends rely on `torch` CUDA probing (`torch.cuda.is_available()`) during
   - runtime/readiness: CUDA probe reason from `torch` path.
 - Surface deterministic preflight reason text for operator troubleshooting (for example, `torch CUDA probe reported unavailable`).
 - Do not silently switch backend, model family, or mode if CUDA is unavailable.
-- If the operator requested `--device cuda` and preflight fails, show explicit retry guidance: `--device cpu`.
+- If the operator requested `--device cuda` and preflight fails, show explicit retry guidance: manual rerun with `--device cpu`.
 
 ### Windows-specific notes
 
 - Windows users frequently hit CUDA wheel/runtime mismatches even when imports succeed.
 - Preserve deterministic CPU rerun behavior per backend:
-  - `qwen3-asr`: retry same command with `--device cpu`.
-  - `whisperx`: retry same command with `--device cpu`.
-  - `vibevoice`: retry same command with `--device cpu`.
+  - `qwen3-asr`: manual rerun with `--device cpu` using the same command/backend.
+  - `whisperx`: manual rerun with `--device cpu` using the same command/backend.
+  - `vibevoice`: manual rerun with `--device cpu` using the same command/backend.
 - Do not perform automatic backend/device switching; require rerun with `--device cpu` as an explicit operator action.
 
 ## 16. Qwen3 model resolves but pipeline init fails
