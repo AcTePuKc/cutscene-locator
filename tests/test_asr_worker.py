@@ -1,6 +1,5 @@
 import json
 import tempfile
-import types
 import unittest
 from io import StringIO
 from pathlib import Path
@@ -39,6 +38,8 @@ class ASRWorkerTests(unittest.TestCase):
                     with patch("src.asr.asr_worker.parse_asr_result", side_effect=lambda payload, source: payload):
                         code = asr_worker.main(
                             [
+                                "--asr-backend",
+                                "faster-whisper",
                                 "--audio-path",
                                 "in.wav",
                                 "--model-path",
@@ -81,6 +82,8 @@ class ASRWorkerTests(unittest.TestCase):
                 with patch("src.asr.asr_worker.parse_asr_result", side_effect=lambda payload, source: payload):
                     code = asr_worker.main(
                         [
+                            "--asr-backend",
+                            "faster-whisper",
                             "--audio-path",
                             "in.wav",
                             "--model-path",
@@ -125,6 +128,8 @@ class ASRWorkerTests(unittest.TestCase):
                                 with patch("sys.stdout", new_callable=StringIO) as stdout:
                                     code = asr_worker.main(
                                         [
+                                            "--asr-backend",
+                                            "faster-whisper",
                                             "--audio-path",
                                             "in.wav",
                                             "--model-path",
@@ -155,6 +160,69 @@ class ASRWorkerTests(unittest.TestCase):
         self.assertEqual(captured["backend_audio_path"], "in.wav")
         output = stdout.getvalue()
         self.assertIn("asr-worker: backend.transcribe begin", output)
+
+    def test_main_verbose_non_faster_whisper_skips_whisper_preflight(self) -> None:
+        captured: dict[str, object] = {}
+
+        class _FakeBackend:
+            def transcribe(self, audio_path: str, config: object):
+                captured["audio_path"] = audio_path
+                captured["config"] = config
+                return {
+                    "segments": [{"segment_id": "seg_0001", "start": 0.0, "end": 1.0, "text": "ok"}],
+                    "meta": {"backend": "qwen3-asr", "model": "tiny", "version": "1.0", "device": "cpu"},
+                }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            out_path = Path(temp_dir) / "result.json"
+            with patch("src.asr.asr_worker._build_runtime_backend", return_value=_FakeBackend()):
+                with patch("src.asr.asr_worker.parse_asr_result", side_effect=lambda payload, source: payload):
+                    with patch("src.asr.asr_worker._run_minimal_whisper_preflight") as preflight:
+                        code = asr_worker.main(
+                            [
+                                "--asr-backend",
+                                "qwen3-asr",
+                                "--audio-path",
+                                "in.wav",
+                                "--model-path",
+                                "models/qwen3-asr",
+                                "--device",
+                                "cpu",
+                                "--compute-type",
+                                "float32",
+                                "--result-path",
+                                str(out_path),
+                                "--verbose",
+                            ]
+                        )
+
+        self.assertEqual(code, 0)
+        preflight.assert_not_called()
+        self.assertEqual(captured["audio_path"], "in.wav")
+        self.assertEqual(captured["config"].backend_name, "qwen3-asr")
+
+    def test_main_unsupported_backend_has_deterministic_error_message(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "Unsupported --asr-backend 'invalid-backend' for ASR worker. "
+            "Expected one of: faster-whisper, qwen3-asr, whisperx, vibevoice.",
+        ):
+            asr_worker.main(
+                [
+                    "--asr-backend",
+                    "invalid-backend",
+                    "--audio-path",
+                    "in.wav",
+                    "--model-path",
+                    "models/invalid-backend",
+                    "--device",
+                    "cpu",
+                    "--compute-type",
+                    "float32",
+                    "--result-path",
+                    "out.json",
+                ]
+            )
 
 
 if __name__ == "__main__":

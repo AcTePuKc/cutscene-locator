@@ -1000,6 +1000,7 @@ class CliPhaseOneTests(unittest.TestCase):
         self.assertEqual(captured_cmd[0], sys.executable)
         self.assertEqual(captured_cmd[1:5], ["-u", "-X", "faulthandler", "-m"])
         self.assertEqual(captured_cmd[5], "src.asr.asr_worker")
+        self.assertEqual(captured_cmd[captured_cmd.index("--asr-backend") + 1], "faster-whisper")
         self.assertEqual(result["segments"][0]["segment_id"], "seg_0001")
 
     def test_read_ctranslate2_version_not_installed(self) -> None:

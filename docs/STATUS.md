@@ -119,6 +119,7 @@ All agents must update this file when completing or modifying tasks.
 - [x] faster-whisper CUDA preflight diagnostics in CLI (ctranslate2 version/device count + compute-type mitigation guidance) (`cli.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/Integration-issues.md`)
 - [x] ASR worker verbose environment dump + in-worker minimal WhisperModel preflight transcribe (`src/asr/asr_worker.py`, `tests/test_asr_worker.py`)
 - [x] ASR worker preflight made non-fatal and CUDA-skipped; CPU/auto preflight uses `vad_filter=False` and samples only first segment (`src/asr/asr_worker.py`, `tests/test_asr_worker.py`)
+- [x] ASR worker backend made explicit via required `--asr-backend` arg with deterministic runtime dispatch (faster-whisper/qwen3-asr/whisperx/vibevoice) and backend-specific preflight behavior (`src/asr/asr_worker.py`, `cli.py`, `tests/test_asr_worker.py`, `tests/test_cli.py`)
 - [x] CUDA worker crash tracing + tqdm monitor-thread disable + unbuffered faulthandler worker spawn (`src/asr/asr_worker.py`, `src/asr/faster_whisper_backend.py`, `cli.py`, `tests/test_asr_worker.py`, `tests/test_cli.py`)
 - [x] CUDA worker import isolation from package root + CUDA segment-consumption markers/forced materialization + conservative CUDA transcribe kwargs (`src/asr/asr_worker.py`, `src/asr/faster_whisper_backend.py`, `tests/test_asr_worker.py`, `tests/test_faster_whisper_backend.py`)
 - [x] qwen3-asr snapshot artifact validation for explicit path/model-id cache/download resolution with deterministic errors, requiring core artifacts while treating processor/preprocessor config as optional (`src/asr/model_resolution.py`, `tests/test_model_resolution.py`, `docs/CLI.md`, `docs/Data-contracts.md`)
@@ -333,3 +334,5 @@ Contract notes:
 
 - 2026-02-12 – Hardened `--asr-preflight-only` stdout determinism: emits exactly one machine-parseable JSON line (including with `--verbose`), with no stage/success log leakage, while preserving preflight-only scope to backend availability validation + model resolution + device resolution; updated CLI tests and preflight docs contract (`cli.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/STATUS.md`).
 
+
+- 2026-02-12 – Removed faster-whisper hardcoding from ASR worker subprocess path by requiring explicit `--asr-backend`, dispatching runtime backend instances deterministically, keeping faster-whisper preflight semantics unchanged, and ensuring non-ctranslate2 backends skip WhisperModel preflight; CLI now forwards selected backend to worker and tests cover command args + deterministic backend error text (`src/asr/asr_worker.py`, `cli.py`, `tests/test_asr_worker.py`, `tests/test_cli.py`, `docs/STATUS.md`).

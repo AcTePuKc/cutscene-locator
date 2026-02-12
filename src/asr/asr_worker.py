@@ -11,6 +11,34 @@ from pathlib import Path
 from .backends import parse_asr_result
 from .config import ASRConfig
 from .faster_whisper_backend import FasterWhisperBackend
+from .qwen3_asr_backend import Qwen3ASRBackend
+from .vibevoice_backend import VibeVoiceBackend
+from .whisperx_backend import WhisperXBackend
+
+
+_WORKER_RUNTIME_BACKENDS: tuple[str, ...] = (
+    "faster-whisper",
+    "qwen3-asr",
+    "whisperx",
+    "vibevoice",
+)
+
+
+def _build_runtime_backend(backend_name: str) -> object:
+    if backend_name == "faster-whisper":
+        return FasterWhisperBackend()
+    if backend_name == "qwen3-asr":
+        return Qwen3ASRBackend()
+    if backend_name == "whisperx":
+        return WhisperXBackend()
+    if backend_name == "vibevoice":
+        return VibeVoiceBackend()
+
+    supported = ", ".join(_WORKER_RUNTIME_BACKENDS)
+    raise ValueError(
+        f"Unsupported --asr-backend '{backend_name}' for ASR worker. "
+        f"Expected one of: {supported}."
+    )
 
 
 def _configure_runtime_environment(*, device: str, verbose: bool = False) -> None:
@@ -23,6 +51,7 @@ def _configure_runtime_environment(*, device: str, verbose: bool = False) -> Non
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m src.asr.asr_worker")
+    parser.add_argument("--asr-backend", required=True)
     parser.add_argument("--audio-path", required=True)
     parser.add_argument("--model-path", required=True)
     parser.add_argument("--device", required=True, choices=("cpu", "cuda", "auto"))
@@ -38,14 +67,17 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _print_verbose_environment_dump() -> None:
+def _print_verbose_environment_dump(*, backend_name: str) -> None:
     """Print diagnostic runtime details for worker environment parity checks."""
-
-    import ctranslate2
 
     print(f"asr-worker: sys.executable={sys.executable}")
     print(f"asr-worker: sys.path[0:3]={sys.path[0:3]}")
-    print(f"asr-worker: ctranslate2.__file__={getattr(ctranslate2, '__file__', 'unknown')}")
+    if backend_name == "faster-whisper":
+        import ctranslate2
+
+        print(f"asr-worker: ctranslate2.__file__={getattr(ctranslate2, '__file__', 'unknown')}")
+    else:
+        print(f"asr-worker: backend_runtime={backend_name}")
     env_subset = {
         "PATH": os.environ.get("PATH"),
         "CUDA_PATH": os.environ.get("CUDA_PATH"),
@@ -73,13 +105,21 @@ def _run_minimal_whisper_preflight(*, audio_path: str, model_path: Path, device:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    _configure_runtime_environment(device=args.device, verbose=args.verbose)
+    if args.asr_backend not in _WORKER_RUNTIME_BACKENDS:
+        supported = ", ".join(_WORKER_RUNTIME_BACKENDS)
+        raise ValueError(
+            f"Unsupported --asr-backend '{args.asr_backend}' for ASR worker. "
+            f"Expected one of: {supported}."
+        )
 
-    backend = FasterWhisperBackend()
+    _configure_runtime_environment(device=args.device, verbose=args.verbose)
+    backend = _build_runtime_backend(args.asr_backend)
 
     if args.verbose:
-        _print_verbose_environment_dump()
-        if args.device == "cuda":
+        _print_verbose_environment_dump(backend_name=args.asr_backend)
+        if args.asr_backend != "faster-whisper":
+            print(f"asr-worker: minimal preflight skipped for backend={args.asr_backend}")
+        elif args.device == "cuda":
             print("asr-worker: minimal preflight skipped on cuda")
         else:
             try:
@@ -97,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
         result = backend.transcribe(
             audio_path=args.audio_path,
             config=ASRConfig(
-                backend_name="faster-whisper",
+                backend_name=args.asr_backend,
                 model_path=Path(args.model_path),
                 device=args.device,
                 compute_type=args.compute_type,
@@ -116,7 +156,7 @@ def main(argv: list[str] | None = None) -> int:
     print("asr-worker: backend.transcribe end", flush=True)
 
     try:
-        serialized_result = parse_asr_result(result, source="faster-whisper worker")
+        serialized_result = parse_asr_result(result, source=f"{args.asr_backend} worker")
     except Exception:
         print("worker step failed: parse_asr_result", flush=True)
         raise
