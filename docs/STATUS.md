@@ -163,6 +163,7 @@ Contract notes:
 - [x]  CUDA enablement notes + detection (ctranslate2/whisper backend)
 - [x] Timestamp normalization across backends (`src/asr/timestamp_normalization.py`, `src/asr/faster_whisper_backend.py`, `src/asr/qwen3_asr_backend.py`, `tests/test_asr.py`, `tests/test_faster_whisper_backend.py`, `tests/test_qwen3_asr_backend.py`, `tests/fixtures/asr_timestamp_edges_faster_whisper.json`, `tests/fixtures/asr_timestamp_edges_qwen3.json`)
 - [x] Deterministic backend readiness audit matrix + verification checklist (qwen3-asr/whisperx/vibevoice) including registry/install-state diagnostics, model artifact layout validation, and backend-specific CUDA preflight reason reporting (`src/asr/readiness.py`, `src/asr/model_resolution.py`, `scripts/verify_backend_readiness.py`, `tests/test_backend_readiness.py`, `tests/test_asr_registry.py`, `docs/CLI.md`, `docs/Integration-issues.md`, `docs/Integration.md`)
+- [x] Qwen3-ASR deterministic compatibility smoke checks (pipeline call shape + `return_timestamps=True` + strict chunk timestamp tuple normalization assumptions) and docs matrix/troubleshooting separation for artifact-vs-runtime init failures (`src/asr/qwen3_asr_backend.py`, `tests/test_qwen3_asr_backend.py`, `docs/CLI.md`, `docs/Integration-issues.md`)
 
 ### Advanced alignment
 
@@ -204,6 +205,7 @@ Contract notes:
 
 ## Change log (manual)
 
+- 2026-02-12 – Added deterministic qwen3-asr compatibility smoke checks (mocked `transformers.pipeline` call-shape assertions, explicit `return_timestamps=True`, and strict `chunks` timestamp tuple contract checks) and documented a qwen3 variant compatibility matrix plus troubleshooting guidance for "model resolves but pipeline init fails" to separate artifact issues from runtime/API issues (`tests/test_qwen3_asr_backend.py`, `docs/CLI.md`, `docs/Integration-issues.md`, `docs/STATUS.md`).
 - 2026-02-12 – Clarified `--asr-preflight-only` invocation parity in CLI docs with explicit installed/source command examples (including Windows `py .\cli.py`), documented identical single-line JSON stdout contract across invocation modes, added PowerShell copy/line-continuation artifact note, and extended docs consistency coverage for this requirement (`docs/CLI.md`, `tests/test_docs_consistency.py`, `docs/STATUS.md`).
 - 2026-02-12 – Added authoritative CLI docs definition for "Declared but disabled" backend diagnostics (missing optional dependencies, feature-flag-disabled backend, experimental backend disabled by default), clarified that dependency-gated errors may include install-extra hints, and added docs consistency coverage for the new definition (`docs/CLI.md`, `tests/test_docs_consistency.py`, `docs/STATUS.md`).
 - 2026-02-12 – Replaced misleading CUDA "fallback" terminology with explicit CPU rerun wording in backend readiness/CUDA guidance docs, and added a docs consistency test that blocks reintroduction of CPU fallback phrasing in that context (`docs/CLI.md`, `docs/Integration-issues.md`, `tests/test_docs_consistency.py`, `docs/STATUS.md`).

@@ -135,6 +135,16 @@ Current declared backends (exact names):
 | `mock` | local fixture JSON (for example `tests/fixtures/mock_asr_valid.json`) | `asr` | none | mock ASR JSON with `segments[]` and `meta` | ASR transcript contract (`ASRResult`) |
 | `faster-whisper` | `Systran/faster-whisper-tiny`, `Systran/faster-whisper-small` | `asr` | `asr_faster_whisper` | CTranslate2 snapshot (for example `model.bin` + tokenizer assets) | ASR transcript contract (`ASRResult`) |
 | `qwen3-asr` | `Qwen/Qwen3-ASR-0.6B`, `Qwen/Qwen3-ASR-1.7B` | `asr` | `asr_qwen3` | Transformers ASR snapshot (`config.json`, tokenizer assets, `tokenizer_config.json`, model weights; `processor_config.json`/`preprocessor_config.json` optional) | ASR transcript contract (`ASRResult`) |
+
+#### qwen3-asr compatibility matrix (deterministic smoke checks)
+
+The table below reflects deterministic backend smoke-check coverage (mocked pipeline, no heavy inference) that separates checkpoint artifact compatibility from runtime/API initialization issues.
+
+| variant / checkpoint family | smoke status | what is validated | known caveats |
+| --- | --- | --- | --- |
+| `Qwen/Qwen3-ASR-0.6B` layout-compatible snapshots | Verified (mocked backend test path) | `transformers.pipeline` call shape (`task`, `model`, `device`, `trust_remote_code`), invocation with `return_timestamps=True`, and strict `chunks[]` + tuple `(start, end)` normalization assumptions | A model path may resolve and still fail at runtime if checkpoint internals are not pipeline-compatible for `automatic-speech-recognition` in your installed `transformers`/`torch` versions. |
+| `Qwen/Qwen3-ASR-1.7B` layout-compatible snapshots | Verified (mocked backend test path) | Same deterministic smoke assertions as 0.6B path; same normalization contract for timestamp tuples | Requires a pipeline-compatible checkpoint layout/API. Artifact presence alone does not guarantee runtime pipeline initialization success. |
+
 | `whisperx` | local CTranslate2 Whisper snapshots compatible with WhisperX | `asr` | `asr_whisperx` | CTranslate2 snapshot (for example `model.bin` + tokenizer assets) | ASR transcript contract (`ASRResult`) |
 | `qwen3-forced-aligner` | `Qwen/Qwen3-ForcedAligner-0.6B` | `alignment` | `asr_qwen3` | canonical WAV + caller-provided `reference_spans[]` + aligner model snapshot | Alignment contract (`AlignmentResult`, `docs/Data-contracts.md`) |
 | `vibevoice` | local VibeVoice checkpoints compatible with runtime | `asr` | `asr_vibevoice` | local model snapshot path (`--model-path` or resolved `--model-id`) | ASR transcript contract (`ASRResult`) |
