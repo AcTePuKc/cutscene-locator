@@ -310,6 +310,129 @@ class ModelResolutionTests(unittest.TestCase):
             self.assertEqual(str(first.exception), expected_message)
             self.assertEqual(str(second.exception), expected_message)
 
+    def test_qwen3_model_id_cached_hit_validates_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_home:
+            expected_dir = (
+                Path(temp_home)
+                / ".cutscene-locator"
+                / "models"
+                / "qwen3-asr"
+                / "Qwen--Qwen3-ASR-0.6B"
+                / "main"
+            )
+            expected_dir.mkdir(parents=True, exist_ok=True)
+            (expected_dir / "config.json").write_text("{}", encoding="utf-8")
+            (expected_dir / "tokenizer.model").write_text("tokenizer", encoding="utf-8")
+            (expected_dir / "pytorch_model.bin").write_text("weights", encoding="utf-8")
+
+            def _snapshot_download(**kwargs: object) -> None:
+                raise AssertionError("snapshot_download should not be called for cached hit")
+
+            fake_hf_module = types.SimpleNamespace(snapshot_download=_snapshot_download)
+
+            with patch("pathlib.Path.home", return_value=Path(temp_home)):
+                with patch("src.asr.model_resolution.import_module", return_value=fake_hf_module):
+                    resolved = resolve_model_path(
+                        ASRConfig(
+                            backend_name="qwen3-asr",
+                            model_id="Qwen/Qwen3-ASR-0.6B",
+                            revision="main",
+                        )
+                    )
+
+            self.assertEqual(resolved, expected_dir)
+
+    def test_qwen3_model_id_cached_hit_rejects_partial_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_home:
+            expected_dir = (
+                Path(temp_home)
+                / ".cutscene-locator"
+                / "models"
+                / "qwen3-asr"
+                / "Qwen--Qwen3-ASR-0.6B"
+                / "main"
+            )
+            expected_dir.mkdir(parents=True, exist_ok=True)
+            (expected_dir / "config.json").write_text("{}", encoding="utf-8")
+
+            def _snapshot_download(**kwargs: object) -> None:
+                raise AssertionError("snapshot_download should not be called for cached hit")
+
+            fake_hf_module = types.SimpleNamespace(snapshot_download=_snapshot_download)
+
+            with patch("pathlib.Path.home", return_value=Path(temp_home)):
+                with patch("src.asr.model_resolution.import_module", return_value=fake_hf_module):
+                    with self.assertRaisesRegex(
+                        ModelResolutionError,
+                        "Resolved qwen3-asr model is missing required artifacts",
+                    ):
+                        resolve_model_path(
+                            ASRConfig(
+                                backend_name="qwen3-asr",
+                                model_id="Qwen/Qwen3-ASR-0.6B",
+                                revision="main",
+                            )
+                        )
+
+    def test_qwen3_model_id_download_validates_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_home:
+            snapshot_calls: list[tuple[str, str | None, str]] = []
+
+            def _snapshot_download(*, repo_id: str, revision: str | None, local_dir: str) -> None:
+                snapshot_calls.append((repo_id, revision, local_dir))
+                model_dir = Path(local_dir)
+                model_dir.mkdir(parents=True, exist_ok=True)
+                (model_dir / "config.json").write_text("{}", encoding="utf-8")
+                (model_dir / "tokenizer.json").write_text("{}", encoding="utf-8")
+                (model_dir / "model.safetensors.index.json").write_text("{}", encoding="utf-8")
+
+            fake_hf_module = types.SimpleNamespace(snapshot_download=_snapshot_download)
+            with patch("pathlib.Path.home", return_value=Path(temp_home)):
+                with patch("src.asr.model_resolution.import_module", return_value=fake_hf_module):
+                    resolved = resolve_model_path(
+                        ASRConfig(
+                            backend_name="qwen3-asr",
+                            model_id="Qwen/Qwen3-ASR-0.6B",
+                            revision="main",
+                        )
+                    )
+
+            expected_dir = (
+                Path(temp_home)
+                / ".cutscene-locator"
+                / "models"
+                / "qwen3-asr"
+                / "Qwen--Qwen3-ASR-0.6B"
+                / "main"
+            )
+            self.assertEqual(resolved, expected_dir)
+            self.assertEqual(
+                snapshot_calls,
+                [("Qwen/Qwen3-ASR-0.6B", "main", str(expected_dir))],
+            )
+
+    def test_qwen3_model_id_download_rejects_partial_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_home:
+            def _snapshot_download(*, repo_id: str, revision: str | None, local_dir: str) -> None:
+                model_dir = Path(local_dir)
+                model_dir.mkdir(parents=True, exist_ok=True)
+                (model_dir / "config.json").write_text("{}", encoding="utf-8")
+
+            fake_hf_module = types.SimpleNamespace(snapshot_download=_snapshot_download)
+            with patch("pathlib.Path.home", return_value=Path(temp_home)):
+                with patch("src.asr.model_resolution.import_module", return_value=fake_hf_module):
+                    with self.assertRaisesRegex(
+                        ModelResolutionError,
+                        "Resolved qwen3-asr model is missing required artifacts",
+                    ):
+                        resolve_model_path(
+                            ASRConfig(
+                                backend_name="qwen3-asr",
+                                model_id="Qwen/Qwen3-ASR-0.6B",
+                                revision="main",
+                            )
+                        )
+
     def test_faster_whisper_snapshot_download_progress_off_does_not_pass_tqdm_class(self) -> None:
         with tempfile.TemporaryDirectory() as temp_home:
             snapshot_kwargs: list[dict[str, object]] = []
