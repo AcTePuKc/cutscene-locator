@@ -20,7 +20,7 @@ from src.asr import (
     ASRResult,
     CapabilityRequirements,
     ASRExecutionContext,
-    get_asr_adapter,
+    dispatch_asr_transcription,
     get_backend,
     list_backend_status,
     parse_asr_result,
@@ -453,20 +453,20 @@ def main(
             resolution = resolve_device_with_details(asr_config.device)
             device_resolution_reason = resolution.reason
 
-        adapter = get_asr_adapter(backend_registration.name)
         asr_started = time.perf_counter()
         if args.verbose:
             print("stage: asr start")
-        asr_result = adapter.transcribe(
-            str(preprocessing_output.canonical_wav_path),
-            asr_config,
-            ASRExecutionContext(
+        asr_result = dispatch_asr_transcription(
+            audio_path=str(preprocessing_output.canonical_wav_path),
+            config=asr_config,
+            context=ASRExecutionContext(
                 resolved_model_path=resolved_model_path,
                 verbose=args.verbose,
                 mock_asr_path=args.mock_asr_path,
                 run_faster_whisper_subprocess=_run_faster_whisper_subprocess,
                 faster_whisper_preflight=_print_faster_whisper_cuda_preflight,
             ),
+            requirements=requirements,
         )
         timings["asr"] = time.perf_counter() - asr_started
         if args.verbose:

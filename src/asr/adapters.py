@@ -13,6 +13,7 @@ from .config import ASRConfig
 from .device import resolve_device_with_details
 from .faster_whisper_backend import FasterWhisperBackend
 from .qwen3_asr_backend import Qwen3ASRBackend
+from .registry import get_backend, validate_backend_capabilities
 
 
 @dataclass(frozen=True)
@@ -170,3 +171,23 @@ def get_asr_adapter(name: str) -> ASRAdapter:
         available = ", ".join(list_asr_adapters())
         raise ValueError(f"No ASR adapter registered for backend '{name}'. Available adapters: {available}")
     return adapter_class()
+
+
+def dispatch_asr_transcription(
+    *,
+    audio_path: str,
+    config: ASRConfig,
+    context: ASRExecutionContext,
+    requirements: CapabilityRequirements | None = None,
+) -> ASRResult:
+    """Dispatch ASR transcription through registry preflight + adapter execution."""
+
+    effective_requirements = requirements or CapabilityRequirements()
+    registration = get_backend(config.backend_name)
+    validate_backend_capabilities(
+        registration,
+        requires_segment_timestamps=effective_requirements.requires_segment_timestamps,
+        allows_alignment_backends=effective_requirements.allows_alignment_backends,
+    )
+    adapter = get_asr_adapter(registration.name)
+    return adapter.transcribe(audio_path, config, context)
