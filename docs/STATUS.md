@@ -85,7 +85,7 @@ All agents must update this file when completing or modifying tasks.
 - [x] Verbose logging
 - [x] Error handling
 - [x] ASR preflight-only CLI mode (`--asr-preflight-only`) for backend availability/model resolution/device probe sanity checks with deterministic JSON output (`cli.py`, `tests/test_cli.py`, `docs/CLI.md`)
-- [x] Qwen3 readiness QA coverage: deterministic `qwen3-asr` preflight JSON smoke assertion + optional env-gated local init-only loader smoke (no inference, offline-by-default CI) (`tests/test_cli.py`, `docs/CLI.md`)
+- [x] Qwen3 readiness QA coverage: deterministic `qwen3-asr` preflight JSON smoke assertion + optional env-gated local init-only loader smoke (no inference, offline-by-default CI), including from_pretrained-without-`device` and explicit post-load device transfer assertions (`tests/test_cli.py`, `tests/test_qwen3_asr_backend.py`, `docs/CLI.md`)
 - [x] Windows progress-thread guard + verbose stage markers (`cli.py`, `src/match/engine.py`, `tests/test_cli.py`, `tests/test_matching.py`)
 
 ---
@@ -206,6 +206,10 @@ Contract notes:
 ---
 
 ## Change log (manual)
+
+- 2026-02-12 – Simplified qwen3-asr `dtype` resolver/loader kwargs to remove redundant `None`-guarding and redundant branching: `_resolve_dtype` now returns `str` passthrough deterministically and `from_pretrained` init kwargs are constructed directly with `dtype`, preserving no-`device` init and post-load device-move behavior (`src/asr/qwen3_asr_backend.py`, `docs/STATUS.md`).
+
+- 2026-02-12 – Updated qwen3-asr runtime init to match real API usage by removing `device=` from `Qwen3ASRModel.from_pretrained(...)`, preserving deterministic `dtype` mapping, enforcing explicit post-load device transfer (`.model.to(...)`/`.to(...)`) with deterministic loader/API-mismatch errors when unsupported, and expanded backend + readiness smoke tests for no-device-kwarg and transfer behavior (`src/asr/qwen3_asr_backend.py`, `tests/test_qwen3_asr_backend.py`, `tests/test_cli.py`, `docs/STATUS.md`).
 
 - 2026-02-12 – Tightened no-silent-fallback wording to require manual rerun with `--device cpu`, clarified the authoritative definition/causes for a "declared but disabled backend", kept dependency-gated CLI backend errors deterministic/actionable with install-extras only for missing-optional-dependency cases, and expanded docs consistency checks to prevent fallback-wording regressions (`docs/CLI.md`, `cli.py`, `tests/test_docs_consistency.py`, `docs/STATUS.md`).
 
@@ -343,7 +347,7 @@ Contract notes:
 
 
 - 2026-02-12 – Removed faster-whisper hardcoding from ASR worker subprocess path by requiring explicit `--asr-backend`, dispatching runtime backend instances deterministically, keeping faster-whisper preflight semantics unchanged, and ensuring non-ctranslate2 backends skip WhisperModel preflight; CLI now forwards selected backend to worker and tests cover command args + deterministic backend error text (`src/asr/asr_worker.py`, `cli.py`, `tests/test_asr_worker.py`, `tests/test_cli.py`, `docs/STATUS.md`).
-- 2026-02-12 – Switched qwen3-asr runtime from Transformers pipeline to official qwen_asr Qwen3ASRModel.from_pretrained(...), mapped supported CLI options (language, deterministic timestamps, device, compute_type→torch_dtype), raised explicit deterministic errors for unsupported decode knobs, updated qwen3 optional dependency metadata, and added backend success/failure/unsupported-option unit tests (`pyproject.toml`, `src/asr/qwen3_asr_backend.py`, `src/asr/registry.py`, `src/asr/readiness.py`, `tests/test_qwen3_asr_backend.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/STATUS.md`).
+- 2026-02-12 – Switched qwen3-asr runtime from Transformers pipeline to official qwen_asr Qwen3ASRModel.from_pretrained(...), mapped supported CLI options (language, deterministic timestamps, device, compute_type→dtype), raised explicit deterministic errors for unsupported decode knobs, updated qwen3 optional dependency metadata, and added backend success/failure/unsupported-option unit tests (`pyproject.toml`, `src/asr/qwen3_asr_backend.py`, `src/asr/registry.py`, `src/asr/readiness.py`, `tests/test_qwen3_asr_backend.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/STATUS.md`).
 
 - 2026-02-12 – Resolved WhisperX CUDA probe source-of-truth ambiguity by mapping WhisperX preflight/device routing to ctranslate2 (matching runtime API path), synchronized readiness/CLI matrix wording, and updated probe-label coverage in ASR/CLI tests (`src/asr/device.py`, `src/asr/readiness.py`, `docs/CLI.md`, `tests/test_asr.py`, `tests/test_cli.py`, `docs/STATUS.md`).
 
