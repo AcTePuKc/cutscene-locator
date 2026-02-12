@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from difflib import SequenceMatcher
 from typing import Callable
+
+from rapidfuzz import fuzz
 
 from src.asr.base import ASRResult
 from src.ingest.script_parser import ScriptRow, ScriptTable
@@ -46,9 +47,16 @@ class MatchingConfig:
 
 
 def _similarity_score(left: str, right: str) -> float:
-    """Return deterministic similarity score in [0.0, 1.0]."""
+    """Return deterministic RapidFuzz similarity score in [0.0, 1.0]."""
 
-    return SequenceMatcher(None, left, right, autojunk=False).ratio()
+    def _processor(value: str) -> str:
+        return value.lower().strip()
+
+    primary_score = fuzz.WRatio(left, right, processor=_processor)
+    if primary_score > 0:
+        return primary_score / 100.0
+
+    return fuzz.partial_ratio(left, right, processor=_processor) / 100.0
 
 
 def _tokenize(text: str) -> list[str]:

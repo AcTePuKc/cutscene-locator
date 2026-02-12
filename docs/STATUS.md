@@ -243,3 +243,5 @@ All agents must update this file when completing or modifying tasks.
 - 2026-02-12 – Exposed safe faster-whisper transcribe knobs in CLI/ASR config and worker path, with validation and transcribe-kwarg gating (including no `best_of` when `temperature=0`) plus CLI/backend tests (`cli.py`, `src/asr/config.py`, `src/asr/faster_whisper_backend.py`, `src/asr/asr_worker.py`, `tests/test_cli.py`, `tests/test_faster_whisper_backend.py`, `tests/test_asr_worker.py`, `docs/STATUS.md`).
 
 - 2026-02-12 – Tightened ASR typing contract by making validated ASR segment keys required, adding explicit protocol stub return, and fixing mock-meta narrowing to remove Optional member access without changing runtime validation behavior (`src/asr/base.py`, `src/asr/backends.py`, `docs/STATUS.md`).
+
+- 2026-02-12 – Replaced custom match similarity scoring with RapidFuzz (`fuzz.WRatio` primary, `fuzz.partial_ratio` fallback) while preserving deterministic candidate indexing/filtering and added a unit test that monkeypatches `fuzz.WRatio` to prove RapidFuzz invocation (`src/match/engine.py`, `tests/test_matching.py`, `docs/STATUS.md`).
