@@ -96,6 +96,7 @@ All agents must update this file when completing or modifying tasks.
 - [x] Backend discovery via CLI flag
 - [x] Backend capability metadata (supports_word_timestamps, supports_alignment, etc.)
 - [x] Backend status API distinguishes unknown vs declared-disabled backends (`name`, `enabled`, `missing_dependencies`, `reason`) and preserves enabled-only discovery via `list_backends()` (`src/asr/registry.py`, `cli.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/CLI.md`)
+- [x] Docs/backend-name consistency guard: declared registry backend names must be present in `docs/CLI.md` and `docs/STATUS.md` (`tests/test_docs_consistency.py`, `docs/CLI.md`, `docs/STATUS.md`)
 
 ### Model resolution strategy
 
@@ -260,3 +261,6 @@ All agents must update this file when completing or modifying tasks.
 - 2026-02-12 – Added qwen3-asr Hugging Face snapshot validation in model resolution (config/tokenizer/weights checks) covering explicit --model-path, model-id cache hits, and model-id downloads, with deterministic error messaging tests (`src/asr/model_resolution.py`, `tests/test_model_resolution.py`, `docs/STATUS.md`).
 
 - 2026-02-12 – Added ASR adapter abstraction + adapter registry dispatch in CLI (standardized model-loading/transcribe plumbing, backend-kwargs filtering hook, canonical output normalization path), plus explicit capability validation (`supports_segment_timestamps` required, alignment disallowed for ASR mode) and deterministic adapter-dispatch tests/docs updates (`src/asr/adapters.py`, `src/asr/registry.py`, `src/asr/__init__.py`, `cli.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/ASR_ARCHITECTURE.md`, `docs/STATUS.md`).
+
+- 2026-02-12 – Clarified ASR-vs-alignment model family support with a backend/mode matrix in CLI docs, documented deterministic loaded-when-requested model resolution/no-fallback policy, and added a docs consistency test to prevent drift between registry backend names and docs (`docs/CLI.md`, `tests/test_docs_consistency.py`, `docs/STATUS.md`).
+
