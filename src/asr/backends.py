@@ -31,7 +31,8 @@ class MockASRBackend:
         if not isinstance(raw_data, dict):
             raise ValueError(f"{self.mock_json_path}: root must be an object")
 
-        raw_meta = raw_data.get("meta") if isinstance(raw_data.get("meta"), dict) else {}
+        raw_meta_obj = raw_data.get("meta")
+        raw_meta: dict[str, Any] = raw_meta_obj if isinstance(raw_meta_obj, dict) else {}
         resolved_device = resolve_device(config.device)
         resolved_model = "unknown"
         if config.model_path is not None:

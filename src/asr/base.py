@@ -7,13 +7,18 @@ from typing import Protocol, TypedDict
 from .config import ASRConfig
 
 
-class ASRSegment(TypedDict, total=False):
-    """Validated ASR segment structure."""
+class ASRSegmentRequired(TypedDict):
+    """Required keys present in every validated ASR segment."""
 
     segment_id: str
     start: float | int
     end: float | int
     text: str
+
+
+class ASRSegment(ASRSegmentRequired, total=False):
+    """Validated ASR segment structure."""
+
     speaker: str
 
 
@@ -38,3 +43,4 @@ class ASRBackend(Protocol):
 
     def transcribe(self, audio_path: str, config: ASRConfig) -> ASRResult:
         """Return ASR output in normalized internal JSON structure."""
+        ...
