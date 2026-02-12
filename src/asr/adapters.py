@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Callable, Protocol
+from typing import Protocol, TypeAlias
 
 from .backends import MockASRBackend
 from .base import ASRResult
@@ -16,6 +16,29 @@ from .qwen3_asr_backend import Qwen3ASRBackend
 from .whisperx_backend import WhisperXBackend
 from .vibevoice_backend import VibeVoiceBackend
 from .registry import get_backend, validate_backend_capabilities
+
+
+class FasterWhisperSubprocessRunner(Protocol):
+    """Callable contract for faster-whisper worker subprocess execution."""
+
+    def __call__(
+        self,
+        *,
+        audio_path: Path,
+        resolved_model_path: Path,
+        asr_config: ASRConfig,
+        verbose: bool,
+    ) -> ASRResult: ...
+
+
+class FasterWhisperPreflightPrinter(Protocol):
+    """Callable contract for faster-whisper CUDA preflight diagnostics."""
+
+    def __call__(self, *, device: str, compute_type: str) -> None: ...
+
+
+FasterWhisperSubprocessRunnerType: TypeAlias = FasterWhisperSubprocessRunner
+FasterWhisperPreflightPrinterType: TypeAlias = FasterWhisperPreflightPrinter
 
 
 @dataclass(frozen=True)
@@ -33,8 +56,8 @@ class ASRExecutionContext:
     resolved_model_path: Path | None
     verbose: bool
     mock_asr_path: str | None = None
-    run_faster_whisper_subprocess: Callable[[Path, Path, ASRConfig, bool], ASRResult] | None = None
-    faster_whisper_preflight: Callable[[str, str], None] | None = None
+    run_faster_whisper_subprocess: FasterWhisperSubprocessRunnerType | None = None
+    faster_whisper_preflight: FasterWhisperPreflightPrinterType | None = None
 
 
 class ASRAdapter(Protocol):
@@ -130,10 +153,10 @@ class FasterWhisperASRAdapter(_BaseASRAdapter):
             if effective_config.model_path is None:
                 raise ValueError("faster-whisper backend requires a resolved model path.")
             return context.run_faster_whisper_subprocess(
-                Path(audio_path),
-                effective_config.model_path,
-                effective_config,
-                context.verbose,
+                audio_path=Path(audio_path),
+                resolved_model_path=effective_config.model_path,
+                asr_config=effective_config,
+                verbose=context.verbose,
             )
 
         return self.normalize_output(backend.transcribe(audio_path, effective_config))
