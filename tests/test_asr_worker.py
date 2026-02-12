@@ -233,6 +233,41 @@ class ASRWorkerTests(unittest.TestCase):
         self.assertEqual(captured["config"].backend_name, "qwen3-asr")
 
 
+    def test_main_passes_backend_result_to_parse_contract(self) -> None:
+        class _FakeBackend:
+            def transcribe(self, audio_path: str, config: object):
+                del audio_path, config
+                return {
+                    "segments": [{"segment_id": "seg_0001", "start": 0.0, "end": 1.0, "text": "ok"}],
+                    "meta": {"backend": "qwen3-asr", "model": "tiny", "version": "1.0", "device": "cpu"},
+                }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            out_path = Path(temp_dir) / "result.json"
+            with patch("src.asr.asr_worker._build_runtime_backend", return_value=_FakeBackend()):
+                with patch("src.asr.asr_worker.parse_asr_result", wraps=asr_worker.parse_asr_result) as parse_mock:
+                    code = asr_worker.main(
+                        [
+                            "--asr-backend",
+                            "qwen3-asr",
+                            "--audio-path",
+                            "in.wav",
+                            "--model-path",
+                            "models/qwen3-asr",
+                            "--device",
+                            "cpu",
+                            "--compute-type",
+                            "float32",
+                            "--result-path",
+                            str(out_path),
+                        ]
+                    )
+
+        self.assertEqual(code, 0)
+        parse_mock.assert_called_once()
+        payload = parse_mock.call_args.kwargs["raw_data"] if "raw_data" in parse_mock.call_args.kwargs else parse_mock.call_args.args[0]
+        self.assertIn("segments", payload)
+
     def test_main_requires_asr_backend_argument(self) -> None:
         with self.assertRaises(SystemExit) as ctx:
             asr_worker.main(

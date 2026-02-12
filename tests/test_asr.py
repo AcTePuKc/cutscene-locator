@@ -277,6 +277,70 @@ class CudaProbeSelectionTests(unittest.TestCase):
 
 
 
+class ParseASRResultTypingTests(unittest.TestCase):
+    def test_parse_accepts_mapping_inputs(self) -> None:
+        from collections.abc import Mapping
+
+        class _MappingPayload(Mapping[str, object]):
+            def __init__(self, payload: dict[str, object]) -> None:
+                self._payload = payload
+
+            def __getitem__(self, key: str) -> object:
+                return self._payload[key]
+
+            def __iter__(self):
+                return iter(self._payload)
+
+            def __len__(self) -> int:
+                return len(self._payload)
+
+        payload = _MappingPayload(
+            {
+                "segments": [
+                    {
+                        "segment_id": "seg_0001",
+                        "start": 0.0,
+                        "end": 1.0,
+                        "text": "hello",
+                    }
+                ],
+                "meta": {
+                    "backend": "mock",
+                    "model": "unknown",
+                    "version": "1.0",
+                    "device": "cpu",
+                },
+            }
+        )
+
+        result = parse_asr_result(payload, source="mapping")
+        self.assertEqual(result["segments"][0]["segment_id"], "seg_0001")
+
+    def test_parse_accepts_typed_asr_result_input(self) -> None:
+        typed_result = validate_asr_result(
+            {
+                "segments": [
+                    {
+                        "segment_id": "seg_0001",
+                        "start": 0.0,
+                        "end": 0.7,
+                        "text": "typed",
+                    }
+                ],
+                "meta": {
+                    "backend": "mock",
+                    "model": "unknown",
+                    "version": "1.0",
+                    "device": "cpu",
+                },
+            },
+            source="typed",
+        )
+
+        parsed = parse_asr_result(typed_result, source="typed")
+        self.assertEqual(parsed["meta"]["backend"], "mock")
+
+
 class DeviceResolutionTests(unittest.TestCase):
     def test_auto_prefers_cuda_when_available(self) -> None:
         resolved = resolve_device("auto", cuda_available_checker=lambda: True)

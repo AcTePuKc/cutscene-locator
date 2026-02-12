@@ -1130,6 +1130,46 @@ class CliPhaseOneTests(unittest.TestCase):
         self.assertEqual(captured_cmd[captured_cmd.index("--asr-backend") + 1], "whisperx")
 
 
+    def test_worker_subprocess_result_is_reparsed_with_contract_validator(self) -> None:
+        fake_payload = {
+            "segments": [{"segment_id": "seg_0001", "start": 0.0, "end": 1.0, "text": "ok"}],
+            "meta": {
+                "backend": "whisperx",
+                "model": "tiny",
+                "version": "1.0.0",
+                "device": "cpu",
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            audio_path = Path(temp_dir) / "audio.wav"
+            audio_path.write_text("fake", encoding="utf-8")
+            config = cli.ASRConfig(
+                backend_name="whisperx",
+                model_path=Path("models/whisperx"),
+                device="cpu",
+                compute_type="float32",
+            )
+
+            def _fake_run(cmd, check, capture_output, text):
+                del check, capture_output, text
+                result_path = Path(cmd[cmd.index("--result-path") + 1])
+                result_path.parent.mkdir(parents=True, exist_ok=True)
+                result_path.write_text(json.dumps(fake_payload), encoding="utf-8")
+                return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+            with patch("cli.subprocess.run", side_effect=_fake_run):
+                with patch("cli.parse_asr_result", wraps=cli.parse_asr_result) as parse_mock:
+                    result = cli._run_faster_whisper_subprocess(
+                        audio_path=audio_path,
+                        resolved_model_path=Path("models/whisperx"),
+                        asr_config=config,
+                        verbose=False,
+                    )
+
+        parse_mock.assert_called_once()
+        self.assertEqual(result["meta"]["backend"], "whisperx")
+
     def test_faster_whisper_worker_subprocess_rejects_untyped_segment_payload(self) -> None:
         fake_payload = {
             "segments": [{"start": 0.0, "end": 1.0, "text": "ok"}],

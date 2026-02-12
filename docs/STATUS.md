@@ -360,3 +360,5 @@ Contract notes:
 
 
 - 2026-02-12 – Verified WhisperX runtime path uses WhisperX/CTranslate2 model loading (`whisperx.load_model`) and enforced a single CUDA-probe mapping (`ctranslate2`) across readiness dependencies/docs/tests; added readiness coverage asserting WhisperX probe/dependency labels (`src/asr/whisperx_backend.py`, `src/asr/readiness.py`, `docs/CLI.md`, `tests/test_backend_readiness.py`, `docs/STATUS.md`).
+- 2026-02-12 – Aligned ASR parse/contract static typing by tightening validated meta/result construction (`ASRMeta`/`ASRResult`), widening parser input typing to accept both typed results and mapping-style JSON payloads, and adding worker/CLI/ASR tests that exercise contract re-parse paths and required segment key enforcement (`src/asr/backends.py`, `tests/test_asr.py`, `tests/test_asr_worker.py`, `tests/test_cli.py`, `docs/STATUS.md`).
+- 2026-02-12 – Follow-up typing fix: made ASR result validator accept any `Mapping` root (not only `dict`) to match widened parse contract, and updated parse test coverage to use a non-`dict` Mapping implementation for contract-path enforcement (`src/asr/backends.py`, `tests/test_asr.py`, `docs/STATUS.md`).
