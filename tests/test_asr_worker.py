@@ -57,17 +57,17 @@ class ASRWorkerTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(captured_env["TQDM_DISABLE"], "1")
         self.assertEqual(captured_env["HF_HUB_DISABLE_PROGRESS_BARS"], "1")
-    def test_configure_runtime_environment_sets_cuda_progress_guards(self) -> None:
+    def test_configure_runtime_environment_sets_progress_guards_for_cuda(self) -> None:
         with patch.dict("src.asr.asr_worker.os.environ", {}, clear=True):
             asr_worker._configure_runtime_environment(device="cuda")
             self.assertEqual(asr_worker.os.environ.get("TQDM_DISABLE"), "1")
             self.assertEqual(asr_worker.os.environ.get("HF_HUB_DISABLE_PROGRESS_BARS"), "1")
 
-    def test_configure_runtime_environment_is_noop_for_cpu(self) -> None:
+    def test_configure_runtime_environment_sets_progress_guards_for_cpu(self) -> None:
         with patch.dict("src.asr.asr_worker.os.environ", {}, clear=True):
             asr_worker._configure_runtime_environment(device="cpu")
-            self.assertNotIn("TQDM_DISABLE", asr_worker.os.environ)
-            self.assertNotIn("HF_HUB_DISABLE_PROGRESS_BARS", asr_worker.os.environ)
+            self.assertEqual(asr_worker.os.environ.get("TQDM_DISABLE"), "1")
+            self.assertEqual(asr_worker.os.environ.get("HF_HUB_DISABLE_PROGRESS_BARS"), "1")
 
     def test_main_serializes_validated_asr_result_contract(self) -> None:
         fake_result: ASRResult = {

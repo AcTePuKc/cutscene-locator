@@ -88,9 +88,10 @@ class FasterWhisperBackend:
         if config.log_callback is not None:
             config.log_callback("asr: transcribe start")
 
-        transcribe_kwargs: dict[str, object] = {}
-        if config.language is not None:
-            transcribe_kwargs["language"] = config.language
+        transcribe_kwargs: dict[str, object] = {
+            "vad_filter": False,
+            "language": config.language if config.language is not None else None,
+        }
         transcribe_kwargs = self._filter_supported_transcribe_kwargs(
             model.transcribe,
             transcribe_kwargs,
@@ -102,6 +103,8 @@ class FasterWhisperBackend:
                 "faster-whisper transcribe kwargs include unsupported options: "
                 + ", ".join(forbidden)
             )
+        if config.log_callback is not None:
+            config.log_callback(f"asr: transcribe kwargs={transcribe_kwargs}")
 
         raw_segments, _info = model.transcribe(audio_path, **transcribe_kwargs)
         if config.log_callback is not None:

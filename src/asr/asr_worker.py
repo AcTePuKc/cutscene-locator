@@ -13,8 +13,7 @@ from pathlib import Path
 def _configure_runtime_environment(*, device: str) -> None:
     """Set worker-local progress env guards before ASR backend imports."""
 
-    if device != "cuda":
-        return
+    del device
     os.environ["TQDM_DISABLE"] = "1"
     os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 

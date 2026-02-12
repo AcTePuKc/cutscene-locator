@@ -121,7 +121,10 @@ class FasterWhisperBackendTests(unittest.TestCase):
         self.assertIsNotNone(fake_factory.instance)
         assert fake_factory.instance is not None
         self.assertEqual(fake_factory.instance.compute_type, "float16")
-        self.assertEqual(fake_factory.instance.calls[0]["kwargs"], {})
+        self.assertEqual(
+            fake_factory.instance.calls[0]["kwargs"],
+            {"vad_filter": False, "language": None},
+        )
 
     def test_cuda_transcribe_uses_no_progress_kwargs(self) -> None:
         backend = FasterWhisperBackend()
@@ -153,7 +156,10 @@ class FasterWhisperBackendTests(unittest.TestCase):
         self.assertNotIn("faster_whisper.transcribe", imported_modules)
         self.assertIsNotNone(fake_factory.instance)
         assert fake_factory.instance is not None
-        self.assertEqual(fake_factory.instance.calls[0]["kwargs"], {})
+        self.assertEqual(
+            fake_factory.instance.calls[0]["kwargs"],
+            {"vad_filter": False, "language": None},
+        )
 
 
     def test_transcribe_kwargs_never_include_progress(self) -> None:
@@ -179,6 +185,7 @@ class FasterWhisperBackendTests(unittest.TestCase):
         passed_kwargs = fake_factory.instance.calls[0]["kwargs"]
         self.assertNotIn("progress", passed_kwargs)
         self.assertEqual(passed_kwargs.get("language"), "en")
+        self.assertEqual(passed_kwargs.get("vad_filter"), False)
 
     def test_transcribe_kwargs_are_filtered_by_signature(self) -> None:
         backend = FasterWhisperBackend()
@@ -202,8 +209,33 @@ class FasterWhisperBackendTests(unittest.TestCase):
 
         self.assertEqual(result["segments"][0]["text"], "No kwargs")
         self.assertTrue(
-            any("filtered unsupported transcribe kwargs: language" in log for log in logs)
+            any(
+                "filtered unsupported transcribe kwargs: language, vad_filter" in log
+                for log in logs
+            )
         )
+
+    def test_transcribe_logs_exact_kwargs_when_log_callback_configured(self) -> None:
+        backend = FasterWhisperBackend()
+        fake_factory = _FakeWhisperModelFactory()
+        fake_module = types.SimpleNamespace(WhisperModel=fake_factory)
+        logs: list[str] = []
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = _create_fake_model_dir(Path(temp_dir))
+            with patch("src.asr.faster_whisper_backend.import_module", return_value=fake_module):
+                with patch("src.asr.faster_whisper_backend.version", return_value="1.2.1"):
+                    backend.transcribe(
+                        "in.wav",
+                        ASRConfig(
+                            backend_name="faster-whisper",
+                            model_path=model_path,
+                            language="en",
+                            log_callback=logs.append,
+                        ),
+                    )
+
+        self.assertIn("asr: transcribe kwargs={'vad_filter': False, 'language': 'en'}", logs)
 
 
 if __name__ == "__main__":
