@@ -113,6 +113,7 @@ All agents must update this file when completing or modifying tasks.
 - [x] ASR worker verbose environment dump + in-worker minimal WhisperModel preflight transcribe (`src/asr/asr_worker.py`, `tests/test_asr_worker.py`)
 - [x] ASR worker preflight made non-fatal and CUDA-skipped; CPU/auto preflight uses `vad_filter=False` and samples only first segment (`src/asr/asr_worker.py`, `tests/test_asr_worker.py`)
 - [x] CUDA worker crash tracing + tqdm monitor-thread disable + unbuffered faulthandler worker spawn (`src/asr/asr_worker.py`, `src/asr/faster_whisper_backend.py`, `cli.py`, `tests/test_asr_worker.py`, `tests/test_cli.py`)
+- [x] CUDA worker import isolation from package root + CUDA segment-consumption markers/forced materialization + conservative CUDA transcribe kwargs (`src/asr/asr_worker.py`, `src/asr/faster_whisper_backend.py`, `tests/test_asr_worker.py`, `tests/test_faster_whisper_backend.py`)
 
 ### Device handling
 
@@ -231,3 +232,5 @@ All agents must update this file when completing or modifying tasks.
 - 2026-02-12 – Fixed Windows CUDA preflight instability by making worker minimal preflight non-fatal, skipping it on CUDA, and constraining CPU/auto preflight to `vad_filter=False` with first-segment sampling (`src/asr/asr_worker.py`, `tests/test_asr_worker.py`, `docs/STATUS.md`).
 - 2026-02-12 – Added CUDA worker step flush markers with per-step failure logs, disabled tqdm monitor thread in CUDA worker runtime setup, and spawned ASR worker with `-u -X faulthandler` for improved native-abort diagnostics (`src/asr/asr_worker.py`, `cli.py`, `tests/test_asr_worker.py`, `tests/test_cli.py`, `docs/STATUS.md`).
 
+
+- 2026-02-12 – Isolated ASR worker imports from `src` package root (direct `src.asr.*` module imports), added CUDA segment-consumption start/end markers with forced list materialization, and set conservative CUDA transcribe decode knobs (`beam_size=1`, `best_of=1`, `temperature=0`) for crash localization/mitigation (`src/asr/asr_worker.py`, `src/asr/faster_whisper_backend.py`, `tests/test_asr_worker.py`, `tests/test_faster_whisper_backend.py`, `docs/STATUS.md`).

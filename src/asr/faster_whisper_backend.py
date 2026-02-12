@@ -92,6 +92,8 @@ class FasterWhisperBackend:
             "vad_filter": False,
             "language": config.language if config.language is not None else None,
         }
+        if resolved_device == "cuda":
+            transcribe_kwargs.update({"beam_size": 1, "best_of": 1, "temperature": 0.0})
         transcribe_kwargs = self._filter_supported_transcribe_kwargs(
             model.transcribe,
             transcribe_kwargs,
@@ -111,7 +113,16 @@ class FasterWhisperBackend:
             config.log_callback("asr: transcribe end")
 
         normalized_segments: list[dict[str, str | float]] = []
-        for index, segment in enumerate(raw_segments, start=1):
+        segments_iterable = raw_segments
+        if resolved_device == "cuda":
+            if config.log_callback is not None:
+                config.log_callback("asr: segments consume start")
+            segments_list = list(raw_segments)
+            if config.log_callback is not None:
+                config.log_callback(f"asr: segments consume end; n={len(segments_list)}")
+            segments_iterable = segments_list
+
+        for index, segment in enumerate(segments_iterable, start=1):
             text = str(getattr(segment, "text", "")).strip()
             normalized_segments.append(
                 {
