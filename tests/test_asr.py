@@ -104,20 +104,33 @@ class MockASRBackendTests(unittest.TestCase):
             )
 
 
-    def test_timestamp_normalization_drops_zero_length_and_preserves_overlap_order(self) -> None:
+    def test_timestamp_normalization_handles_equal_segment_boundaries_and_overlap_order(self) -> None:
         normalized = normalize_asr_segments_for_contract(
             [
                 {"segment_id": "seg_0002", "start": 2.0000004, "end": 3.0, "text": "second"},
-                {"segment_id": "seg_0001", "start": 1.0, "end": 1.0, "text": "drop"},
-                {"segment_id": "seg_0003", "start": 1.0000004, "end": 2.0000004, "text": "first"},
-                {"segment_id": "seg_0004", "start": 1.0000004, "end": 1.1000004, "text": "overlap"},
+                {"segment_id": "seg_0001", "start": 1.0, "end": 2.0000004, "text": "adjacent"},
+                {"segment_id": "seg_0003", "start": 1.0000004, "end": 1.5000004, "text": "overlap"},
             ],
             source="inline",
         )
 
         self.assertEqual(len(normalized), 3)
-        self.assertEqual([segment["segment_id"] for segment in normalized], ["seg_0004", "seg_0003", "seg_0002"])
-        self.assertEqual(normalized[1]["end"], 2.0)
+        self.assertEqual([segment["segment_id"] for segment in normalized], ["seg_0003", "seg_0001", "seg_0002"])
+        self.assertEqual(normalized[1]["end"], normalized[2]["start"])
+
+    def test_timestamp_normalization_rejects_end_before_start(self) -> None:
+        with self.assertRaisesRegex(ValueError, "end must be greater than or equal to start"):
+            normalize_asr_segments_for_contract(
+                [{"segment_id": "seg_0001", "start": 1.0, "end": 0.9, "text": "bad"}],
+                source="inline",
+            )
+
+    def test_timestamp_normalization_drops_zero_length_segment(self) -> None:
+        normalized = normalize_asr_segments_for_contract(
+            [{"segment_id": "seg_0001", "start": 1.0, "end": 1.0, "text": "drop"}],
+            source="inline",
+        )
+        self.assertEqual(normalized, [])
 
     def test_timestamp_normalization_supports_empty_segments(self) -> None:
         normalized = normalize_asr_segments_for_contract([], source="inline")

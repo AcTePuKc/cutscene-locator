@@ -140,7 +140,7 @@ class FasterWhisperBackendTests(unittest.TestCase):
         self.assertEqual(result["segments"][0]["segment_id"], "seg_0001")
         self.assertEqual(result["segments"][0]["start"], 0.0)
         self.assertEqual(result["segments"][0]["end"], 1.2)
-        self.assertEqual(result["segments"][0]["text"], "Hello there")
+        self.assertEqual(result["segments"][0]["text"], " Hello there ")
         self.assertNotIn("speaker", result["segments"][0])
         self.assertIsNotNone(fake_factory.instance)
         assert fake_factory.instance is not None

@@ -87,9 +87,14 @@ All ASR backends must produce output that conforms to this structure.
 ### Rules
 
 - `start` and `end` are absolute times (seconds) relative to original media.
-- `start < end` must hold.
+- Timestamp normalization is applied before `validate_asr_result(...)` in real ASR backends.
+- `start`/`end` must be numeric, finite, and non-negative.
+- Deterministic float policy: timestamps are rounded with decimal half-up to 6 fractional digits.
+- Boundary policy: `end >= start` is accepted during normalization; zero-length segments are dropped before contract validation.
+- Stable ordering policy: segments are deterministically sorted by `(start, end, original_index)`.
+- Overlap semantics: inter-segment overlaps are allowed and preserved (no implicit de-overlap).
 - `speaker` is optional.
-- No segment may overlap itself.
+- ASR text is not rewritten by timestamp normalization.
 
 ---
 

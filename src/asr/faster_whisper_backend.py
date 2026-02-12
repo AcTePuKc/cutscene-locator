@@ -156,7 +156,7 @@ class FasterWhisperBackend:
             segments_iterable = segments_list
 
         for index, segment in enumerate(segments_iterable, start=1):
-            text = str(getattr(segment, "text", "")).strip()
+            text = str(getattr(segment, "text", ""))
             normalized_segments.append(
                 {
                     "segment_id": f"seg_{index:04d}",
