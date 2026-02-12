@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .backends import validate_asr_result
-from .base import ASRResult
+from .base import ASRResult, ASRSegment
 from .config import ASRConfig
 from .timestamp_normalization import normalize_asr_segments_for_contract
 
@@ -92,7 +92,7 @@ class WhisperXBackend:
         )
 
 
-def _normalize_whisperx_segments(raw_result: Any) -> list[dict[str, float | str]]:
+def _normalize_whisperx_segments(raw_result: Any) -> list[ASRSegment]:
     segments = raw_result.get("segments") if isinstance(raw_result, dict) else None
     if not isinstance(segments, list) or not segments:
         raise ValueError(
@@ -100,7 +100,7 @@ def _normalize_whisperx_segments(raw_result: Any) -> list[dict[str, float | str]
             "Expected a non-empty 'segments' list."
         )
 
-    normalized_segments: list[dict[str, float | str]] = []
+    normalized_segments: list[ASRSegment] = []
     for index, segment in enumerate(segments, start=1):
         if not isinstance(segment, dict):
             raise ValueError(f"whisperx segment at index {index - 1} must be an object.")
@@ -119,7 +119,7 @@ def _normalize_whisperx_segments(raw_result: Any) -> list[dict[str, float | str]
         ):
             raise ValueError(f"whisperx segment at index {index - 1} has non-numeric timestamps.")
 
-        normalized_segment: dict[str, float | str] = {
+        normalized_segment: ASRSegment = {
             "segment_id": f"seg_{index:04d}",
             "start": float(start),
             "end": float(end),

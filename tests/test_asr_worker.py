@@ -107,6 +107,37 @@ class ASRWorkerTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(payload["segments"][0]["segment_id"], "seg_0001")
 
+
+    def test_main_fails_when_backend_result_misses_required_segment_key(self) -> None:
+        class _FakeBackend:
+            def transcribe(self, audio_path: str, config: object):
+                del audio_path, config
+                return {
+                    "segments": [{"start": 0.0, "end": 1.0, "text": "hello"}],
+                    "meta": {"backend": "faster-whisper", "model": "tiny", "version": "1.2.1", "device": "cpu"},
+                }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            out_path = Path(temp_dir) / "result.json"
+            with patch("src.asr.asr_worker.FasterWhisperBackend", return_value=_FakeBackend()):
+                with self.assertRaisesRegex(ValueError, r"segments\[0\]\.segment_id must be a non-empty string"):
+                    asr_worker.main(
+                        [
+                            "--asr-backend",
+                            "faster-whisper",
+                            "--audio-path",
+                            "in.wav",
+                            "--model-path",
+                            "models/faster-whisper",
+                            "--device",
+                            "cpu",
+                            "--compute-type",
+                            "float32",
+                            "--result-path",
+                            str(out_path),
+                        ]
+                    )
+
     def test_main_verbose_cpu_runs_preflight_with_vad_disabled(self) -> None:
         captured: dict[str, object] = {}
 

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .backends import validate_asr_result
-from .base import ASRResult
+from .base import ASRResult, ASRSegment
 from .config import ASRConfig
 from .timestamp_normalization import normalize_asr_segments_for_contract
 
@@ -137,7 +137,7 @@ def _validate_supported_options(config: ASRConfig) -> None:
         )
 
 
-def _normalize_qwen_segments(raw_result: Any) -> list[dict[str, float | str]]:
+def _normalize_qwen_segments(raw_result: Any) -> list[ASRSegment]:
     chunks = raw_result.get("chunks") if isinstance(raw_result, dict) else None
     if not isinstance(chunks, list) or not chunks:
         raise ValueError(
@@ -145,7 +145,7 @@ def _normalize_qwen_segments(raw_result: Any) -> list[dict[str, float | str]]:
             "Expected a non-empty 'chunks' list when return_timestamps=True."
         )
 
-    normalized_segments: list[dict[str, float | str]] = []
+    normalized_segments: list[ASRSegment] = []
     for index, chunk in enumerate(chunks, start=1):
         if not isinstance(chunk, dict):
             raise ValueError(f"qwen3-asr chunk at index {index - 1} must be an object.")

@@ -8,7 +8,7 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Callable
 
-from .base import ASRResult
+from .base import ASRResult, ASRSegment
 from .backends import validate_asr_result
 from .config import ASRConfig
 from .device import resolve_device_with_details
@@ -19,14 +19,14 @@ _FORBIDDEN_TRANSCRIBE_KWARGS = frozenset({"progress"})
 
 
 def _merge_short_segments(
-    segments: list[dict[str, str | float]],
+    segments: list[ASRSegment],
     *,
     min_duration_seconds: float,
-) -> list[dict[str, str | float]]:
+) -> list[ASRSegment]:
     if min_duration_seconds <= 0:
         return list(segments)
 
-    merged: list[dict[str, str | float]] = []
+    merged: list[ASRSegment] = []
     for segment in segments:
         duration = float(segment["end"]) - float(segment["start"])
         if merged and duration < min_duration_seconds:
@@ -145,7 +145,7 @@ class FasterWhisperBackend:
         if config.log_callback is not None:
             config.log_callback("asr: transcribe end")
 
-        normalized_segments: list[dict[str, str | float]] = []
+        normalized_segments: list[ASRSegment] = []
         segments_iterable = raw_segments
         if resolved_device == "cuda":
             if config.log_callback is not None:
