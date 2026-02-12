@@ -257,6 +257,18 @@ Example:
 cutscene-locator --asr-preflight-only --asr-backend faster-whisper --model-path models/faster-whisper/tiny
 ```
 
+Source checkout examples (same contract, different invocation path):
+
+```powershell
+py .\cli.py --asr-preflight-only --asr-backend faster-whisper --model-path models/faster-whisper/tiny
+```
+
+```bash
+python ./cli.py --asr-preflight-only --asr-backend faster-whisper --model-path models/faster-whisper/tiny
+```
+
+Both the installed entrypoint (`cutscene-locator ...`) and source-checkout invocation (`py .\\cli.py ...` / `python ./cli.py ...`) must emit the same single-line JSON stdout contract in preflight-only mode.
+
 Example output shape:
 
 ```json
@@ -269,6 +281,7 @@ Behavior notes:
 - Performs only backend availability/capability validation, model resolution, and device resolution.
 - Does not run ffmpeg preflight, ingest/preprocess, transcription, matching, scene reconstruction, or exports.
 - Still enforces backend/model/device validation failures with deterministic error messages.
+- On Windows PowerShell, copied multiline commands can include continuation/copy artifacts (for example trailing `` ` `` or accidental extra newlines/characters); those are shell-level formatting artifacts, not additional tool output lines.
 
 ---
 
