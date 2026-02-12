@@ -288,7 +288,6 @@ class ModelResolutionTests(unittest.TestCase):
             (model_dir / "config.json").write_text("{}", encoding="utf-8")
             (model_dir / "tokenizer.json").write_text("{}", encoding="utf-8")
             (model_dir / "tokenizer_config.json").write_text("{}", encoding="utf-8")
-            (model_dir / "processor_config.json").write_text("{}", encoding="utf-8")
             (model_dir / "model.safetensors").write_text("weights", encoding="utf-8")
 
             resolved = resolve_model_path(
@@ -313,10 +312,6 @@ class ModelResolutionTests(unittest.TestCase):
             self.assertIn("one of tokenizer.json, tokenizer.model, vocab.json", message)
             self.assertIn("one of tokenizer_config.json", message)
             self.assertIn(
-                "one of preprocessor_config.json, processor_config.json",
-                message,
-            )
-            self.assertIn(
                 "one of model.safetensors, pytorch_model.bin, model.safetensors.index.json, pytorch_model.bin.index.json",
                 message,
             )
@@ -332,11 +327,11 @@ class ModelResolutionTests(unittest.TestCase):
             expected_message = (
                 "Resolved qwen3-asr model is missing required artifacts: "
                 "one of model.safetensors, pytorch_model.bin, model.safetensors.index.json, "
-                "pytorch_model.bin.index.json, one of preprocessor_config.json, "
-                "processor_config.json, one of tokenizer.json, tokenizer.model, vocab.json, "
+                "pytorch_model.bin.index.json, one of tokenizer.json, tokenizer.model, vocab.json, "
                 "one of tokenizer_config.json. Expected a Hugging Face Transformers ASR snapshot "
-                "containing config + tokenizer + tokenizer_config + processor/preprocessor config + "
-                "model weights. Provide a full local snapshot via --model-path, or use --model-id/"
+                "containing config + tokenizer + tokenizer_config + model weights. "
+                "processor_config.json / preprocessor_config.json are optional. "
+                "Provide a full local snapshot via --model-path, or use --model-id/"
                 "--auto-download to fetch a complete repository before retrying. "
                 "Found files: config.json, junk.bin"
             )
@@ -363,7 +358,6 @@ class ModelResolutionTests(unittest.TestCase):
             (expected_dir / "config.json").write_text("{}", encoding="utf-8")
             (expected_dir / "tokenizer.model").write_text("tokenizer", encoding="utf-8")
             (expected_dir / "tokenizer_config.json").write_text("{}", encoding="utf-8")
-            (expected_dir / "preprocessor_config.json").write_text("{}", encoding="utf-8")
             (expected_dir / "pytorch_model.bin").write_text("weights", encoding="utf-8")
 
             def _snapshot_download(**kwargs: object) -> None:
@@ -423,7 +417,6 @@ class ModelResolutionTests(unittest.TestCase):
             (model_dir / "config.json").write_text("{}", encoding="utf-8")
             (model_dir / "tokenizer.model").write_text("tokenizer", encoding="utf-8")
             (model_dir / "tokenizer_config.json").write_text("{}", encoding="utf-8")
-            (model_dir / "preprocessor_config.json").write_text("{}", encoding="utf-8")
             (model_dir / "model.safetensors.index.json").write_text("{}", encoding="utf-8")
 
             resolved = resolve_model_path(
@@ -446,7 +439,6 @@ class ModelResolutionTests(unittest.TestCase):
             (expected_dir / "config.json").write_text("{}", encoding="utf-8")
             (expected_dir / "tokenizer.model").write_text("tokenizer", encoding="utf-8")
             (expected_dir / "tokenizer_config.json").write_text("{}", encoding="utf-8")
-            (expected_dir / "preprocessor_config.json").write_text("{}", encoding="utf-8")
             (expected_dir / "model.safetensors.index.json").write_text("{}", encoding="utf-8")
 
             def _snapshot_download(**kwargs: object) -> None:
@@ -477,7 +469,6 @@ class ModelResolutionTests(unittest.TestCase):
                 (model_dir / "config.json").write_text("{}", encoding="utf-8")
                 (model_dir / "tokenizer.json").write_text("{}", encoding="utf-8")
                 (model_dir / "tokenizer_config.json").write_text("{}", encoding="utf-8")
-                (model_dir / "processor_config.json").write_text("{}", encoding="utf-8")
                 (model_dir / "model.safetensors.index.json").write_text("{}", encoding="utf-8")
 
             fake_hf_module = types.SimpleNamespace(snapshot_download=_snapshot_download)

@@ -121,7 +121,7 @@ All agents must update this file when completing or modifying tasks.
 - [x] ASR worker preflight made non-fatal and CUDA-skipped; CPU/auto preflight uses `vad_filter=False` and samples only first segment (`src/asr/asr_worker.py`, `tests/test_asr_worker.py`)
 - [x] CUDA worker crash tracing + tqdm monitor-thread disable + unbuffered faulthandler worker spawn (`src/asr/asr_worker.py`, `src/asr/faster_whisper_backend.py`, `cli.py`, `tests/test_asr_worker.py`, `tests/test_cli.py`)
 - [x] CUDA worker import isolation from package root + CUDA segment-consumption markers/forced materialization + conservative CUDA transcribe kwargs (`src/asr/asr_worker.py`, `src/asr/faster_whisper_backend.py`, `tests/test_asr_worker.py`, `tests/test_faster_whisper_backend.py`)
-- [x] qwen3-asr snapshot artifact validation for explicit path, model-id cache/download resolution with deterministic errors (`src/asr/model_resolution.py`, `tests/test_model_resolution.py`)
+- [x] qwen3-asr snapshot artifact validation for explicit path/model-id cache/download resolution with deterministic errors, requiring core artifacts while treating processor/preprocessor config as optional (`src/asr/model_resolution.py`, `tests/test_model_resolution.py`, `docs/CLI.md`, `docs/Data-contracts.md`)
 
 ### Device handling
 
@@ -203,6 +203,8 @@ Contract notes:
 ---
 
 ## Change log (manual)
+
+- 2026-02-12 – Relaxed qwen3-asr snapshot contract to require only core deterministic artifacts (`config.json`, tokenizer assets, `tokenizer_config.json`, model weights) while treating `processor_config.json`/`preprocessor_config.json` as optional; added regression coverage for config-absent valid layouts and kept deterministic missing-core failures (`src/asr/model_resolution.py`, `tests/test_model_resolution.py`, `docs/CLI.md`, `docs/Data-contracts.md`, `docs/STATUS.md`).
 
 - 2026-02-12 – Added deterministic backend readiness matrix/checklist for `qwen3-asr`, `whisperx`, and `vibevoice` (dependency importability, registry enabled-state validation, model artifact layout validation, and backend-appropriate CUDA preflight reason reporting) with a no-inference verification script and registry/readiness regression tests (`src/asr/readiness.py`, `src/asr/model_resolution.py`, `scripts/verify_backend_readiness.py`, `tests/test_backend_readiness.py`, `tests/test_asr_registry.py`, `docs/CLI.md`, `docs/Integration.md`, `docs/Integration-issues.md`, `docs/STATUS.md`).
 
