@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from src.asr import (
     ASRConfig,
+    dispatch_asr_transcription,
     get_asr_adapter,
     get_backend,
     list_asr_adapters,
@@ -101,6 +102,62 @@ class ASRRegistryTests(unittest.TestCase):
     def test_adapter_registry_unknown_backend_raises(self) -> None:
         with self.assertRaisesRegex(ValueError, "No ASR adapter registered"):
             get_asr_adapter("qwen3-forced-aligner")
+
+
+    def test_dispatch_asr_transcription_uses_registered_adapter(self) -> None:
+        from unittest.mock import patch
+
+        class _Adapter:
+            backend_name = "mock"
+
+            def transcribe(self, audio_path: str, config: object, context: object) -> dict[str, object]:
+                del context
+                self._audio_path = audio_path
+                self._backend_name = getattr(config, "backend_name", "")
+                return {
+                    "segments": [
+                        {"segment_id": "seg_0001", "start": 0.0, "end": 0.1, "text": "ok"}
+                    ],
+                    "meta": {"backend": "mock", "model": "fixture", "version": "1", "device": "cpu"},
+                }
+
+        adapter = _Adapter()
+        with patch("src.asr.adapters.get_asr_adapter", return_value=adapter):
+            result = dispatch_asr_transcription(
+                audio_path="audio.wav",
+                config=ASRConfig(backend_name="mock"),
+                context=object(),
+            )
+
+        self.assertEqual(result["meta"]["backend"], "mock")
+        self.assertEqual(adapter._audio_path, "audio.wav")
+        self.assertEqual(adapter._backend_name, "mock")
+
+    def test_dispatch_asr_transcription_runs_capability_preflight(self) -> None:
+        from src.asr.registry import BackendCapabilities, BackendRegistration
+
+        fake_registration = BackendRegistration(
+            name="qwen3-forced-aligner",
+            backend_class=object,
+            capabilities=BackendCapabilities(
+                supports_segment_timestamps=True,
+                supports_word_timestamps=False,
+                supports_alignment=True,
+                supports_diarization=False,
+                max_audio_duration=None,
+            ),
+        )
+
+        with patch("src.asr.adapters.get_backend", return_value=fake_registration):
+            with self.assertRaisesRegex(
+                ValueError,
+                "alignment backend and cannot be used with --asr-backend",
+            ):
+                dispatch_asr_transcription(
+                    audio_path="audio.wav",
+                    config=ASRConfig(backend_name="qwen3-forced-aligner"),
+                    context=object(),
+                )
 
     def test_asr_config_defaults(self) -> None:
         config = ASRConfig(backend_name="mock")
