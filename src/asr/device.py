@@ -76,6 +76,39 @@ def _is_cuda_available() -> bool:
         return False
 
 
+def _cuda_probe_torch() -> tuple[bool, str]:
+    """Probe CUDA support via torch runtime."""
+
+    try:
+        torch = import_module("torch")
+    except Exception:
+        return False, "torch is not installed"
+
+    cuda_module = getattr(torch, "cuda", None)
+    cuda_is_available = getattr(cuda_module, "is_available", None)
+    if not callable(cuda_is_available):
+        return False, "installed torch build does not expose torch.cuda.is_available()"
+
+    try:
+        available = bool(cuda_is_available())
+    except Exception as exc:
+        return False, f"torch CUDA check failed: {exc}"
+
+    if available:
+        return True, "torch detected CUDA availability"
+    return False, "torch reported CUDA unavailable"
+
+
+def select_cuda_probe(backend_name: str) -> tuple[Callable[[], bool], str]:
+    """Return deterministic CUDA checker and probe label for backend runtime."""
+
+    if backend_name == "faster-whisper":
+        return (lambda: _cuda_probe_ctranslate2()[0]), "ctranslate2"
+    if backend_name in {"qwen3-asr", "whisperx", "vibevoice"}:
+        return (lambda: _cuda_probe_torch()[0]), "torch"
+    return (lambda: _cuda_probe_ctranslate2()[0]), "ctranslate2"
+
+
 def resolve_device(
     requested_device: DeviceType,
     *,
@@ -93,6 +126,7 @@ def resolve_device_with_details(
     requested_device: DeviceType,
     *,
     cuda_available_checker: Callable[[], bool] | None = None,
+    cuda_probe_reason_label: str | None = None,
 ) -> DeviceResolution:
     """Resolve configured ASR device and return deterministic reasoning."""
 
@@ -106,8 +140,18 @@ def resolve_device_with_details(
     if cuda_available_checker is None:
         cuda_available, availability_reason = _cuda_probe_ctranslate2()
     else:
-        cuda_available = cuda_available_checker()
-        availability_reason = "custom CUDA availability probe"
+        probe_label = cuda_probe_reason_label or "custom"
+        try:
+            cuda_available = bool(cuda_available_checker())
+        except Exception as exc:
+            cuda_available = False
+            availability_reason = f"{probe_label} CUDA check failed: {exc}"
+        else:
+            availability_reason = (
+                f"{probe_label} CUDA probe reported available"
+                if cuda_available
+                else f"{probe_label} CUDA probe reported unavailable"
+            )
 
     if requested_device == "cuda":
         if not cuda_available:

@@ -10,7 +10,6 @@ from typing import Any
 from .backends import validate_asr_result
 from .base import ASRResult
 from .config import ASRConfig
-from .device import resolve_device_with_details
 from .timestamp_normalization import normalize_asr_segments_for_contract
 
 
@@ -24,23 +23,15 @@ class VibeVoiceBackend:
                 "Provide --model-path or --model-id."
             )
 
-        resolution = resolve_device_with_details(config.device)
-        resolved_device = resolution.resolved
+        resolved_device = config.device if config.device in {"cpu", "cuda"} else "cpu"
 
         try:
             vibevoice_module = import_module("vibevoice")
-            torch_module = import_module("torch")
         except ModuleNotFoundError as exc:
             raise ValueError(
                 "vibevoice backend requires optional dependencies. "
                 "Install them with: pip install 'cutscene-locator[asr_vibevoice]'"
             ) from exc
-
-        if resolved_device == "cuda" and not bool(torch_module.cuda.is_available()):
-            raise ValueError(
-                "Requested --device cuda, but CUDA is not available in this environment. "
-                "Use --device cpu or follow docs/CUDA.md."
-            )
 
         transcribe_file = getattr(vibevoice_module, "transcribe_file", None)
         if transcribe_file is None:
