@@ -117,7 +117,7 @@ Current declared backends (exact names):
 | --- | --- | --- | --- | --- | --- |
 | `mock` | local fixture JSON (for example `tests/fixtures/mock_asr_valid.json`) | `asr` | none | mock ASR JSON with `segments[]` and `meta` | ASR transcript contract (`ASRResult`) |
 | `faster-whisper` | `Systran/faster-whisper-tiny`, `Systran/faster-whisper-small` | `asr` | `asr_faster_whisper` | CTranslate2 snapshot (for example `model.bin` + tokenizer assets) | ASR transcript contract (`ASRResult`) |
-| `qwen3-asr` | `Qwen/Qwen3-ASR-0.6B` | `asr` | `asr_qwen3` | Transformers snapshot (`config.json`, tokenizer assets, model weights) | ASR transcript contract (`ASRResult`) |
+| `qwen3-asr` | `Qwen/Qwen3-ASR-0.6B`, `Qwen/Qwen3-ASR-1.7B` | `asr` | `asr_qwen3` | Transformers ASR snapshot (`config.json`, tokenizer assets, `tokenizer_config.json`, processor/preprocessor config, model weights) | ASR transcript contract (`ASRResult`) |
 | `qwen3-forced-aligner` | `Qwen/Qwen3-ForcedAligner-0.6B` | `alignment` | `asr_qwen3` | canonical WAV + caller-provided `reference_spans[]` + aligner model snapshot | Alignment contract (`AlignmentResult`, `docs/Data-contracts.md`) |
 | `vibevoice` *(planned)* | `VibeVoice-*` *(TBD)* | `asr` *(planned)* | TBD | TBD | Pending (not implemented) |
 
@@ -211,7 +211,8 @@ Backend-specific compatibility caveats:
   - `--model-id` should resolve to a faster-whisper CTranslate2 snapshot (for example, `Systran/faster-whisper-*`).
   - Standard Transformers checkpoints (for example, `openai/whisper-*`) are not compatible with faster-whisper runtime loading.
 - `qwen3-asr`
-  - `--model-id` must resolve to a full Transformers snapshot containing `config.json`, tokenizer assets, and model weights.
+  - Accepted model-id examples include `Qwen/Qwen3-ASR-0.6B` and `Qwen/Qwen3-ASR-1.7B`.
+  - `--model-id` must resolve to a full Transformers ASR snapshot containing `config.json`, tokenizer assets, `tokenizer_config.json`, processor/preprocessor config (`processor_config.json` or `preprocessor_config.json`), and model weights.
   - Incomplete local folders are rejected with deterministic validation errors.
 
 ### `--revision <revision>`

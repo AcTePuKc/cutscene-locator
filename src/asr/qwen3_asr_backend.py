@@ -60,7 +60,12 @@ class Qwen3ASRBackend:
         except Exception as exc:  # pragma: no cover - backend/runtime specific
             raise ValueError(
                 "Failed to initialize qwen3-asr model from resolved path "
-                f"'{config.model_path}'. Ensure the model artifacts are present and compatible."
+                f"'{config.model_path}'. Ensure this directory is a compatible Transformers ASR "
+                "snapshot with required artifacts: config.json, tokenizer assets "
+                "(tokenizer.json/tokenizer.model/vocab.json), tokenizer_config.json, "
+                "processor/preprocessor config (processor_config.json or "
+                "preprocessor_config.json), and model weights "
+                "(model.safetensors/pytorch_model.bin or sharded index json)."
             ) from exc
 
         try:
