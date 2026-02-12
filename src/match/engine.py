@@ -49,14 +49,19 @@ class MatchingConfig:
 def _similarity_score(left: str, right: str) -> float:
     """Return deterministic RapidFuzz similarity score in [0.0, 1.0]."""
 
-    def _processor(value: str) -> str:
-        return value.lower().strip()
+    left = left.lower().strip()
+    right = right.lower().strip()
 
-    primary_score = fuzz.WRatio(left, right, processor=_processor)
-    if primary_score > 0:
-        return primary_score / 100.0
+    if not left or not right:
+        return 0.0
 
-    return fuzz.partial_ratio(left, right, processor=_processor) / 100.0
+    score = max(
+        fuzz.WRatio(left, right),
+        fuzz.partial_ratio(left, right),
+    )
+
+    return score / 100.0
+
 
 
 def _tokenize(text: str) -> list[str]:
