@@ -2,6 +2,7 @@ import json
 import tempfile
 import types
 import unittest
+from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
@@ -119,6 +120,79 @@ class ASRWorkerTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIsInstance(payload, dict)
         self.assertEqual(payload["segments"][0]["segment_id"], "seg_0001")
+
+    def test_main_verbose_runs_environment_dump_and_minimal_preflight(self) -> None:
+        fake_result: ASRResult = {
+            "segments": [{"segment_id": "seg_0001", "start": 0.0, "end": 1.0, "text": "ok"}],
+            "meta": {"backend": "faster-whisper", "model": "tiny", "version": "1.2.1", "device": "cuda"},
+        }
+        captured: dict[str, object] = {}
+
+        class _FakeRawSegment:
+            pass
+
+        class _FakeWhisperModel:
+            def __init__(self, model_path: str, device: str, compute_type: str) -> None:
+                captured["model_init"] = (model_path, device, compute_type)
+
+            def transcribe(self, audio_path: str):
+                captured["preflight_audio_path"] = audio_path
+                return iter([_FakeRawSegment(), _FakeRawSegment()]), object()
+
+        class _FakeBackend:
+            def transcribe(self, audio_path: str, config: object) -> ASRResult:
+                captured["backend_audio_path"] = audio_path
+                captured["backend_config"] = config
+                return fake_result
+
+        def _import_module(name: str):
+            if name == "src.asr":
+                return types.SimpleNamespace(
+                    ASRConfig=lambda **kwargs: types.SimpleNamespace(**kwargs),
+                    FasterWhisperBackend=lambda: _FakeBackend(),
+                    parse_asr_result=lambda payload, source: payload,
+                )
+            if name == "ctranslate2":
+                return types.SimpleNamespace(__file__="/tmp/ctranslate2/__init__.py")
+            if name == "faster_whisper":
+                return types.SimpleNamespace(WhisperModel=_FakeWhisperModel)
+            raise AssertionError(f"unexpected import: {name}")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            out_path = Path(temp_dir) / "result.json"
+            with patch.dict("src.asr.asr_worker.os.environ", {"PATH": "/bin"}, clear=True):
+                with patch("src.asr.asr_worker.import_module", side_effect=_import_module):
+                    with patch("sys.stdout", new_callable=StringIO) as stdout:
+                        code = asr_worker.main(
+                            [
+                                "--audio-path",
+                                "in.wav",
+                                "--model-path",
+                                "models/faster-whisper",
+                                "--device",
+                                "cuda",
+                                "--compute-type",
+                                "float16",
+                                "--result-path",
+                                str(out_path),
+                                "--verbose",
+                            ]
+                        )
+
+        self.assertEqual(code, 0)
+        self.assertEqual(
+            captured["model_init"],
+            ("models/faster-whisper", "cuda", "float16"),
+        )
+        self.assertEqual(captured["preflight_audio_path"], "in.wav")
+        self.assertEqual(captured["backend_audio_path"], "in.wav")
+        output = stdout.getvalue()
+        self.assertIn("asr-worker: sys.executable=", output)
+        self.assertIn("asr-worker: sys.path[0:3]=", output)
+        self.assertIn("asr-worker: ctranslate2.__file__=/tmp/ctranslate2/__init__.py", output)
+        self.assertIn("asr-worker: env={'PATH': '/bin', 'CUDA_PATH': None, 'CUDNN_PATH': None}", output)
+        self.assertIn("asr-worker: minimal preflight transcribe start", output)
+        self.assertIn("asr-worker: minimal preflight transcribe end; segments=2", output)
 
 
 if __name__ == "__main__":
