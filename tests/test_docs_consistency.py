@@ -147,6 +147,23 @@ class DocsConsistencyTests(unittest.TestCase):
                 )
 
 
+class DocsDeclaredDisabledDefinitionTests(unittest.TestCase):
+    def test_cli_docs_define_declared_but_disabled_diagnostics(self) -> None:
+        cli_doc = Path("docs/CLI.md").read_text(encoding="utf-8")
+
+        required_fragments = (
+            "**Declared but disabled**",
+            "missing optional dependencies",
+            "feature flag",
+            "experimental backend disabled by default",
+            "Dependency-gated errors may include an install extra hint",
+        )
+
+        for fragment in required_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, cli_doc)
+
+
 class DocsCudaRerunWordingTests(unittest.TestCase):
     def test_cpu_rerun_wording_replaces_fallback_semantics(self) -> None:
         cli_doc = Path("docs/CLI.md").read_text(encoding="utf-8")

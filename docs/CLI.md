@@ -150,6 +150,14 @@ Backend validation behavior is explicit:
 - If you request an **unknown backend name** (not declared), the CLI returns the existing `Unknown ASR backend` error with available enabled backends.
 - If you request a **declared but disabled backend**, the CLI returns an actionable error including exact missing optional dependencies and an install command for the matching extra (for example `pip install 'cutscene-locator[asr_qwen3]'` or `pip install 'cutscene-locator[asr_whisperx]'`).
 
+Authoritative definition for diagnostics:
+
+- **Declared but disabled** means the backend key is registered in code but currently not runnable in this environment. Common causes:
+  - missing optional dependencies,
+  - backend disabled by feature flag/configuration,
+  - experimental backend disabled by default.
+- Dependency-gated errors may include an install extra hint (for example: `Install with: pip install 'cutscene-locator[asr_qwen3]'`).
+
 Install extras:
 
 - `pip install 'cutscene-locator[asr_faster_whisper]'`
