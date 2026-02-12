@@ -44,10 +44,9 @@ class Qwen3ASRBackend:
 
         _validate_supported_options(config)
 
-        model_init_kwargs: dict[str, object] = {}
-        resolved_dtype = _resolve_dtype(config.compute_type)
-        if resolved_dtype is not None:
-            model_init_kwargs["dtype"] = resolved_dtype
+        model_init_kwargs: dict[str, object] = {
+            "dtype": _resolve_dtype(config.compute_type),
+        }
 
         try:
             model = qwen_model_class.from_pretrained(
@@ -108,11 +107,7 @@ class Qwen3ASRBackend:
         )
 
 
-def _resolve_dtype(compute_type: str) -> str | None:
-    if compute_type == "auto":
-        return "auto"
-    if compute_type in {"float16", "float32", "bfloat16"}:
-        return compute_type
+def _resolve_dtype(compute_type: str) -> str:
     return compute_type
 
 
