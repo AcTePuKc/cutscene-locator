@@ -295,6 +295,14 @@ Behavior notes:
 - Still enforces backend/model/device validation failures with deterministic error messages.
 - On Windows PowerShell, copied multiline commands can include continuation/copy artifacts (for example trailing `` ` `` or accidental extra newlines/characters); those are shell-level formatting artifacts, not additional tool output lines.
 
+Qwen readiness smoke tests (init-only, optional):
+
+- `tests/test_cli.py` includes a deterministic preflight QA assertion for `qwen3-asr` JSON payload shape (`mode/backend/model_resolution/device` fields) with single-line stdout enforcement.
+- Optional loader-init smoke (`Qwen3ReadinessSmokeTests`) is gated to stay offline by default:
+  - `CUTSCENE_QWEN3_INIT_SMOKE=1` enables the test class.
+  - `CUTSCENE_QWEN3_MODEL_PATH=<local_qwen3_snapshot_dir>` must point to an existing local model snapshot.
+- The init smoke validates `qwen_asr.Qwen3ASRModel.from_pretrained(...)` initialization only and does not run transcription/inference.
+
 ---
 
 ### `--mock-asr <file>`

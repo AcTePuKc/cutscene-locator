@@ -85,6 +85,7 @@ All agents must update this file when completing or modifying tasks.
 - [x] Verbose logging
 - [x] Error handling
 - [x] ASR preflight-only CLI mode (`--asr-preflight-only`) for backend availability/model resolution/device probe sanity checks with deterministic JSON output (`cli.py`, `tests/test_cli.py`, `docs/CLI.md`)
+- [x] Qwen3 readiness QA coverage: deterministic `qwen3-asr` preflight JSON smoke assertion + optional env-gated local init-only loader smoke (no inference, offline-by-default CI) (`tests/test_cli.py`, `docs/CLI.md`)
 - [x] Windows progress-thread guard + verbose stage markers (`cli.py`, `src/match/engine.py`, `tests/test_cli.py`, `tests/test_matching.py`)
 
 ---
@@ -229,6 +230,8 @@ Contract notes:
 - 2026-02-12 – Brought `docs/CLI.md` into parser parity by documenting every `build_parser()` flag with defaults/valid ranges/backend applicability, and added deterministic docs consistency test to fail on CLI/docs drift (`docs/CLI.md`, `tests/test_docs_consistency.py`, `cli.py`, `docs/STATUS.md`).
 
 > Keep this short. One line per meaningful change.
+
+- 2026-02-12 – Added qwen3-asr readiness QA coverage with deterministic single-line preflight JSON payload assertions and an optional env-gated local-model init-only smoke test (`CUTSCENE_QWEN3_INIT_SMOKE=1`, `CUTSCENE_QWEN3_MODEL_PATH=...`) that does not run inference; documented usage in CLI preflight troubleshooting notes (`tests/test_cli.py`, `docs/CLI.md`, `docs/STATUS.md`).
 
 - 2026-02-12 – Updated qwen3-asr pipeline initialization failure messaging to match the core model artifact contract (config/tokenizer/tokenizer_config/weights; processor/preprocessor optional) and include concise runtime debugging hints; added backend error-message regression coverage (`src/asr/qwen3_asr_backend.py`, `tests/test_qwen3_asr_backend.py`, `docs/STATUS.md`).
 

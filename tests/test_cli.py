@@ -1,5 +1,6 @@
 import io
 import json
+import os
 import sys
 import subprocess
 import tempfile
@@ -140,6 +141,58 @@ class CliPhaseOneTests(unittest.TestCase):
                     resolve_patch.call_args.kwargs["cuda_probe_reason_label"],
                     expected_probe_label,
                 )
+
+    def test_asr_preflight_only_qwen3_outputs_single_json_line_with_expected_payload(self) -> None:
+        stdout = io.StringIO()
+        enabled_backend = SimpleNamespace(
+            name="qwen3-asr",
+            enabled=True,
+            missing_dependencies=(),
+            reason="enabled",
+            install_extra="asr_qwen3",
+        )
+        registration = SimpleNamespace(
+            name="qwen3-asr",
+            capabilities=SimpleNamespace(supports_segment_timestamps=True, supports_alignment=False),
+        )
+        with patch("cli.list_backend_status", return_value=[enabled_backend]):
+            with patch("cli.get_backend", return_value=registration):
+                with patch("cli.resolve_model_path", return_value=Path("models/qwen3-asr")):
+                    with patch(
+                        "cli.resolve_device_with_details",
+                        return_value=SimpleNamespace(
+                            requested="auto",
+                            resolved="cpu",
+                            reason="--device auto selected cpu because torch CUDA probe reported unavailable",
+                        ),
+                    ):
+                        with redirect_stdout(stdout):
+                            code = cli.main(
+                                [
+                                    "--asr-preflight-only",
+                                    "--asr-backend",
+                                    "qwen3-asr",
+                                    "--model-path",
+                                    "models/qwen3-asr",
+                                    "--device",
+                                    "auto",
+                                ]
+                            )
+
+        self.assertEqual(code, 0)
+        stdout_lines = stdout.getvalue().splitlines()
+        self.assertEqual(len(stdout_lines), 1)
+        payload = json.loads(stdout_lines[0])
+        self.assertEqual(payload["mode"], "asr_preflight_only")
+        self.assertEqual(payload["backend"], "qwen3-asr")
+        self.assertEqual(payload["model_resolution"]["resolved_model_path"], "models/qwen3-asr")
+        self.assertEqual(payload["device"]["requested"], "auto")
+        self.assertEqual(payload["device"]["compute_type"], "auto")
+        self.assertEqual(payload["device"]["cuda_probe_label"], "torch")
+        self.assertEqual(
+            payload["device"]["resolution_reason"],
+            "--device auto selected cpu because torch CUDA probe reported unavailable",
+        )
 
     def test_asr_preflight_only_model_resolution_failure_exits_one(self) -> None:
         stderr = io.StringIO()
@@ -1060,8 +1113,42 @@ class CliPhaseOneTests(unittest.TestCase):
         self.assertIn("--compute-type float32", output)
 
 
-if __name__ == "__main__":
-    unittest.main()
+@unittest.skipUnless(
+    os.environ.get("CUTSCENE_QWEN3_INIT_SMOKE") == "1",
+    "Set CUTSCENE_QWEN3_INIT_SMOKE=1 and CUTSCENE_QWEN3_MODEL_PATH=<local_model_dir> to run qwen3 loader init smoke tests.",
+)
+class Qwen3ReadinessSmokeTests(unittest.TestCase):
+    def test_qwen3_from_pretrained_init_only_smoke(self) -> None:
+        """Optional init-only smoke test.
+
+        Usage:
+        - CUTSCENE_QWEN3_INIT_SMOKE=1
+        - CUTSCENE_QWEN3_MODEL_PATH=/absolute/or/relative/path/to/local/qwen3-asr/snapshot
+
+        This smoke test verifies that qwen_asr can initialize `Qwen3ASRModel` from a local
+        snapshot path without running full transcription/inference, so default CI stays
+        deterministic and offline.
+        """
+
+        local_model_path = os.environ.get("CUTSCENE_QWEN3_MODEL_PATH")
+        if not local_model_path:
+            self.skipTest("CUTSCENE_QWEN3_MODEL_PATH is required when CUTSCENE_QWEN3_INIT_SMOKE=1")
+
+        model_path = Path(local_model_path)
+        if not model_path.exists():
+            self.skipTest(f"CUTSCENE_QWEN3_MODEL_PATH does not exist: {model_path}")
+
+        try:
+            qwen_asr_module = __import__("qwen_asr")
+        except ModuleNotFoundError as exc:
+            self.skipTest(f"Optional qwen_asr dependency is not installed: {exc}")
+
+        qwen_model_class = getattr(qwen_asr_module, "Qwen3ASRModel", None)
+        if qwen_model_class is None:
+            self.skipTest("Installed qwen_asr package does not expose Qwen3ASRModel")
+
+        model = qwen_model_class.from_pretrained(str(model_path), device="cpu", torch_dtype="auto")
+        self.assertIsNotNone(model)
 
 
 class CliAdapterDispatchTests(unittest.TestCase):
@@ -1192,3 +1279,7 @@ class CliAdapterDispatchTests(unittest.TestCase):
 
         self.assertEqual(code, 1)
         self.assertIn("No ASR adapter registered", stderr.getvalue())
+
+
+if __name__ == "__main__":
+    unittest.main()
