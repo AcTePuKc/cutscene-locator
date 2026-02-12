@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
-from .base import ASRResult, ASRSegment
+from .base import ASRMeta, ASRResult, ASRSegment
 from .config import ASRConfig
 from .device import resolve_device
 
@@ -44,14 +44,15 @@ class MockASRBackend:
         if isinstance(raw_meta.get("version"), str) and raw_meta["version"].strip():
             resolved_version = raw_meta["version"].strip()
 
+        normalized_meta: ASRMeta = {
+            "backend": "mock",
+            "model": resolved_model,
+            "version": resolved_version,
+            "device": resolved_device,
+        }
         normalized: dict[str, Any] = {
             "segments": raw_data.get("segments"),
-            "meta": {
-                "backend": "mock",
-                "model": resolved_model,
-                "version": resolved_version,
-                "device": resolved_device,
-            },
+            "meta": normalized_meta,
         }
         return validate_asr_result(normalized, source=str(self.mock_json_path))
 
@@ -120,18 +121,21 @@ def validate_asr_result(raw_data: Any, *, source: str = "ASR data") -> ASRResult
 
         validated_segments.append(validated_segment)
 
-    return {
-        "segments": validated_segments,
-        "meta": {
-            "backend": backend,
-            "model": model,
-            "version": version,
-            "device": device,
-        },
+    validated_meta: ASRMeta = {
+        "backend": backend,
+        "model": model,
+        "version": version,
+        "device": device,
     }
 
+    validated_result: ASRResult = {
+        "segments": validated_segments,
+        "meta": validated_meta,
+    }
+    return validated_result
 
-def parse_asr_result(raw_data: ASRResult | dict[str, Any], *, source: str = "ASR data") -> ASRResult:
+
+def parse_asr_result(raw_data: ASRResult | Mapping[str, Any], *, source: str = "ASR data") -> ASRResult:
     """Parse payload into a validated ASRResult contract."""
 
     return validate_asr_result(raw_data, source=source)

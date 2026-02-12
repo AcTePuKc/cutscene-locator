@@ -277,6 +277,58 @@ class CudaProbeSelectionTests(unittest.TestCase):
 
 
 
+class ParseASRResultTypingTests(unittest.TestCase):
+    def test_parse_accepts_mapping_inputs(self) -> None:
+        class _MappingPayload(dict[str, object]):
+            pass
+
+        payload = _MappingPayload(
+            {
+                "segments": [
+                    {
+                        "segment_id": "seg_0001",
+                        "start": 0.0,
+                        "end": 1.0,
+                        "text": "hello",
+                    }
+                ],
+                "meta": {
+                    "backend": "mock",
+                    "model": "unknown",
+                    "version": "1.0",
+                    "device": "cpu",
+                },
+            }
+        )
+
+        result = parse_asr_result(payload, source="mapping")
+        self.assertEqual(result["segments"][0]["segment_id"], "seg_0001")
+
+    def test_parse_accepts_typed_asr_result_input(self) -> None:
+        typed_result = validate_asr_result(
+            {
+                "segments": [
+                    {
+                        "segment_id": "seg_0001",
+                        "start": 0.0,
+                        "end": 0.7,
+                        "text": "typed",
+                    }
+                ],
+                "meta": {
+                    "backend": "mock",
+                    "model": "unknown",
+                    "version": "1.0",
+                    "device": "cpu",
+                },
+            },
+            source="typed",
+        )
+
+        parsed = parse_asr_result(typed_result, source="typed")
+        self.assertEqual(parsed["meta"]["backend"], "mock")
+
+
 class DeviceResolutionTests(unittest.TestCase):
     def test_auto_prefers_cuda_when_available(self) -> None:
         resolved = resolve_device("auto", cuda_available_checker=lambda: True)
