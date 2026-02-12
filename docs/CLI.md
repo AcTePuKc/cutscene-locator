@@ -155,7 +155,7 @@ Mode gating is explicit and deterministic:
 
 - `--asr-backend` is ASR transcript-generation mode only.
 - Alignment backends (currently `qwen3-forced-aligner`) are loaded only when the explicit alignment pipeline path is requested.
-- There is no silent mode fallback (for example, no implicit switch from `qwen3-forced-aligner` to `qwen3-asr`).
+- There is no silent mode fallback (for example, no implicit switch from `qwen3-forced-aligner` to `qwen3-asr`); any device change must be a manual rerun with `--device cpu`.
 
 Backend validation behavior is explicit:
 
@@ -164,11 +164,11 @@ Backend validation behavior is explicit:
 
 Authoritative definition for diagnostics:
 
-- **Declared but disabled** means the backend key is registered in code but currently not runnable in this environment. Common causes:
+- **Declared but disabled backend** means the backend key is registered in code but currently not runnable in this environment. Causes include:
   - missing optional dependencies,
-  - backend disabled by feature flag/configuration,
-  - experimental backend disabled by default.
-- Dependency-gated errors may include an install extra hint (for example: `Install with: pip install 'cutscene-locator[asr_qwen3]'`).
+  - feature flag disabled,
+  - experimental backend not enabled by default.
+- Dependency-gated errors include actionable install-extra guidance when disabled due to missing optional dependencies (for example: `Install with: pip install 'cutscene-locator[asr_qwen3]'`).
 
 Install extras:
 
@@ -219,17 +219,17 @@ Readiness preconditions summary:
 
 | backend | runtime API used by backend implementation | CUDA probe label in preflight (`device.cuda_probe_label`) | CPU rerun behavior |
 | --- | --- | --- | --- |
-| `faster-whisper` | `faster_whisper.WhisperModel(...)` (CTranslate2 runtime path) | `ctranslate2` | No automatic backend/device switching; rerun the same backend with `--device cpu`. |
-| `qwen3-asr` | `transformers.pipeline(...)` (torch runtime path) | `torch` | No automatic backend/device switching; rerun the same backend with `--device cpu`. |
-| `whisperx` | `whisperx.load_model(..., device=...)` (CTranslate2 Whisper runtime path via WhisperX) | `ctranslate2` | No automatic backend/device switching; rerun the same backend with `--device cpu`. |
-| `vibevoice` | `vibevoice.transcribe_file(..., device=...)` (torch runtime path) | `torch` | No automatic backend/device switching; rerun the same backend with `--device cpu`. |
+| `faster-whisper` | `faster_whisper.WhisperModel(...)` (CTranslate2 runtime path) | `ctranslate2` | No automatic backend/device switching; manual rerun with `--device cpu`. |
+| `qwen3-asr` | `transformers.pipeline(...)` (torch runtime path) | `torch` | No automatic backend/device switching; manual rerun with `--device cpu`. |
+| `whisperx` | `whisperx.load_model(..., device=...)` (CTranslate2 Whisper runtime path via WhisperX) | `ctranslate2` | No automatic backend/device switching; manual rerun with `--device cpu`. |
+| `vibevoice` | `vibevoice.transcribe_file(..., device=...)` (torch runtime path) | `torch` | No automatic backend/device switching; manual rerun with `--device cpu`. |
 
 Common deterministic failure messages:
 
 - Declared but disabled backend: `ASR backend '<name>' is declared but currently disabled... missing optional dependencies ... Install with: pip install 'cutscene-locator[<extra>]'`.
 - qwen3 layout error: `Resolved qwen3-asr model is missing required artifacts...`.
 - whisperx layout error: `Resolved whisperx model is missing required files...`.
-- CUDA request failure: `Requested --device cuda, but CUDA is unavailable... or rerun with --device cpu`.
+- CUDA request failure: `Requested --device cuda, but CUDA is unavailable... Manual rerun with --device cpu.`.
 
 Windows guidance:
 
@@ -403,7 +403,7 @@ Selects ASR execution device.
 Controls faster-whisper compute precision passed to `WhisperModel(compute_type=...)`.
 
 - `float16`: fastest on most CUDA setups
-- `float32`: safer fallback for CUDA instability
+- `float32`: safer manual mitigation for CUDA instability
 - `auto`: backend default
 
 When `--asr-backend faster-whisper` is selected, CLI prints an ASR preflight line before transcription that includes:

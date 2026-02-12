@@ -206,6 +206,8 @@ Contract notes:
 
 ## Change log (manual)
 
+- 2026-02-12 – Tightened no-silent-fallback wording to require manual rerun with `--device cpu`, clarified the authoritative definition/causes for a "declared but disabled backend", kept dependency-gated CLI backend errors deterministic/actionable with install-extras only for missing-optional-dependency cases, and expanded docs consistency checks to prevent fallback-wording regressions (`docs/CLI.md`, `cli.py`, `tests/test_docs_consistency.py`, `docs/STATUS.md`).
+
 - 2026-02-12 – Made qwen3-asr snapshot contract explicitly treat `processor_config.json`/`preprocessor_config.json` as optional (never required for pass), aligned readiness preconditions wording, and updated model-resolution tests to validate pass-without-processor-configs plus core-artifact-only failure expectations (`src/asr/readiness.py`, `docs/CLI.md`, `tests/test_model_resolution.py`, `docs/STATUS.md`).
 
 - 2026-02-12 – Added deterministic qwen3-asr compatibility smoke checks (mocked `transformers.pipeline` call-shape assertions, explicit `return_timestamps=True`, and strict `chunks` timestamp tuple contract checks) and documented a qwen3 variant compatibility matrix plus troubleshooting guidance for "model resolves but pipeline init fails" to separate artifact issues from runtime/API issues (`tests/test_qwen3_asr_backend.py`, `docs/CLI.md`, `docs/Integration-issues.md`, `docs/STATUS.md`).

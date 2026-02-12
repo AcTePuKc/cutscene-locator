@@ -152,11 +152,11 @@ class DocsDeclaredDisabledDefinitionTests(unittest.TestCase):
         cli_doc = Path("docs/CLI.md").read_text(encoding="utf-8")
 
         required_fragments = (
-            "**Declared but disabled**",
+            "**Declared but disabled backend**",
             "missing optional dependencies",
             "feature flag",
-            "experimental backend disabled by default",
-            "Dependency-gated errors may include an install extra hint",
+            "experimental backend not enabled by default",
+            "Dependency-gated errors include actionable install-extra guidance when disabled due to missing optional dependencies",
         )
 
         for fragment in required_fragments:
@@ -193,6 +193,11 @@ class DocsCudaRerunWordingTests(unittest.TestCase):
                     "--device cpu",
                     doc_text,
                     "CUDA guidance must include explicit rerun instruction with --device cpu.",
+                )
+                self.assertRegex(
+                    doc_text,
+                    re.compile(r"manual\s+rerun\s+with\s+`?--device\s+cpu`?", re.IGNORECASE),
+                    "CUDA guidance must use manual rerun wording rather than fallback phrasing.",
                 )
 
 
