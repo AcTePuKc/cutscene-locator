@@ -33,7 +33,7 @@ from src.export import (
     write_subs_target_srt,
 )
 from src.ingest import load_script_table, preprocess_media
-from src.match.engine import match_segments_to_script
+from src.match.engine import MatchingConfig, match_segments_to_script
 from src.scene import reconstruct_scenes
 
 VERSION = "0.0.0"
@@ -66,6 +66,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--version", action="store_true")
     parser.add_argument("--match-threshold", type=float, default=0.85)
+    parser.add_argument("--match-quick-threshold", type=float, default=0.25)
+    parser.add_argument("--match-length-bucket-size", type=int, default=4)
+    parser.add_argument("--match-max-length-bucket-delta", type=int, default=3)
+    parser.add_argument("--match-monotonic-window", type=int, default=0)
+    parser.add_argument("--match-progress-every", type=int, default=50)
+    parser.add_argument("--asr-vad-filter", choices=("on", "off"), default="off")
+    parser.add_argument("--asr-merge-short-segments", type=float, default=0.0)
     parser.add_argument("--progress", choices=("on", "off"), default=None)
     return parser
 
@@ -125,6 +132,16 @@ def _validate_asr_options(args: argparse.Namespace) -> None:
 
     if args.model_id is not None and not str(args.model_id).strip():
         raise CliError("Invalid --model-id value. Expected a non-empty Hugging Face repo id.")
+    if args.match_progress_every <= 0:
+        raise CliError("Invalid --match-progress-every value. Expected an integer greater than 0.")
+    if args.match_length_bucket_size <= 0:
+        raise CliError("Invalid --match-length-bucket-size value. Expected an integer greater than 0.")
+    if args.match_max_length_bucket_delta < 0:
+        raise CliError("Invalid --match-max-length-bucket-delta value. Expected an integer greater than or equal to 0.")
+    if args.match_monotonic_window < 0:
+        raise CliError("Invalid --match-monotonic-window value. Expected an integer greater than or equal to 0.")
+    if args.asr_merge_short_segments < 0:
+        raise CliError("Invalid --asr-merge-short-segments value. Expected a float greater than or equal to 0.")
 
     if args.revision is not None and args.model_id is None:
         raise CliError("--revision requires --model-id.")
@@ -318,6 +335,8 @@ def main(
             device=args.device,
             compute_type=args.compute_type,
             language=None,
+            vad_filter=args.asr_vad_filter == "on",
+            merge_short_segments_seconds=args.asr_merge_short_segments,
             ffmpeg_path=ffmpeg_binary,
             download_progress=(args.progress == "on"),
             log_callback=model_resolution_logs.append,
@@ -376,6 +395,8 @@ def main(
                 device=asr_config.device,
                 compute_type=asr_config.compute_type,
                 language=asr_config.language,
+                vad_filter=asr_config.vad_filter,
+                merge_short_segments_seconds=asr_config.merge_short_segments_seconds,
                 ffmpeg_path=asr_config.ffmpeg_path,
                 download_progress=asr_config.download_progress,
                 progress_callback=asr_config.progress_callback,
@@ -413,9 +434,15 @@ def main(
         matching_output = match_segments_to_script(
             asr_result=asr_result,
             script_table=script_table,
-            low_confidence_threshold=args.match_threshold,
+            config=MatchingConfig(
+                low_confidence_threshold=args.match_threshold,
+                quick_filter_threshold=args.match_quick_threshold,
+                length_bucket_size=args.match_length_bucket_size,
+                max_length_bucket_delta=args.match_max_length_bucket_delta,
+                monotonic_window=args.match_monotonic_window,
+                progress_every=args.match_progress_every,
+            ),
             progress_logger=print if args.verbose else None,
-            progress_every=50,
         )
         timings["matching"] = time.perf_counter() - matching_started
         if args.verbose:
@@ -469,7 +496,14 @@ def main(
             f"backend={asr_config.backend_name} requested_device={asr_config.device} compute_type={asr_config.compute_type} "
             f"model_path={resolved_model_path if resolved_model_path is not None else asr_config.model_path} "
             f"model_id={asr_config.model_id} revision={asr_config.revision} "
-            f"auto_download={asr_config.auto_download} download_progress={args.progress}"
+            f"auto_download={asr_config.auto_download} download_progress={args.progress} "
+            f"vad_filter={asr_config.vad_filter} merge_short_segments={asr_config.merge_short_segments_seconds}"
+        )
+        print(
+            "Verbose: matching config="
+            f"quick_threshold={args.match_quick_threshold} length_bucket_size={args.match_length_bucket_size} "
+            f"max_length_bucket_delta={args.match_max_length_bucket_delta} "
+            f"monotonic_window={args.match_monotonic_window} progress_every={args.match_progress_every}"
         )
         for model_resolution_log in model_resolution_logs:
             print(f"Verbose: {model_resolution_log}")

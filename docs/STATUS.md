@@ -55,6 +55,8 @@ All agents must update this file when completing or modifying tasks.
 
 - [x] Text normalization (shared ASR/script)
 - [x] Fuzzy matching implementation
+- [x] Deterministic matching candidate reduction (token/first-word/length-bucket indexes + optional quick-filter + monotonic window) (`src/match/engine.py`, `cli.py`, `tests/test_matching.py`, `tests/test_cli.py`, `docs/CLI.md`)
+- [x] ASR segmentation consistency knobs (`--asr-vad-filter`, `--asr-merge-short-segments`) with deterministic short-segment merge in faster-whisper backend (`src/asr/config.py`, `src/asr/faster_whisper_backend.py`, `cli.py`, `tests/test_faster_whisper_backend.py`, `docs/CLI.md`)
 - [x] Ranked candidate selection
 - [x] Confidence scoring
 - [x] Low-confidence flagging
@@ -234,3 +236,5 @@ All agents must update this file when completing or modifying tasks.
 
 
 - 2026-02-12 – Isolated ASR worker imports from `src` package root (direct `src.asr.*` module imports), added CUDA segment-consumption start/end markers with forced list materialization, and set conservative CUDA transcribe decode knobs (`beam_size=1`, `best_of=1`, `temperature=0`) for crash localization/mitigation (`src/asr/asr_worker.py`, `src/asr/faster_whisper_backend.py`, `tests/test_asr_worker.py`, `tests/test_faster_whisper_backend.py`, `docs/STATUS.md`).
+
+- 2026-02-12 – Added deterministic matching optimizations (indexed candidate reduction, two-pass quick filter, optional monotonic window) and ASR segmentation consistency controls (`--asr-vad-filter`, `--asr-merge-short-segments`) with short-segment merge support (`src/match/engine.py`, `src/asr/config.py`, `src/asr/faster_whisper_backend.py`, `cli.py`, `tests/test_matching.py`, `tests/test_faster_whisper_backend.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/STATUS.md`).

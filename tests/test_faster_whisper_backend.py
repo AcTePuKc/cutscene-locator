@@ -238,5 +238,29 @@ class FasterWhisperBackendTests(unittest.TestCase):
         self.assertIn("asr: transcribe kwargs={'vad_filter': False, 'language': 'en'}", logs)
 
 
+    def test_merge_short_segments_merges_adjacent_short_segments(self) -> None:
+        backend = FasterWhisperBackend()
+        fake_factory = _FakeWhisperModelFactory()
+        fake_module = types.SimpleNamespace(WhisperModel=fake_factory)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = _create_fake_model_dir(Path(temp_dir))
+            with patch("src.asr.faster_whisper_backend.import_module", return_value=fake_module):
+                with patch("src.asr.faster_whisper_backend.version", return_value="1.2.1"):
+                    result = backend.transcribe(
+                        "in.wav",
+                        ASRConfig(
+                            backend_name="faster-whisper",
+                            model_path=model_path,
+                            merge_short_segments_seconds=2.0,
+                        ),
+                    )
+
+        self.assertEqual(len(result["segments"]), 1)
+        self.assertEqual(result["segments"][0]["segment_id"], "seg_0001")
+        self.assertIn("Hello there", result["segments"][0]["text"])
+        self.assertIn("General Kenobi", result["segments"][0]["text"])
+
+
 if __name__ == "__main__":
     unittest.main()

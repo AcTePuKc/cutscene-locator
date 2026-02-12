@@ -124,6 +124,30 @@ class CliPhaseOneTests(unittest.TestCase):
                 self.assertNotIn("TQDM_DISABLE", cli.os.environ)
                 self.assertNotIn("HF_HUB_DISABLE_PROGRESS_BARS", cli.os.environ)
 
+
+    def test_invalid_match_progress_every_exits_one(self) -> None:
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            code = cli.main(
+                [
+                    "--input",
+                    "in.wav",
+                    "--script",
+                    "script.tsv",
+                    "--out",
+                    "out",
+                    "--mock-asr",
+                    "tests/fixtures/mock_asr_valid.json",
+                    "--match-progress-every",
+                    "0",
+                ],
+                which=lambda _: "/usr/bin/ffmpeg",
+                runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+            )
+
+        self.assertEqual(code, 1)
+        self.assertIn("Invalid --match-progress-every value", stderr.getvalue())
+
     def test_invalid_device_value_exits_one(self) -> None:
         stderr = io.StringIO()
         with redirect_stderr(stderr):

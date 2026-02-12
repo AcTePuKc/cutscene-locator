@@ -16,6 +16,30 @@ from .device import resolve_device_with_details
 
 _FORBIDDEN_TRANSCRIBE_KWARGS = frozenset({"progress"})
 
+
+def _merge_short_segments(
+    segments: list[dict[str, str | float]],
+    *,
+    min_duration_seconds: float,
+) -> list[dict[str, str | float]]:
+    if min_duration_seconds <= 0:
+        return list(segments)
+
+    merged: list[dict[str, str | float]] = []
+    for segment in segments:
+        duration = float(segment["end"]) - float(segment["start"])
+        if merged and duration < min_duration_seconds:
+            previous = merged[-1]
+            previous["end"] = float(segment["end"])
+            previous["text"] = f"{str(previous['text']).strip()} {str(segment['text']).strip()}".strip()
+            continue
+        merged.append(dict(segment))
+
+    for idx, segment in enumerate(merged, start=1):
+        segment["segment_id"] = f"seg_{idx:04d}"
+    return merged
+
+
 class FasterWhisperBackend:
     """ASR backend powered by faster-whisper."""
 
@@ -89,7 +113,7 @@ class FasterWhisperBackend:
             config.log_callback("asr: transcribe start")
 
         transcribe_kwargs: dict[str, object] = {
-            "vad_filter": False,
+            "vad_filter": config.vad_filter,
             "language": config.language if config.language is not None else None,
         }
         if resolved_device == "cuda":
@@ -131,6 +155,13 @@ class FasterWhisperBackend:
                     "end": float(getattr(segment, "end")),
                     "text": text,
                 }
+            )
+
+
+        if config.merge_short_segments_seconds > 0:
+            normalized_segments = _merge_short_segments(
+                normalized_segments,
+                min_duration_seconds=config.merge_short_segments_seconds,
             )
 
         model_name = Path(config.model_path).name or str(config.model_path)
