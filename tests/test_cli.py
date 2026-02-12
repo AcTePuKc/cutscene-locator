@@ -890,6 +890,66 @@ class CliAdapterDispatchTests(unittest.TestCase):
         self.assertTrue(str(kwargs["audio_path"]).endswith("canonical.wav"))
         self.assertEqual(kwargs["config"].backend_name, "mock")
 
+
+
+    def test_cli_injects_keyword_compatible_faster_whisper_callbacks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            out_dir = Path(tmp_dir) / "out"
+
+            def fake_dispatch(*, audio_path: str, config: object, context: object, requirements: object) -> dict[str, object]:
+                del audio_path, config, requirements
+                context.faster_whisper_preflight(device="cuda", compute_type="float16")
+                context.run_faster_whisper_subprocess(
+                    audio_path=Path("audio.wav"),
+                    resolved_model_path=Path("model"),
+                    asr_config=cli.ASRConfig(backend_name="faster-whisper"),
+                    verbose=False,
+                )
+                return {
+                    "segments": [
+                        {"segment_id": "seg_0001", "start": 0.0, "end": 1.0, "text": "hello"}
+                    ],
+                    "meta": {
+                        "backend": "faster-whisper",
+                        "model": "fixture",
+                        "version": "1",
+                        "device": "cpu",
+                    },
+                }
+
+            with patch("cli.dispatch_asr_transcription", side_effect=fake_dispatch):
+                with patch("cli._run_faster_whisper_subprocess", return_value={
+                    "segments": [
+                        {"segment_id": "seg_0001", "start": 0.0, "end": 1.0, "text": "hello"}
+                    ],
+                    "meta": {"backend": "faster-whisper", "model": "fixture", "version": "1", "device": "cpu"},
+                }) as subprocess_call:
+                    with patch("cli._print_faster_whisper_cuda_preflight") as preflight_call:
+                        code = cli.main(
+                            [
+                                "--input",
+                                "in.wav",
+                                "--script",
+                                "tests/fixtures/script_sample.tsv",
+                                "--out",
+                                str(out_dir),
+                                "--asr-backend",
+                                "mock",
+                                "--mock-asr",
+                                "tests/fixtures/mock_asr_valid.json",
+                                "--chunk",
+                                "0",
+                            ],
+                            which=lambda _: "/usr/bin/ffmpeg",
+                            runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                        )
+
+        self.assertEqual(code, 0)
+        preflight_call.assert_called_once_with(device="cuda", compute_type="float16")
+        subprocess_call.assert_called_once()
+        kwargs = subprocess_call.call_args.kwargs
+        self.assertEqual(set(kwargs), {"audio_path", "resolved_model_path", "asr_config", "verbose"})
+
     def test_cli_surfaces_adapter_registry_error_without_backend_branching(self) -> None:
         stderr = io.StringIO()
         with patch("cli.dispatch_asr_transcription", side_effect=ValueError("No ASR adapter registered for backend 'mock'.")):

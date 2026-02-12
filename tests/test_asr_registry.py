@@ -1,3 +1,4 @@
+from pathlib import Path
 import importlib
 import unittest
 from unittest.mock import patch
@@ -13,6 +14,7 @@ from src.asr import (
     list_declared_backends,
     validate_backend_capabilities,
 )
+from src.asr.adapters import ASRExecutionContext
 
 
 class ASRRegistryTests(unittest.TestCase):
@@ -231,6 +233,66 @@ class ASRRegistryTests(unittest.TestCase):
         self.assertIsNone(config.model_path)
         self.assertIsNone(config.progress_callback)
         self.assertIsNone(config.cancel_check)
+
+
+    def test_dispatch_faster_whisper_adapter_uses_keyword_callback_contract(self) -> None:
+        from src.asr.adapters import FasterWhisperASRAdapter
+
+        callback_calls: list[tuple[str, object]] = []
+
+        def preflight_callback(*, device: str, compute_type: str) -> None:
+            callback_calls.append(("preflight", {"device": device, "compute_type": compute_type}))
+
+        def subprocess_runner(
+            *,
+            audio_path: object,
+            resolved_model_path: object,
+            asr_config: ASRConfig,
+            verbose: bool,
+        ) -> dict[str, object]:
+            callback_calls.append(
+                (
+                    "subprocess",
+                    {
+                        "audio_path": str(audio_path),
+                        "resolved_model_path": str(resolved_model_path),
+                        "backend_name": asr_config.backend_name,
+                        "verbose": verbose,
+                    },
+                )
+            )
+            return {
+                "segments": [{"segment_id": "seg_0001", "start": 0.0, "end": 0.1, "text": "ok"}],
+                "meta": {"backend": "faster-whisper", "model": "fixture", "version": "1", "device": "cuda"},
+            }
+
+        adapter = FasterWhisperASRAdapter()
+        config = ASRConfig(backend_name="faster-whisper", device="cuda")
+        context = ASRExecutionContext(
+            resolved_model_path=Path("model"),
+            verbose=True,
+            run_faster_whisper_subprocess=subprocess_runner,
+            faster_whisper_preflight=preflight_callback,
+        )
+
+        with patch("src.asr.adapters.os.name", "nt"):
+            with patch("src.asr.adapters.resolve_device_with_details") as resolve_device:
+                resolve_device.return_value = type("R", (), {"resolved": "cuda"})()
+                result = adapter.transcribe("audio.wav", config, context)
+
+        self.assertEqual(result["meta"]["backend"], "faster-whisper")
+        self.assertEqual(callback_calls[0][0], "preflight")
+        self.assertEqual(callback_calls[0][1], {"device": "cuda", "compute_type": "auto"})
+        self.assertEqual(callback_calls[1][0], "subprocess")
+        self.assertEqual(
+            callback_calls[1][1],
+            {
+                "audio_path": "audio.wav",
+                "resolved_model_path": "model",
+                "backend_name": "faster-whisper",
+                "verbose": True,
+            },
+        )
 
 
 if __name__ == "__main__":
