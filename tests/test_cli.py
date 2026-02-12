@@ -21,6 +21,97 @@ class CliPhaseOneTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("cutscene-locator", stdout.getvalue())
 
+    def test_asr_preflight_only_success_outputs_deterministic_json(self) -> None:
+        stdout = io.StringIO()
+        with patch("cli.resolve_model_path", return_value=Path("models/faster-whisper/tiny")):
+            with patch(
+                "cli.resolve_device_with_details",
+                return_value=SimpleNamespace(
+                    requested="auto",
+                    resolved="cuda",
+                    reason="--device auto selected cuda because ctranslate2 CUDA probe reported available",
+                ),
+            ):
+                with redirect_stdout(stdout):
+                    code = cli.main(
+                        [
+                            "--asr-preflight-only",
+                            "--asr-backend",
+                            "faster-whisper",
+                            "--model-path",
+                            "models/faster-whisper/tiny",
+                            "--device",
+                            "auto",
+                        ]
+                    )
+
+        self.assertEqual(code, 0)
+        payload = json.loads(stdout.getvalue().strip().splitlines()[0])
+        self.assertEqual(payload["mode"], "asr_preflight_only")
+        self.assertEqual(payload["backend"], "faster-whisper")
+        self.assertEqual(payload["model_resolution"]["resolved_model_path"], "models/faster-whisper/tiny")
+        self.assertEqual(payload["device"]["requested"], "auto")
+        self.assertEqual(payload["device"]["compute_type"], "auto")
+        self.assertIn("selected cuda", payload["device"]["resolution_reason"])
+
+    def test_asr_preflight_only_model_resolution_failure_exits_one(self) -> None:
+        stderr = io.StringIO()
+        with patch(
+            "cli.resolve_model_path",
+            side_effect=cli.ModelResolutionError("Model could not be resolved for requested backend."),
+        ):
+            with redirect_stderr(stderr):
+                code = cli.main(
+                    [
+                        "--asr-preflight-only",
+                        "--asr-backend",
+                        "faster-whisper",
+                    ]
+                )
+
+        self.assertEqual(code, 1)
+        self.assertIn("Model could not be resolved for requested backend.", stderr.getvalue())
+
+    def test_asr_preflight_only_device_probe_failure_exits_one(self) -> None:
+        stderr = io.StringIO()
+        enabled_backend = SimpleNamespace(
+            name="qwen3-asr",
+            enabled=True,
+            missing_dependencies=(),
+            reason="enabled",
+            install_extra="asr_qwen3",
+        )
+        registration = SimpleNamespace(
+            name="qwen3-asr",
+            capabilities=SimpleNamespace(supports_segment_timestamps=True, supports_alignment=False),
+        )
+        with patch("cli.list_backend_status", return_value=[enabled_backend]):
+            with patch("cli.get_backend", return_value=registration):
+                with patch("cli.resolve_model_path", return_value=Path("models/qwen3-asr")):
+                    with patch(
+                        "cli.resolve_device_with_details",
+                        side_effect=ValueError(
+                            "Requested --device cuda, but CUDA is unavailable. Reason: torch CUDA probe reported unavailable."
+                        ),
+                    ):
+                        with redirect_stderr(stderr):
+                            code = cli.main(
+                                [
+                                    "--asr-preflight-only",
+                                    "--asr-backend",
+                                    "qwen3-asr",
+                                    "--model-path",
+                                    "models/qwen3-asr",
+                                    "--device",
+                                    "cuda",
+                                ]
+                            )
+
+        self.assertEqual(code, 1)
+        self.assertIn("Requested --device cuda, but CUDA is unavailable", stderr.getvalue())
+
+
+
     def test_missing_required_args_exits_one(self) -> None:
         stderr = io.StringIO()
         with redirect_stderr(stderr):

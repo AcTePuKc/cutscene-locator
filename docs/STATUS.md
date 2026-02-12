@@ -84,6 +84,7 @@ All agents must update this file when completing or modifying tasks.
 - [x] Exit codes
 - [x] Verbose logging
 - [x] Error handling
+- [x] ASR preflight-only CLI mode (`--asr-preflight-only`) for backend availability/model resolution/device probe sanity checks with deterministic JSON output (`cli.py`, `tests/test_cli.py`, `docs/CLI.md`)
 - [x] Windows progress-thread guard + verbose stage markers (`cli.py`, `src/match/engine.py`, `tests/test_cli.py`, `tests/test_matching.py`)
 
 ---
@@ -312,3 +313,5 @@ Contract notes:
 - [x] Backend-specific CUDA probe routing in ASR adapter dispatch with centralized torch/ctranslate2 selection and deterministic reason labels (`src/asr/device.py`, `src/asr/adapters.py`, `src/asr/qwen3_asr_backend.py`, `src/asr/whisperx_backend.py`, `src/asr/vibevoice_backend.py`, `tests/test_asr.py`, `tests/test_asr_registry.py`)
 
 - 2026-02-12 – Removed deprecated Hugging Face `local_dir_use_symlinks` usage from snapshot download wrapper using signature-based kwargs gating, preserved deterministic HF progress env toggling, and expanded model-resolution progress on/off tests (`src/asr/model_resolution.py`, `tests/test_model_resolution.py`, `docs/STATUS.md`).
+
+- 2026-02-12 – Added lightweight `--asr-preflight-only` CLI path that reuses backend registry/capability checks, model resolution, and backend-specific device probe logic, prints deterministic structured JSON for QA logs, and exits before ingest/transcribe/match/export; added success/failure CLI tests and docs usage notes (`cli.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/STATUS.md`).

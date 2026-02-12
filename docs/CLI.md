@@ -230,6 +230,36 @@ Default:
 
 ---
 
+### `--asr-preflight-only`
+
+Run backend readiness checks only, then exit before ingest/transcription/matching/exports.
+
+This mode is designed for deterministic QA and CI diagnostics and performs only:
+
+- backend availability/capability validation,
+- model resolution via existing model-resolution rules,
+- backend-specific device probing via the same device resolution logic used by runtime execution.
+
+It prints one structured JSON line (sorted keys, no extra whitespace) to stdout. Example:
+
+```bash
+cutscene-locator --asr-preflight-only --asr-backend faster-whisper --model-path models/faster-whisper/tiny
+```
+
+Example output shape:
+
+```json
+{"backend":"faster-whisper","device":{"compute_type":"auto","requested":"auto","resolution_reason":"--device auto selected cuda because ctranslate2 CUDA probe reported available"},"mode":"asr_preflight_only","model_resolution":{"requested":{"auto_download":null,"model_id":null,"model_path":"models/faster-whisper/tiny","revision":null},"resolved_model_path":"models/faster-whisper/tiny"}}
+```
+
+Behavior notes:
+
+- Skips `--input`, `--script`, and `--out` requirements in preflight-only mode.
+- Still enforces backend/model/device validation failures with deterministic error messages.
+- Does not run ffmpeg preflight or produce output artifacts.
+
+---
+
 ### `--mock-asr <file>`
 
 Path to mock ASR JSON output.

@@ -28,6 +28,7 @@ from src.asr import (
     resolve_device_with_details,
     validate_backend_capabilities,
 )
+from src.asr.device import select_cuda_probe
 from src.asr.model_resolution import ModelResolutionError, resolve_model_path
 from src.export import (
     write_matches_csv,
@@ -83,10 +84,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--asr-no-speech-threshold", type=float, default=None)
     parser.add_argument("--asr-logprob-threshold", type=float, default=None)
     parser.add_argument("--progress", choices=("on", "off"), default=None)
+    parser.add_argument("--asr-preflight-only", action="store_true")
     return parser
 
 
 def _validate_required_args(args: argparse.Namespace) -> None:
+    if args.asr_preflight_only:
+        return
+
     missing: list[str] = []
     if not args.input_path:
         missing.append("--input")
@@ -358,6 +363,87 @@ def _print_faster_whisper_cuda_preflight(*, device: str, compute_type: str) -> N
     )
 
 
+def _build_preflight_output(
+    *,
+    asr_config: ASRConfig,
+    backend_name: str,
+    resolved_model_path: Path | None,
+    device_resolution_reason: str | None,
+) -> dict[str, object]:
+    output: dict[str, object] = {
+        "mode": "asr_preflight_only",
+        "backend": backend_name,
+        "model_resolution": {
+            "requested": {
+                "model_path": str(asr_config.model_path) if asr_config.model_path is not None else None,
+                "model_id": asr_config.model_id,
+                "revision": asr_config.revision,
+                "auto_download": asr_config.auto_download,
+            },
+            "resolved_model_path": str(resolved_model_path) if resolved_model_path is not None else None,
+        },
+        "device": {
+            "requested": asr_config.device,
+            "compute_type": asr_config.compute_type,
+            "resolution_reason": device_resolution_reason,
+        },
+    }
+    return output
+
+
+def _run_asr_preflight_only(
+    *,
+    args: argparse.Namespace,
+    asr_config: ASRConfig,
+) -> int:
+    resolved_model_path: Path | None = None
+    should_resolve_model = (
+        asr_config.backend_name != "mock"
+        or asr_config.model_path is not None
+        or asr_config.model_id is not None
+        or asr_config.auto_download is not None
+    )
+    if should_resolve_model:
+        try:
+            resolved_model_path = resolve_model_path(asr_config)
+        except ModelResolutionError as exc:
+            raise CliError(str(exc)) from exc
+
+    backend_registration = get_backend(asr_config.backend_name)
+    requirements = CapabilityRequirements(
+        requires_segment_timestamps=True,
+        allows_alignment_backends=False,
+    )
+    validate_backend_capabilities(
+        backend_registration,
+        requires_segment_timestamps=requirements.requires_segment_timestamps,
+        allows_alignment_backends=requirements.allows_alignment_backends,
+    )
+
+    resolution_reason: str | None = None
+    if backend_registration.name != "mock":
+        cuda_checker, cuda_probe_label = select_cuda_probe(backend_registration.name)
+        resolution = resolve_device_with_details(
+            asr_config.device,
+            cuda_available_checker=cuda_checker,
+            cuda_probe_reason_label=cuda_probe_label,
+        )
+        resolution_reason = resolution.reason
+    else:
+        resolution_reason = "mock backend does not require device probing"
+
+    payload = _build_preflight_output(
+        asr_config=asr_config,
+        backend_name=backend_registration.name,
+        resolved_model_path=resolved_model_path,
+        device_resolution_reason=resolution_reason,
+    )
+    print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+    if args.verbose:
+        print("Verbose: ASR preflight-only checks passed.")
+    return 0
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -387,7 +473,6 @@ def main(
         _apply_windows_progress_guard()
         args.progress = _resolve_progress_mode(args.progress)
         _validate_asr_options(args)
-        ffmpeg_binary = resolve_ffmpeg_binary(args.ffmpeg_path, which=which)
         asr_config = ASRConfig(
             backend_name=args.asr_backend,
             model_path=Path(args.model_path) if args.model_path else None,
@@ -404,8 +489,32 @@ def main(
             log_prob_threshold=args.asr_logprob_threshold,
             vad_filter=args.asr_vad_filter == "on",
             merge_short_segments_seconds=args.asr_merge_short_segments,
-            ffmpeg_path=ffmpeg_binary,
+            ffmpeg_path=None,
             download_progress=(args.progress == "on"),
+            log_callback=model_resolution_logs.append,
+        )
+        if args.asr_preflight_only:
+            return _run_asr_preflight_only(args=args, asr_config=asr_config)
+
+        ffmpeg_binary = resolve_ffmpeg_binary(args.ffmpeg_path, which=which)
+        asr_config = ASRConfig(
+            backend_name=asr_config.backend_name,
+            model_path=asr_config.model_path,
+            model_id=asr_config.model_id,
+            revision=asr_config.revision,
+            auto_download=asr_config.auto_download,
+            device=asr_config.device,
+            compute_type=asr_config.compute_type,
+            language=asr_config.language,
+            beam_size=asr_config.beam_size,
+            temperature=asr_config.temperature,
+            best_of=asr_config.best_of,
+            no_speech_threshold=asr_config.no_speech_threshold,
+            log_prob_threshold=asr_config.log_prob_threshold,
+            vad_filter=asr_config.vad_filter,
+            merge_short_segments_seconds=asr_config.merge_short_segments_seconds,
+            ffmpeg_path=ffmpeg_binary,
+            download_progress=asr_config.download_progress,
             log_callback=model_resolution_logs.append,
         )
         run_ffmpeg_preflight(ffmpeg_binary, runner=runner)
