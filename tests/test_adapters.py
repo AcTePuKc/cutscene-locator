@@ -90,6 +90,38 @@ class ASRCrossChunkContinuityTests(unittest.TestCase):
         self.assertEqual(merged["end"], 300.4)
         self.assertEqual(merged["text"], "Stay close.")
 
+    def test_returns_typed_asr_contract_after_boundary_merge(self) -> None:
+        result = apply_cross_chunk_continuity(
+            asr_result={
+                "segments": [
+                    {
+                        "segment_id": "seg_0100",
+                        "start": 299.9,
+                        "end": 300.0,
+                        "text": "On me",
+                        "speaker": "A",
+                        "chunk_index": 0,
+                    },
+                    {
+                        "segment_id": "seg_0101",
+                        "start": 0.0,
+                        "end": 0.3,
+                        "text": "me now",
+                        "chunk_index": 1,
+                    },
+                ],
+                "meta": {"backend": "mock", "model": "m", "version": "v", "device": "cpu"},
+            },
+            chunk_offsets_by_index={0: 0.0, 1: 300.0},
+        )
+
+        self.assertEqual(result["meta"], {"backend": "mock", "model": "m", "version": "v", "device": "cpu"})
+        self.assertEqual(len(result["segments"]), 1)
+        merged = result["segments"][0]
+        self.assertEqual(set(merged.keys()), {"segment_id", "start", "end", "text", "speaker"})
+        self.assertEqual(merged["text"], "On me now")
+        self.assertEqual(merged["speaker"], "A")
+
     def test_merges_split_utterance_and_tiny_boundary_fragment(self) -> None:
         result = apply_cross_chunk_continuity(
             asr_result={

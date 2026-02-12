@@ -169,6 +169,7 @@ Contract notes:
 - [x] Forced alignment support (`src/align/base.py`, `src/align/validation.py`, `src/align/qwen3_forced_aligner.py`, `src/asr/registry.py`, `cli.py`, `tests/test_alignment.py`, `tests/test_qwen3_forced_aligner.py`, `tests/test_asr_registry.py`)
 - [x] Word-level timestamps (optional) (`src/align/qwen3_forced_aligner.py`, `tests/test_qwen3_forced_aligner.py`, `docs/Data-contracts.md`)
 - [x] Cross-chunk continuity handling (`src/asr/adapters.py`, `cli.py`, `tests/test_adapters.py`, `docs/Data-contracts.md`)
+- [x] Cross-chunk continuity typed return narrowing (`ASRSegment`/`ASRMeta` explicit reconstruction) to keep static `ASRResult` proof after boundary merges (`src/asr/adapters.py`, `tests/test_adapters.py`)
 
 ---
 
@@ -315,3 +316,5 @@ Contract notes:
 - 2026-02-12 – Removed deprecated Hugging Face `local_dir_use_symlinks` usage from snapshot download wrapper using signature-based kwargs gating, preserved deterministic HF progress env toggling, and expanded model-resolution progress on/off tests (`src/asr/model_resolution.py`, `tests/test_model_resolution.py`, `docs/STATUS.md`).
 
 - 2026-02-12 – Added lightweight `--asr-preflight-only` CLI path that reuses backend registry/capability checks, model resolution, and backend-specific device probe logic, prints deterministic structured JSON for QA logs, and exits before ingest/transcribe/match/export; added success/failure CLI tests and docs usage notes (`cli.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/STATUS.md`).
+
+- 2026-02-12 – Tightened `apply_cross_chunk_continuity` return typing by rebuilding merged segments as explicit `ASRSegment` payloads and metadata as explicit `ASRMeta`, then returning a typed `ASRResult`; added boundary-merge regression coverage asserting contract-shaped keys/meta survive merge normalization (`src/asr/adapters.py`, `tests/test_adapters.py`, `docs/STATUS.md`).

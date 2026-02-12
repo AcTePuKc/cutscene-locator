@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Protocol, TypeAlias
 
 from .backends import MockASRBackend
-from .base import ASRResult
+from .base import ASRMeta, ASRResult, ASRSegment
 from .config import ASRConfig
 from .device import resolve_device_with_details, select_cuda_probe
 from .faster_whisper_backend import FasterWhisperBackend
@@ -150,10 +150,32 @@ def apply_cross_chunk_continuity(
         else:
             merged_segments.append(segment)
 
-    return {
-        "segments": merged_segments,
-        "meta": dict(asr_result["meta"]),
+    typed_segments: list[ASRSegment] = []
+    for merged_segment in merged_segments:
+        typed_segment: ASRSegment = {
+            "segment_id": str(merged_segment["segment_id"]),
+            "start": float(merged_segment["start"]),
+            "end": float(merged_segment["end"]),
+            "text": str(merged_segment["text"]),
+        }
+        speaker = merged_segment.get("speaker")
+        if speaker is not None:
+            typed_segment["speaker"] = str(speaker)
+        typed_segments.append(typed_segment)
+
+    raw_meta = asr_result["meta"]
+    typed_meta: ASRMeta = {
+        "backend": raw_meta["backend"],
+        "model": raw_meta["model"],
+        "version": raw_meta["version"],
+        "device": raw_meta["device"],
     }
+
+    result: ASRResult = {
+        "segments": typed_segments,
+        "meta": typed_meta,
+    }
+    return result
 
 
 class FasterWhisperSubprocessRunner(Protocol):
