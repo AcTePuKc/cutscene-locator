@@ -1260,7 +1260,15 @@ class Qwen3ReadinessSmokeTests(unittest.TestCase):
         if qwen_model_class is None:
             self.skipTest("Installed qwen_asr package does not expose Qwen3ASRModel")
 
-        model = qwen_model_class.from_pretrained(str(model_path), dtype="auto")
+        call_kwargs: dict[str, object] = {"dtype": "auto"}
+        model = qwen_model_class.from_pretrained(str(model_path), **call_kwargs)
+
+        self.assertNotIn(
+            "device",
+            call_kwargs,
+            "qwen3 loader init smoke must not pass `device` into from_pretrained(); "
+            "device transfer happens post-load via .to(device).",
+        )
 
         torch_module = getattr(model, "model", None)
         if torch_module is not None and callable(getattr(torch_module, "to", None)):
@@ -1274,6 +1282,60 @@ class Qwen3ReadinessSmokeTests(unittest.TestCase):
             )
 
         self.assertIsNotNone(model)
+
+
+@unittest.skipUnless(
+    os.environ.get("CUTSCENE_QWEN3_RUNTIME_SMOKE") == "1",
+    "Set CUTSCENE_QWEN3_RUNTIME_SMOKE=1, CUTSCENE_QWEN3_MODEL_PATH=<local_model_dir>, and "
+    "CUTSCENE_QWEN3_RUNTIME_AUDIO=<local_audio_file> to run qwen3 runtime smoke.",
+)
+class Qwen3RuntimeSmokeTests(unittest.TestCase):
+    def test_qwen3_runtime_smoke_is_explicitly_env_gated(self) -> None:
+        """Optional runtime smoke test (full inference).
+
+        Usage:
+        - CUTSCENE_QWEN3_RUNTIME_SMOKE=1
+        - CUTSCENE_QWEN3_MODEL_PATH=/absolute/or/relative/path/to/local/qwen3-asr/snapshot
+        - CUTSCENE_QWEN3_RUNTIME_AUDIO=/absolute/or/relative/path/to/local/audio.wav
+
+        This remains disabled by default to keep CI deterministic and offline.
+        """
+
+        local_model_path = os.environ.get("CUTSCENE_QWEN3_MODEL_PATH")
+        runtime_audio_path = os.environ.get("CUTSCENE_QWEN3_RUNTIME_AUDIO")
+
+        if not local_model_path:
+            self.skipTest("CUTSCENE_QWEN3_MODEL_PATH is required when CUTSCENE_QWEN3_RUNTIME_SMOKE=1")
+        if not runtime_audio_path:
+            self.skipTest("CUTSCENE_QWEN3_RUNTIME_AUDIO is required when CUTSCENE_QWEN3_RUNTIME_SMOKE=1")
+
+        model_path = Path(local_model_path)
+        audio_path = Path(runtime_audio_path)
+        if not model_path.exists():
+            self.skipTest(f"CUTSCENE_QWEN3_MODEL_PATH does not exist: {model_path}")
+        if not audio_path.exists():
+            self.skipTest(f"CUTSCENE_QWEN3_RUNTIME_AUDIO does not exist: {audio_path}")
+
+        try:
+            from src.asr.qwen3_asr_backend import Qwen3ASRBackend
+            from src.asr.config import ASRConfig
+        except ModuleNotFoundError as exc:
+            self.skipTest(f"Optional qwen3 runtime dependencies are not installed: {exc}")
+
+        backend = Qwen3ASRBackend()
+        result = backend.transcribe(
+            str(audio_path),
+            ASRConfig(
+                backend_name="qwen3-asr",
+                model_path=model_path,
+                device="cpu",
+                compute_type="auto",
+            ),
+        )
+
+        self.assertIsInstance(result.get("segments"), list)
+        self.assertGreater(len(result["segments"]), 0)
+        self.assertEqual(result["meta"]["backend"], "qwen3-asr")
 
 
 class CliAdapterDispatchTests(unittest.TestCase):

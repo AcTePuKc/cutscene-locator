@@ -80,6 +80,42 @@ class Qwen3ASRBackendTests(unittest.TestCase):
             [{"audio_path": "in.wav", "language": "en", "return_timestamps": True}],
         )
 
+    def test_from_pretrained_does_not_receive_device_kwarg(self) -> None:
+        backend = Qwen3ASRBackend()
+        from_pretrained_kwargs: list[dict[str, object]] = []
+
+        class _FakeModel:
+            def transcribe(self, audio_path: str, **kwargs: object):
+                del audio_path
+                del kwargs
+                return {"chunks": [{"timestamp": (0.0, 1.0), "text": "hello"}]}
+
+        class _FakeQwen3ASRModel:
+            @classmethod
+            def from_pretrained(cls, model_path: str, **kwargs: object):
+                del model_path
+                from_pretrained_kwargs.append(dict(kwargs))
+                model = _FakeModel()
+                model.model = _TorchModuleWithTo()
+                return model
+
+        fake_qwen_asr = types.SimpleNamespace(Qwen3ASRModel=_FakeQwen3ASRModel)
+
+        with patch("src.asr.qwen3_asr_backend.import_module", return_value=fake_qwen_asr):
+            backend.transcribe(
+                "in.wav",
+                ASRConfig(
+                    backend_name="qwen3-asr",
+                    model_path=Path("models/Qwen3-ASR-0.6B"),
+                    device="cuda",
+                    compute_type="float16",
+                ),
+            )
+
+        self.assertEqual(len(from_pretrained_kwargs), 1)
+        self.assertNotIn("device", from_pretrained_kwargs[0])
+        self.assertEqual(from_pretrained_kwargs[0].get("dtype"), "float16")
+
     def test_pipeline_smoke_rejects_non_tuple_timestamps(self) -> None:
         backend = Qwen3ASRBackend()
 

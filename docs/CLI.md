@@ -295,13 +295,18 @@ Behavior notes:
 - Still enforces backend/model/device validation failures with deterministic error messages.
 - On Windows PowerShell, copied multiline commands can include continuation/copy artifacts (for example trailing `` ` `` or accidental extra newlines/characters); those are shell-level formatting artifacts, not additional tool output lines.
 
-Qwen readiness smoke tests (init-only, optional):
+Qwen readiness/smoke checks (optional, env-gated):
 
 - `tests/test_cli.py` includes a deterministic preflight QA assertion for `qwen3-asr` JSON payload shape (`mode/backend/model_resolution/device` fields) with single-line stdout enforcement.
 - Optional loader-init smoke (`Qwen3ReadinessSmokeTests`) is gated to stay offline by default:
-  - `CUTSCENE_QWEN3_INIT_SMOKE=1` enables the test class.
+  - `CUTSCENE_QWEN3_INIT_SMOKE=1` enables the init-only class.
   - `CUTSCENE_QWEN3_MODEL_PATH=<local_qwen3_snapshot_dir>` must point to an existing local model snapshot.
-- The init smoke validates `qwen_asr.Qwen3ASRModel.from_pretrained(...)` initialization only and does not run transcription/inference.
+  - This test validates loader initialization only (`Qwen3ASRModel.from_pretrained(...)`) and asserts `device` is **not** passed into `from_pretrained` (device transfer is post-load via `.to(...)`).
+- Optional runtime smoke (`Qwen3RuntimeSmokeTests`) is additionally gated and disabled by default:
+  - `CUTSCENE_QWEN3_RUNTIME_SMOKE=1` enables runtime smoke.
+  - `CUTSCENE_QWEN3_MODEL_PATH=<local_qwen3_snapshot_dir>` must point to an existing local model snapshot.
+  - `CUTSCENE_QWEN3_RUNTIME_AUDIO=<local_audio_file>` must point to an existing local audio file.
+  - Expected output contract is standard ASR result shape (`meta.backend == "qwen3-asr"`, non-empty `segments` list); this smoke is intended for explicit local validation only, not default CI.
 
 ---
 
