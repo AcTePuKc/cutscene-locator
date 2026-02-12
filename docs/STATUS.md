@@ -161,6 +161,7 @@ Contract notes:
 - [x]  faster-whisper auto-download mapping (tiny/base/small → HF repo)
 - [x]  CUDA enablement notes + detection (ctranslate2/whisper backend)
 - [x] Timestamp normalization across backends (`src/asr/timestamp_normalization.py`, `src/asr/faster_whisper_backend.py`, `src/asr/qwen3_asr_backend.py`, `tests/test_asr.py`, `tests/test_faster_whisper_backend.py`, `tests/test_qwen3_asr_backend.py`, `tests/fixtures/asr_timestamp_edges_faster_whisper.json`, `tests/fixtures/asr_timestamp_edges_qwen3.json`)
+- [x] Deterministic backend readiness audit matrix + verification checklist (qwen3-asr/whisperx/vibevoice) including registry/install-state diagnostics, model artifact layout validation, and backend-specific CUDA preflight reason reporting (`src/asr/readiness.py`, `src/asr/model_resolution.py`, `scripts/verify_backend_readiness.py`, `tests/test_backend_readiness.py`, `tests/test_asr_registry.py`, `docs/CLI.md`, `docs/Integration-issues.md`, `docs/Integration.md`)
 
 ### Advanced alignment
 
@@ -200,6 +201,8 @@ Contract notes:
 ---
 
 ## Change log (manual)
+
+- 2026-02-12 – Added deterministic backend readiness matrix/checklist for `qwen3-asr`, `whisperx`, and `vibevoice` (dependency importability, registry enabled-state validation, model artifact layout validation, and backend-appropriate CUDA preflight reason reporting) with a no-inference verification script and registry/readiness regression tests (`src/asr/readiness.py`, `src/asr/model_resolution.py`, `scripts/verify_backend_readiness.py`, `tests/test_backend_readiness.py`, `tests/test_asr_registry.py`, `docs/CLI.md`, `docs/Integration.md`, `docs/Integration-issues.md`, `docs/STATUS.md`).
 
 - 2026-02-12 – Added offline, dependency-light gated integration-style deterministic pipeline test with representative normalized backend fixtures (faster-whisper, qwen3-asr, whisperx/vibevoice-style timestamps), validating stable `matches.csv` ordering, stable `scenes.json` boundaries, and no fabricated timestamps (`tests/test_integration_pipeline.py`, `tests/fixtures/script_integration_sample.tsv`, `tests/fixtures/asr_normalized_faster_whisper.json`, `tests/fixtures/asr_normalized_qwen3_asr.json`, `tests/fixtures/asr_normalized_whisperx_vibevoice.json`, `docs/STATUS.md`).
 

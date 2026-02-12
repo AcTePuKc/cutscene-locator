@@ -14,8 +14,9 @@ High-level pipeline:
 2. Audio preprocessing via ffmpeg
 3. (Optional) chunking
 4. Branch A: ASR (speech-to-text) with timestamps
-5. Branch B: Forced alignment (known transcript/script text + timestamp spans)
-6. Text normalization
+5. ASR backend preflight (install/readiness + model artifact validation + device probe)
+6. Branch B: Forced alignment (known transcript/script text + timestamp spans)
+7. Text normalization
 7. Fuzzy matching against script
 8. Scene stitching
 9. Export (CSV / JSON / SRT)
@@ -140,6 +141,14 @@ ASR output **must** provide:
 - end timestamp (seconds)
 
 Speaker labels are optional.
+
+
+Readiness preflight for runtime ASR backends (`qwen3-asr`, `whisperx`, `vibevoice`) is deterministic and must run before inference:
+
+- verify optional dependency importability for selected backend extras,
+- verify backend status is enabled in registry,
+- verify model artifact layout matches backend contract,
+- report backend-appropriate device probe reason; if CUDA is unavailable, operator retries with `--device cpu`.
 
 ### Backend abstraction
 

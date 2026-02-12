@@ -145,6 +145,12 @@ def _validate_model_repo_snapshot(*, backend_name: str, model_dir: Path) -> None
         )
 
 
+def validate_model_artifact_layout(*, backend_name: str, model_dir: Path) -> None:
+    """Public wrapper for deterministic backend model artifact layout checks."""
+
+    _validate_model_repo_snapshot(backend_name=backend_name, model_dir=model_dir)
+
+
 
 
 def _is_windows_platform() -> bool:
