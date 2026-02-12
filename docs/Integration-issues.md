@@ -287,9 +287,9 @@ These backends rely on `torch` CUDA probing (`torch.cuda.is_available()`) during
 ### Windows-specific notes
 
 - Windows users frequently hit CUDA wheel/runtime mismatches even when imports succeed.
-- Preserve deterministic fallback semantics per backend:
+- Preserve deterministic CPU rerun behavior per backend:
   - `qwen3-asr`: retry same command with `--device cpu`.
   - `whisperx`: retry same command with `--device cpu`.
   - `vibevoice`: retry same command with `--device cpu`.
-- Treat CPU fallback as a recovery mode only; never mutate backend choice automatically.
+- Do not perform automatic backend/device switching; require rerun with `--device cpu` as an explicit operator action.
 

@@ -147,6 +147,38 @@ class DocsConsistencyTests(unittest.TestCase):
                 )
 
 
+class DocsCudaRerunWordingTests(unittest.TestCase):
+    def test_cpu_rerun_wording_replaces_fallback_semantics(self) -> None:
+        cli_doc = Path("docs/CLI.md").read_text(encoding="utf-8")
+        integration_issues_doc = Path("docs/Integration-issues.md").read_text(encoding="utf-8")
+
+        self.assertIn("CPU rerun behavior", cli_doc)
+        self.assertNotIn("CPU fallback semantics", cli_doc)
+
+        context_docs = (
+            "docs/CLI.md",
+            "docs/Integration-issues.md",
+        )
+        for doc_path in context_docs:
+            doc_text = Path(doc_path).read_text(encoding="utf-8")
+            with self.subTest(doc=doc_path):
+                self.assertNotRegex(
+                    doc_text,
+                    re.compile(r"CPU\s+fallback", re.IGNORECASE),
+                    "Use explicit CPU rerun wording instead of fallback terminology in CUDA failure guidance.",
+                )
+                self.assertRegex(
+                    doc_text,
+                    re.compile(r"(?:No automatic backend/device switching|Do not perform automatic backend/device switching)", re.IGNORECASE),
+                    "CUDA guidance must state that backend/device switching is never automatic.",
+                )
+                self.assertIn(
+                    "--device cpu",
+                    doc_text,
+                    "CUDA guidance must include explicit rerun instruction with --device cpu.",
+                )
+
+
 class DocsCliFlagParityTests(unittest.TestCase):
     def test_cli_parser_flags_have_documented_sections(self) -> None:
         from cli import build_parser
