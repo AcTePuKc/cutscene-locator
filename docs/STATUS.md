@@ -174,8 +174,8 @@ Contract notes:
 
 - [x] CLI docs/parser flag parity consistency test (`tests/test_docs_consistency.py`, `docs/CLI.md`, `cli.py`)
 - [ ] Unit test coverage for core modules
-- [ ] Test fixtures (audio + script)
-- [ ] Integration test (optional, gated)
+- [x] Test fixtures (audio + script) (`tests/fixtures/script_integration_sample.tsv`, `tests/fixtures/asr_normalized_faster_whisper.json`, `tests/fixtures/asr_normalized_qwen3_asr.json`, `tests/fixtures/asr_normalized_whisperx_vibevoice.json`)
+- [x] Integration test (optional, gated) (`tests/test_integration_pipeline.py`)
 - [ ] Performance profiling (large scripts)
 - [ ] Config file support (optional)
 
@@ -200,6 +200,8 @@ Contract notes:
 ---
 
 ## Change log (manual)
+
+- 2026-02-12 – Added offline, dependency-light gated integration-style deterministic pipeline test with representative normalized backend fixtures (faster-whisper, qwen3-asr, whisperx/vibevoice-style timestamps), validating stable `matches.csv` ordering, stable `scenes.json` boundaries, and no fabricated timestamps (`tests/test_integration_pipeline.py`, `tests/fixtures/script_integration_sample.tsv`, `tests/fixtures/asr_normalized_faster_whisper.json`, `tests/fixtures/asr_normalized_qwen3_asr.json`, `tests/fixtures/asr_normalized_whisperx_vibevoice.json`, `docs/STATUS.md`).
 
 - 2026-02-12 – Added deterministic STATUS governance checks to enforce milestone checkbox/file-marker consistency and changelog-vs-milestone non-contradiction, including explicit contributor guidance to update milestone checkbox lines (not changelog-only notes) (`tests/test_docs_consistency.py`, `docs/STATUS.md`).
 

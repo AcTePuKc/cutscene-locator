@@ -1,0 +1,34 @@
+{
+  "segments": [
+    {
+      "segment_id": "qwen_0001",
+      "start": 0.0,
+      "end": 1.2,
+      "text": "hello there"
+    },
+    {
+      "segment_id": "qwen_0002",
+      "start": 1.4,
+      "end": 2.2,
+      "text": "do you read me"
+    },
+    {
+      "segment_id": "qwen_0003",
+      "start": 15.0,
+      "end": 16.0,
+      "text": "fallback to extraction path"
+    },
+    {
+      "segment_id": "qwen_0004",
+      "start": 16.2,
+      "end": 17.0,
+      "text": "confirmed, proceeding now"
+    }
+  ],
+  "meta": {
+    "backend": "qwen3-asr",
+    "model": "Qwen3-ASR-0.6B",
+    "version": "0.1",
+    "device": "cpu"
+  }
+}
