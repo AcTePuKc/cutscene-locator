@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import os
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Protocol, TypeAlias
+from typing import Any, Protocol, TypeAlias
 
 from .backends import MockASRBackend
 from .base import ASRResult
@@ -17,6 +18,142 @@ from .qwen3_asr_backend import Qwen3ASRBackend
 from .whisperx_backend import WhisperXBackend
 from .vibevoice_backend import VibeVoiceBackend
 from .registry import get_backend, validate_backend_capabilities
+
+_CONTINUITY_MAX_GAP_SECONDS = 0.12
+_CONTINUITY_TINY_FRAGMENT_SECONDS = 0.35
+_CONTINUITY_EDGE_DUPLICATE_WINDOW_SECONDS = 0.35
+
+
+def _normalize_continuity_text(text: str) -> str:
+    lowered = text.lower().strip()
+    lowered = re.sub(r"\s+", " ", lowered)
+    lowered = re.sub(r"[^\w\s]", "", lowered)
+    return lowered
+
+
+def _merge_segment_text(left_text: str, right_text: str) -> str:
+    left_trimmed = left_text.strip()
+    right_trimmed = right_text.strip()
+    if not left_trimmed:
+        return right_trimmed
+    if not right_trimmed:
+        return left_trimmed
+
+    left_tokens = left_trimmed.split()
+    right_tokens = right_trimmed.split()
+    max_overlap = min(len(left_tokens), len(right_tokens))
+    for overlap in range(max_overlap, 0, -1):
+        if left_tokens[-overlap:] == right_tokens[:overlap]:
+            merged_tokens = left_tokens + right_tokens[overlap:]
+            return " ".join(merged_tokens)
+
+    return f"{left_trimmed} {right_trimmed}"
+
+
+def _segment_chunk_index(segment: dict[str, Any]) -> int | None:
+    raw_value = segment.get("chunk_index")
+    if isinstance(raw_value, bool) or not isinstance(raw_value, int):
+        return None
+    return raw_value
+
+
+def _should_merge_boundary_segments(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    left_chunk = _segment_chunk_index(left)
+    right_chunk = _segment_chunk_index(right)
+    if left_chunk is None or right_chunk is None:
+        return False
+    if right_chunk - left_chunk != 1:
+        return False
+
+    left_start = float(left["start"])
+    left_end = float(left["end"])
+    right_start = float(right["start"])
+    right_end = float(right["end"])
+    gap = right_start - left_end
+    overlap_seconds = min(left_end, right_end) - max(left_start, right_start)
+    left_duration = left_end - left_start
+    right_duration = right_end - right_start
+
+    left_normalized_text = _normalize_continuity_text(str(left["text"]))
+    right_normalized_text = _normalize_continuity_text(str(right["text"]))
+
+    if left_normalized_text == right_normalized_text and (
+        overlap_seconds >= 0.0 or abs(gap) <= _CONTINUITY_EDGE_DUPLICATE_WINDOW_SECONDS
+    ):
+        return True
+
+    if gap <= _CONTINUITY_MAX_GAP_SECONDS and (
+        left_duration <= _CONTINUITY_TINY_FRAGMENT_SECONDS
+        or right_duration <= _CONTINUITY_TINY_FRAGMENT_SECONDS
+    ):
+        return True
+
+    if gap <= _CONTINUITY_MAX_GAP_SECONDS and left_normalized_text and right_normalized_text:
+        return True
+
+    return False
+
+
+def _merge_boundary_segments(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
+    merged: dict[str, Any] = {
+        "segment_id": left["segment_id"],
+        "start": min(float(left["start"]), float(right["start"])),
+        "end": max(float(left["end"]), float(right["end"])),
+        "text": _merge_segment_text(str(left["text"]), str(right["text"])),
+    }
+    if "speaker" in left:
+        merged["speaker"] = left["speaker"]
+    elif "speaker" in right:
+        merged["speaker"] = right["speaker"]
+
+    left_chunk = _segment_chunk_index(left)
+    right_chunk = _segment_chunk_index(right)
+    if left_chunk is not None:
+        merged["chunk_index"] = left_chunk
+    if left_chunk is not None and right_chunk is not None:
+        merged["merged_chunk_indexes"] = [left_chunk, right_chunk]
+
+    return merged
+
+
+def apply_cross_chunk_continuity(
+    *,
+    asr_result: ASRResult,
+    chunk_offsets_by_index: dict[int, float],
+) -> ASRResult:
+    """Convert chunk-local ASR timestamps to absolute timeline + merge deterministic boundary continuity."""
+
+    absolute_segments: list[tuple[float, float, int, dict[str, Any]]] = []
+    for index, segment in enumerate(asr_result["segments"]):
+        segment_copy: dict[str, Any] = dict(segment)
+        chunk_index = _segment_chunk_index(segment_copy)
+        if chunk_index is not None:
+            offset_seconds = float(chunk_offsets_by_index.get(chunk_index, 0.0))
+            segment_copy["start"] = float(segment_copy["start"]) + offset_seconds
+            segment_copy["end"] = float(segment_copy["end"]) + offset_seconds
+
+        absolute_segments.append(
+            (float(segment_copy["start"]), float(segment_copy["end"]), index, segment_copy)
+        )
+
+    absolute_segments.sort(key=lambda item: (item[0], item[1], item[2]))
+
+    merged_segments: list[dict[str, Any]] = []
+    for _, _, _, segment in absolute_segments:
+        if not merged_segments:
+            merged_segments.append(segment)
+            continue
+
+        previous = merged_segments[-1]
+        if _should_merge_boundary_segments(previous, segment):
+            merged_segments[-1] = _merge_boundary_segments(previous, segment)
+        else:
+            merged_segments.append(segment)
+
+    return {
+        "segments": merged_segments,
+        "meta": dict(asr_result["meta"]),
+    }
 
 
 class FasterWhisperSubprocessRunner(Protocol):

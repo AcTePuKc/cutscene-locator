@@ -11,6 +11,7 @@ from .adapters import (
     ASRExecutionContext,
     CapabilityRequirements,
     dispatch_asr_transcription,
+    apply_cross_chunk_continuity,
     get_asr_adapter,
     list_asr_adapters,
 )
@@ -35,6 +36,7 @@ __all__ = [
     "ASRExecutionContext",
     "CapabilityRequirements",
     "dispatch_asr_transcription",
+    "apply_cross_chunk_continuity",
     "get_asr_adapter",
     "list_asr_adapters",
     "MockASRBackend",

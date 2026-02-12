@@ -21,6 +21,7 @@ from src.asr import (
     CapabilityRequirements,
     ASRExecutionContext,
     dispatch_asr_transcription,
+    apply_cross_chunk_continuity,
     get_backend,
     list_backend_status,
     parse_asr_result,
@@ -467,6 +468,13 @@ def main(
                 faster_whisper_preflight=_print_faster_whisper_cuda_preflight,
             ),
             requirements=requirements,
+        )
+        asr_result = apply_cross_chunk_continuity(
+            asr_result=asr_result,
+            chunk_offsets_by_index={
+                chunk.chunk_index: chunk.absolute_offset_seconds
+                for chunk in preprocessing_output.chunk_metadata
+            },
         )
         timings["asr"] = time.perf_counter() - asr_started
         if args.verbose:

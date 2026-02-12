@@ -165,7 +165,7 @@ Contract notes:
 
 - [x] Forced alignment support (`src/align/base.py`, `src/align/validation.py`, `src/align/qwen3_forced_aligner.py`, `src/asr/registry.py`, `cli.py`, `tests/test_alignment.py`, `tests/test_qwen3_forced_aligner.py`, `tests/test_asr_registry.py`)
 - [x] Word-level timestamps (optional) (`src/align/qwen3_forced_aligner.py`, `tests/test_qwen3_forced_aligner.py`, `docs/Data-contracts.md`)
-- [ ] Cross-chunk continuity handling
+- [x] Cross-chunk continuity handling (`src/asr/adapters.py`, `cli.py`, `tests/test_adapters.py`, `docs/Data-contracts.md`)
 
 ---
 
@@ -199,6 +199,8 @@ Contract notes:
 ---
 
 ## Change log (manual)
+
+- 2026-02-12 – Added deterministic cross-chunk continuity handling in ASR adapter bridge (absolute timestamp conversion via chunk offsets + boundary duplicate/split/tiny-fragment merges), covered by unit tests and documented tie-break semantics (`src/asr/adapters.py`, `cli.py`, `tests/test_adapters.py`, `docs/Data-contracts.md`, `docs/STATUS.md`).
 
 - 2026-02-12 – Brought `docs/CLI.md` into parser parity by documenting every `build_parser()` flag with defaults/valid ranges/backend applicability, and added deterministic docs consistency test to fail on CLI/docs drift (`docs/CLI.md`, `tests/test_docs_consistency.py`, `cli.py`, `docs/STATUS.md`).
 
