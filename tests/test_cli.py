@@ -46,7 +46,9 @@ class CliPhaseOneTests(unittest.TestCase):
                     )
 
         self.assertEqual(code, 0)
-        payload = json.loads(stdout.getvalue().strip().splitlines()[0])
+        stdout_lines = stdout.getvalue().splitlines()
+        self.assertEqual(len(stdout_lines), 1)
+        payload = json.loads(stdout_lines[0])
         self.assertEqual(payload["mode"], "asr_preflight_only")
         self.assertEqual(payload["backend"], "faster-whisper")
         self.assertEqual(payload["model_resolution"]["resolved_model_path"], "models/faster-whisper/tiny")
@@ -54,6 +56,41 @@ class CliPhaseOneTests(unittest.TestCase):
         self.assertEqual(payload["device"]["compute_type"], "auto")
         self.assertEqual(payload["device"]["cuda_probe_label"], "ctranslate2")
         self.assertIn("selected cuda", payload["device"]["resolution_reason"])
+
+    def test_asr_preflight_only_verbose_outputs_single_json_line_without_stage_logs(self) -> None:
+        stdout = io.StringIO()
+        with patch("cli.resolve_model_path", return_value=Path("models/faster-whisper/tiny")):
+            with patch(
+                "cli.resolve_device_with_details",
+                return_value=SimpleNamespace(
+                    requested="auto",
+                    resolved="cpu",
+                    reason="--device auto selected cpu because ctranslate2 CUDA probe reported unavailable",
+                ),
+            ):
+                with redirect_stdout(stdout):
+                    code = cli.main(
+                        [
+                            "--asr-preflight-only",
+                            "--verbose",
+                            "--asr-backend",
+                            "faster-whisper",
+                            "--model-path",
+                            "models/faster-whisper/tiny",
+                        ]
+                    )
+
+        self.assertEqual(code, 0)
+        stdout_lines = stdout.getvalue().splitlines()
+        self.assertEqual(len(stdout_lines), 1)
+        payload = json.loads(stdout_lines[0])
+        self.assertEqual(payload["mode"], "asr_preflight_only")
+        for forbidden in (
+            "stage:",
+            "Verbose:",
+            "Preflight checks passed.",
+        ):
+            self.assertNotIn(forbidden, stdout.getvalue())
 
     def test_asr_preflight_only_includes_backend_probe_label(self) -> None:
         scenarios = (("faster-whisper", "ctranslate2"), ("qwen3-asr", "torch"))
