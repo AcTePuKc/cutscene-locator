@@ -151,6 +151,7 @@ Contract notes:
 - Forced-aligner models are alignment-mode backends and are not equivalent to ASR-only transcript-generation models.
 
 - [x] ASR backend adapter (generic) (`src/asr/adapters.py`, `src/asr/base.py`, `src/asr/registry.py`, `src/asr/__init__.py`, `cli.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/ASR_ARCHITECTURE.md`)
+- [x] ASR adapter static return-path typing fix (Protocol stubs use explicit ellipsis bodies) + callable adapter contract regression test (`src/asr/adapters.py`, `tests/test_asr_registry.py`, `docs/STATUS.md`)
 - [x] WhisperX backend (`src/asr/whisperx_backend.py`, `src/asr/registry.py`, `src/asr/adapters.py`, `src/asr/model_resolution.py`, `pyproject.toml`, `tests/test_whisperx_backend.py`, `tests/test_asr_registry.py`)
 - [x] VibeVoice backend via shared adapter path (`src/asr/vibevoice_backend.py`, `src/asr/registry.py`, `src/asr/adapters.py`, `src/asr/__init__.py`, `pyproject.toml`, `tests/test_vibevoice_backend.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/Integration-issues.md`, `docs/ASR_ARCHITECTURE.md`)
 - [x] Qwen ASR backend
@@ -201,6 +202,7 @@ Contract notes:
 > Keep this short. One line per meaningful change.
 
 - YYYY-MM-DD – Initial STATUS.md created
+- 2026-02-12 – Fixed static ASR adapter return-path typing by replacing docstring-only `ASRAdapter` protocol methods with explicit ellipsis stubs (signature-preserving), and added adapter-registry coverage to assert each registered adapter exposes callable `transcribe` (`src/asr/adapters.py`, `tests/test_asr_registry.py`, `docs/STATUS.md`).
 - 2026-02-12 – Fixed adapter callback typing contract for injected faster-whisper helper callbacks by introducing explicit keyword-only callback protocols, aligning adapter invocation semantics, and adding CLI/adapter dispatch tests for callback injection paths (`src/asr/adapters.py`, `cli.py`, `tests/test_cli.py`, `tests/test_asr_registry.py`, `docs/STATUS.md`).
 - 2026-02-12 – Clarified Milestone 2 stable implementation sequence (generic adapter → timestamp normalization → WhisperX → forced alignment path → VibeVoice), documented Qwen3-ASR shared-backend variant handling (`0.6B`/`1.7B`), and reaffirmed that forced-aligner models are alignment-mode only per Integration/Data-contracts authority (`docs/STATUS.md`).
 - 2026-02-12 – STATUS consistency audit: synchronized Milestone 2/Advanced alignment checkboxes with implemented backend features (including word-level alignment timestamps), and added docs consistency coverage to fail when changelog-complete backend milestones are left unchecked (`docs/STATUS.md`, `tests/test_docs_consistency.py`).

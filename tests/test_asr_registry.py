@@ -165,6 +165,13 @@ class ASRRegistryTests(unittest.TestCase):
         self.assertIn("mock", list_asr_adapters())
         self.assertIn("vibevoice", list_asr_adapters())
 
+
+    def test_all_registered_adapters_expose_callable_transcribe(self) -> None:
+        for backend_name in list_asr_adapters():
+            adapter = get_asr_adapter(backend_name)
+            self.assertEqual(adapter.backend_name, backend_name)
+            self.assertTrue(callable(adapter.transcribe))
+
     def test_adapter_registry_unknown_backend_raises(self) -> None:
         with self.assertRaisesRegex(ValueError, "No ASR adapter registered"):
             get_asr_adapter("qwen3-forced-aligner")
