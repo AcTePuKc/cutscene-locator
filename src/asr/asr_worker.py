@@ -28,6 +28,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--device", required=True, choices=("cpu", "cuda", "auto"))
     parser.add_argument("--compute-type", required=True, choices=("float16", "float32", "auto"))
     parser.add_argument("--result-path", required=True)
+    parser.add_argument("--asr-language")
+    parser.add_argument("--asr-beam-size", required=True, type=int)
+    parser.add_argument("--asr-temperature", required=True, type=float)
+    parser.add_argument("--asr-best-of", required=True, type=int)
+    parser.add_argument("--asr-no-speech-threshold", type=float, default=None)
+    parser.add_argument("--asr-logprob-threshold", type=float, default=None)
     parser.add_argument("--verbose", action="store_true")
     return parser
 
@@ -92,6 +98,12 @@ def main(argv: list[str] | None = None) -> int:
                 model_path=Path(args.model_path),
                 device=args.device,
                 compute_type=args.compute_type,
+                language=args.asr_language,
+                beam_size=args.asr_beam_size,
+                temperature=args.asr_temperature,
+                best_of=args.asr_best_of,
+                no_speech_threshold=args.asr_no_speech_threshold,
+                log_prob_threshold=args.asr_logprob_threshold,
                 log_callback=print if args.verbose else None,
             ),
         )

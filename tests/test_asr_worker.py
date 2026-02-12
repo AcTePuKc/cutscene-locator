@@ -49,6 +49,12 @@ class ASRWorkerTests(unittest.TestCase):
                                 "float16",
                                 "--result-path",
                                 str(out_path),
+                                "--asr-beam-size",
+                                "1",
+                                "--asr-temperature",
+                                "0.0",
+                                "--asr-best-of",
+                                "1",
                             ]
                         )
 
@@ -85,6 +91,12 @@ class ASRWorkerTests(unittest.TestCase):
                             "float16",
                             "--result-path",
                             str(out_path),
+                            "--asr-beam-size",
+                            "1",
+                            "--asr-temperature",
+                            "0.0",
+                            "--asr-best-of",
+                            "1",
                         ]
                     )
             payload = json.loads(out_path.read_text(encoding="utf-8"))
@@ -123,6 +135,12 @@ class ASRWorkerTests(unittest.TestCase):
                                             "float32",
                                             "--result-path",
                                             str(out_path),
+                                            "--asr-beam-size",
+                                            "1",
+                                            "--asr-temperature",
+                                            "0.0",
+                                            "--asr-best-of",
+                                            "1",
                                             "--verbose",
                                         ]
                                     )

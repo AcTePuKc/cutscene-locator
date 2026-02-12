@@ -125,6 +125,133 @@ class CliPhaseOneTests(unittest.TestCase):
                 self.assertNotIn("HF_HUB_DISABLE_PROGRESS_BARS", cli.os.environ)
 
 
+
+    def test_asr_knob_defaults_parse(self) -> None:
+        args = cli.build_parser().parse_args([])
+        self.assertIsNone(args.asr_language)
+        self.assertEqual(args.asr_beam_size, 1)
+        self.assertEqual(args.asr_temperature, 0.0)
+        self.assertEqual(args.asr_best_of, 1)
+        self.assertIsNone(args.asr_no_speech_threshold)
+        self.assertIsNone(args.asr_logprob_threshold)
+
+    def test_invalid_asr_beam_size_exits_one(self) -> None:
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            code = cli.main(
+                [
+                    "--input",
+                    "in.wav",
+                    "--script",
+                    "script.tsv",
+                    "--out",
+                    "out",
+                    "--mock-asr",
+                    "tests/fixtures/mock_asr_valid.json",
+                    "--asr-beam-size",
+                    "0",
+                ],
+                which=lambda _: "/usr/bin/ffmpeg",
+                runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+            )
+
+        self.assertEqual(code, 1)
+        self.assertIn("Invalid --asr-beam-size value", stderr.getvalue())
+
+    def test_invalid_asr_temperature_exits_one(self) -> None:
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            code = cli.main(
+                [
+                    "--input",
+                    "in.wav",
+                    "--script",
+                    "script.tsv",
+                    "--out",
+                    "out",
+                    "--mock-asr",
+                    "tests/fixtures/mock_asr_valid.json",
+                    "--asr-temperature",
+                    "-0.1",
+                ],
+                which=lambda _: "/usr/bin/ffmpeg",
+                runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+            )
+
+        self.assertEqual(code, 1)
+        self.assertIn("Invalid --asr-temperature value", stderr.getvalue())
+
+    def test_asr_best_of_rejected_when_temperature_zero(self) -> None:
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            code = cli.main(
+                [
+                    "--input",
+                    "in.wav",
+                    "--script",
+                    "script.tsv",
+                    "--out",
+                    "out",
+                    "--mock-asr",
+                    "tests/fixtures/mock_asr_valid.json",
+                    "--asr-temperature",
+                    "0.0",
+                    "--asr-best-of",
+                    "2",
+                ],
+                which=lambda _: "/usr/bin/ffmpeg",
+                runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+            )
+
+        self.assertEqual(code, 1)
+        self.assertIn("--asr-best-of must be 1", stderr.getvalue())
+
+    def test_invalid_asr_thresholds_exits_one(self) -> None:
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            code = cli.main(
+                [
+                    "--input",
+                    "in.wav",
+                    "--script",
+                    "script.tsv",
+                    "--out",
+                    "out",
+                    "--mock-asr",
+                    "tests/fixtures/mock_asr_valid.json",
+                    "--asr-no-speech-threshold",
+                    "1.2",
+                ],
+                which=lambda _: "/usr/bin/ffmpeg",
+                runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+            )
+
+        self.assertEqual(code, 1)
+        self.assertIn("Invalid --asr-no-speech-threshold value", stderr.getvalue())
+
+    def test_invalid_asr_logprob_threshold_exits_one(self) -> None:
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            code = cli.main(
+                [
+                    "--input",
+                    "in.wav",
+                    "--script",
+                    "script.tsv",
+                    "--out",
+                    "out",
+                    "--mock-asr",
+                    "tests/fixtures/mock_asr_valid.json",
+                    "--asr-logprob-threshold",
+                    "-0.2",
+                ],
+                which=lambda _: "/usr/bin/ffmpeg",
+                runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+            )
+
+        self.assertEqual(code, 1)
+        self.assertIn("Invalid --asr-logprob-threshold value", stderr.getvalue())
+
     def test_invalid_match_progress_every_exits_one(self) -> None:
         stderr = io.StringIO()
         with redirect_stderr(stderr):

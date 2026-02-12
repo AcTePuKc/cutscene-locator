@@ -22,6 +22,11 @@ class ASRConfig:
     device: DeviceType = "auto"
     compute_type: ComputeType = "auto"
     language: str | None = None
+    beam_size: int = 1
+    temperature: float = 0.0
+    best_of: int = 1
+    no_speech_threshold: float | None = None
+    log_prob_threshold: float | None = None
     vad_filter: bool = False
     merge_short_segments_seconds: float = 0.0
     ffmpeg_path: str | None = None
