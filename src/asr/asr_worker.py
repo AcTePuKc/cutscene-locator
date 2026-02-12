@@ -54,9 +54,11 @@ def _run_minimal_whisper_preflight(*, audio_path: str, model_path: Path, device:
 
     model = whisper_model_class(str(model_path), device=device, compute_type=compute_type)
     print("asr-worker: minimal preflight transcribe start")
-    raw_segments, _info = model.transcribe(audio_path)
-    segment_count = sum(1 for _ in raw_segments)
-    print(f"asr-worker: minimal preflight transcribe end; segments={segment_count}")
+    raw_segments, _info = model.transcribe(audio_path, vad_filter=False)
+    first_segment = next(raw_segments, None)
+    if first_segment is not None:
+        print("asr-worker: minimal preflight first segment observed")
+    print("asr-worker: minimal preflight transcribe end")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -72,12 +74,18 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.verbose:
         _print_verbose_environment_dump()
-        _run_minimal_whisper_preflight(
-            audio_path=args.audio_path,
-            model_path=Path(args.model_path),
-            device=args.device,
-            compute_type=args.compute_type,
-        )
+        if args.device == "cuda":
+            print("asr-worker: minimal preflight skipped on cuda")
+        else:
+            try:
+                _run_minimal_whisper_preflight(
+                    audio_path=args.audio_path,
+                    model_path=Path(args.model_path),
+                    device=args.device,
+                    compute_type=args.compute_type,
+                )
+            except Exception as exc:
+                print(f"asr-worker: warning: minimal preflight failed; continuing: {exc}")
 
     result = backend.transcribe(
         audio_path=args.audio_path,
