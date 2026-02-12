@@ -34,7 +34,7 @@ class ASRRegistryTests(unittest.TestCase):
 
     def test_registry_reports_disabled_backend_dependencies(self) -> None:
         def fake_find_spec(name: str) -> object | None:
-            if name in {"torch", "transformers"}:
+            if name in {"torch", "qwen_asr"}:
                 return None
             return object()
 
@@ -45,11 +45,11 @@ class ASRRegistryTests(unittest.TestCase):
         self.assertIn("qwen3-forced-aligner", statuses)
         qwen_status = statuses["qwen3-asr"]
         self.assertFalse(qwen_status.enabled)
-        self.assertEqual(qwen_status.missing_dependencies, ("torch", "transformers"))
+        self.assertEqual(qwen_status.missing_dependencies, ("torch", "qwen_asr"))
         self.assertEqual(qwen_status.install_extra, "asr_qwen3")
         self.assertEqual(
             qwen_status.reason,
-            "missing optional dependencies: torch, transformers",
+            "missing optional dependencies: torch, qwen_asr",
         )
 
 

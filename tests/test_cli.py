@@ -234,7 +234,7 @@ class CliPhaseOneTests(unittest.TestCase):
         disabled_backend = SimpleNamespace(
             name="qwen3-asr",
             enabled=False,
-            missing_dependencies=("torch", "transformers"),
+            missing_dependencies=("torch", "qwen_asr"),
             install_extra="asr_qwen3",
         )
         with patch("cli.list_backend_status", return_value=[disabled_backend]):
@@ -256,7 +256,7 @@ class CliPhaseOneTests(unittest.TestCase):
 
         self.assertEqual(code, 1)
         self.assertIn("declared but currently disabled", stderr.getvalue())
-        self.assertIn("Missing optional dependencies: torch, transformers", stderr.getvalue())
+        self.assertIn("Missing optional dependencies: torch, qwen_asr", stderr.getvalue())
         self.assertIn("pip install 'cutscene-locator[asr_qwen3]'", stderr.getvalue())
 
 

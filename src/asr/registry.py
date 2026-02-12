@@ -113,7 +113,7 @@ def _build_declared_registry() -> dict[str, DeclaredBackend]:
                 backend_class=Qwen3ASRBackend,
                 capabilities=default_capabilities,
             ),
-            required_dependencies=("torch", "transformers"),
+            required_dependencies=("torch", "qwen_asr"),
             install_extra="asr_qwen3",
         ),
         "qwen3-forced-aligner": DeclaredBackend(
@@ -122,7 +122,7 @@ def _build_declared_registry() -> dict[str, DeclaredBackend]:
                 backend_class=Qwen3ForcedAligner,
                 capabilities=alignment_capabilities,
             ),
-            required_dependencies=("torch", "transformers"),
+            required_dependencies=("torch", "qwen_asr"),
             install_extra="asr_qwen3",
         ),
         "vibevoice": DeclaredBackend(

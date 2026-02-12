@@ -12,9 +12,11 @@ from .base import ASRResult
 from .config import ASRConfig
 from .timestamp_normalization import normalize_asr_segments_for_contract
 
+_SUPPORTED_INFERENCE_OPTIONS = ("language", "return_timestamps", "device", "torch_dtype")
+
 
 class Qwen3ASRBackend:
-    """ASR backend powered by Hugging Face Qwen3-ASR checkpoints."""
+    """ASR backend powered by official qwen_asr runtime."""
 
     def transcribe(self, audio_path: str, config: ASRConfig) -> ASRResult:
         if config.model_path is None:
@@ -24,46 +26,54 @@ class Qwen3ASRBackend:
             )
 
         resolved_device = config.device if config.device in {"cpu", "cuda"} else "cpu"
+        resolved_model_path = str(config.model_path)
 
         try:
-            transformers_module = import_module("transformers")
+            qwen_asr_module = import_module("qwen_asr")
         except ModuleNotFoundError as exc:
             raise ValueError(
                 "qwen3-asr backend requires optional dependencies. "
                 "Install them with: pip install 'cutscene-locator[asr_qwen3]'"
             ) from exc
 
-        pipeline_factory = getattr(transformers_module, "pipeline", None)
-        if pipeline_factory is None:
+        qwen_model_class = getattr(qwen_asr_module, "Qwen3ASRModel", None)
+        if qwen_model_class is None:
             raise ValueError(
-                "Installed transformers package is missing pipeline(). "
-                "Install a supported transformers version for qwen3-asr."
+                "Installed qwen_asr package is missing required Qwen3ASRModel API."
             )
 
-        device = 0 if resolved_device == "cuda" else -1
+        _validate_supported_options(config)
+
+        model_init_kwargs: dict[str, object] = {
+            "device": resolved_device,
+            "torch_dtype": _resolve_torch_dtype(config.compute_type),
+        }
+
         try:
-            asr_pipeline = pipeline_factory(
-                task="automatic-speech-recognition",
-                model=str(config.model_path),
-                device=device,
-                trust_remote_code=True,
+            model = qwen_model_class.from_pretrained(
+                resolved_model_path,
+                **model_init_kwargs,
             )
         except Exception as exc:  # pragma: no cover - backend/runtime specific
             raise ValueError(
                 "Failed to initialize qwen3-asr model from resolved path "
-                f"'{config.model_path}'. Ensure this directory is a compatible Transformers ASR "
+                f"'{config.model_path}'. Ensure this directory is a compatible qwen_asr "
                 "snapshot with required artifacts: config.json, tokenizer assets "
                 "(tokenizer.json/tokenizer.model/vocab.json), tokenizer_config.json, "
                 "and model weights (model.safetensors/pytorch_model.bin or sharded index json). "
                 "processor_config.json / preprocessor_config.json are optional. "
-                "Runtime hints: verify transformers/torch version compatibility; confirm this "
-                "model repo supports Transformers pipeline(task='automatic-speech-recognition') "
-                "loading for qwen3-asr; and check optional runtime dependencies are installed "
-                "despite extras installation."
+                "Runtime hints: verify qwen_asr/transformers/torch version compatibility; "
+                "confirm this model repo supports qwen_asr Qwen3ASRModel loading; "
+                "and check optional runtime dependencies are installed despite extras installation."
             ) from exc
 
+        inference_kwargs: dict[str, object] = {
+            "language": config.language,
+            "return_timestamps": True,
+        }
+
         try:
-            raw_result = asr_pipeline(audio_path, return_timestamps=True)
+            raw_result = model.transcribe(audio_path, **inference_kwargs)
         except Exception as exc:  # pragma: no cover - backend/runtime specific
             raise ValueError(
                 f"qwen3-asr transcription failed for '{audio_path}'. "
@@ -77,7 +87,7 @@ class Qwen3ASRBackend:
 
         backend_version = "unknown"
         try:
-            backend_version = version("transformers")
+            backend_version = version("qwen-asr")
         except PackageNotFoundError:
             backend_version = "unknown"
 
@@ -93,6 +103,37 @@ class Qwen3ASRBackend:
                 },
             },
             source="qwen3-asr",
+        )
+
+
+def _resolve_torch_dtype(compute_type: str) -> str:
+    if compute_type == "auto":
+        return "auto"
+    return compute_type
+
+
+def _validate_supported_options(config: ASRConfig) -> None:
+    unsupported_options: list[str] = []
+
+    if config.beam_size != 1:
+        unsupported_options.append("beam_size")
+    if config.temperature != 0.0:
+        unsupported_options.append("temperature")
+    if config.best_of != 1:
+        unsupported_options.append("best_of")
+    if config.no_speech_threshold is not None:
+        unsupported_options.append("no_speech_threshold")
+    if config.log_prob_threshold is not None:
+        unsupported_options.append("log_prob_threshold")
+    if config.vad_filter:
+        unsupported_options.append("vad_filter")
+
+    if unsupported_options:
+        raise ValueError(
+            "qwen3-asr backend does not support options: "
+            f"{', '.join(sorted(unsupported_options))}. "
+            "Supported options are: "
+            f"{', '.join(_SUPPORTED_INFERENCE_OPTIONS)}."
         )
 
 
