@@ -251,6 +251,35 @@ class ModelResolutionTests(unittest.TestCase):
 
 
 
+
+    def test_whisperx_validation_accepts_vocabulary_json_tokenizer_asset(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_home:
+            model_dir = Path(temp_home) / "models" / "whisperx"
+            model_dir.mkdir(parents=True, exist_ok=True)
+            (model_dir / "config.json").write_text("{}", encoding="utf-8")
+            (model_dir / "model.bin").write_text("{}", encoding="utf-8")
+            (model_dir / "vocabulary.json").write_text("{}", encoding="utf-8")
+
+            resolved = resolve_model_path(
+                ASRConfig(backend_name="whisperx", model_path=model_dir)
+            )
+
+            self.assertEqual(resolved, model_dir)
+
+    def test_whisperx_validation_reports_found_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_home:
+            model_dir = Path(temp_home) / "models" / "whisperx"
+            model_dir.mkdir(parents=True, exist_ok=True)
+            (model_dir / "config.json").write_text("{}", encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                ModelResolutionError,
+                "Resolved whisperx model is missing required files",
+            ) as exc_info:
+                resolve_model_path(ASRConfig(backend_name="whisperx", model_path=model_dir))
+
+            self.assertIn("Found files: config.json", str(exc_info.exception))
+
     def test_qwen3_validation_accepts_transformers_snapshot(self) -> None:
         with tempfile.TemporaryDirectory() as temp_home:
             model_dir = Path(temp_home) / "models" / "qwen3-asr"

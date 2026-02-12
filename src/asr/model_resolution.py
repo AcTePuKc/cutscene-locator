@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from importlib import import_module
 from pathlib import Path
-from typing import Callable
+from typing import Callable, TypedDict
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -23,7 +23,14 @@ _FASTER_WHISPER_MODEL_REPOS: dict[str, str] = {
 _DEFAULT_MODEL_REVISION = "default"
 
 
-_BACKEND_SNAPSHOT_ARTIFACT_SCHEMAS: dict[str, dict[str, object]] = {
+class SnapshotArtifactSchema(TypedDict):
+    required_files: list[str]
+    required_any: list[list[str]]
+    missing_prefix: str
+    expected_message: str
+
+
+_BACKEND_SNAPSHOT_ARTIFACT_SCHEMAS: dict[str, SnapshotArtifactSchema] = {
     "faster-whisper": {
         "required_files": ["config.json", "model.bin"],
         "required_any": [
@@ -120,14 +127,13 @@ def _validate_model_repo_snapshot(*, backend_name: str, model_dir: Path) -> None
 
     missing: list[str] = []
     for filename in schema["required_files"]:
-        if not (model_dir / str(filename)).exists():
-            missing.append(str(filename))
+        if not (model_dir / filename).exists():
+            missing.append(filename)
 
     for alternatives in schema["required_any"]:
-        option_names = [str(name) for name in alternatives]
-        has_any = any((model_dir / filename).exists() for filename in option_names)
+        has_any = any((model_dir / filename).exists() for filename in alternatives)
         if not has_any:
-            missing.append(f"one of {', '.join(option_names)}")
+            missing.append(f"one of {', '.join(alternatives)}")
 
     if missing:
         missing_display = ", ".join(sorted(missing))

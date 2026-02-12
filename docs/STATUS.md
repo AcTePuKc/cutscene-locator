@@ -289,3 +289,7 @@ Contract notes:
 - 2026-02-12 – Added additional forced-alignment contract validation coverage for malformed spans and missing timestamps while keeping capability-gating behavior explicit (`tests/test_alignment.py`, `docs/STATUS.md`).
 
 - 2026-02-12 – Refined ctranslate2 CUDA probe typing and deterministic non-numeric fallback handling in device resolution, with focused tests for numeric/string/object/exception getter outcomes (`src/asr/device.py`, `tests/test_asr.py`, `docs/STATUS.md`).
+
+- [x] Typed snapshot artifact schema definitions for model validation (faster-whisper/whisperx/qwen3-asr) to keep deterministic error messages while improving static typing (`src/asr/model_resolution.py`, `tests/test_model_resolution.py`)
+
+- 2026-02-12 – Made model snapshot artifact schemas strongly typed and extended schema validation tests across faster-whisper/whisperx/qwen3-asr while preserving runtime error text format (`src/asr/model_resolution.py`, `tests/test_model_resolution.py`, `docs/STATUS.md`).
