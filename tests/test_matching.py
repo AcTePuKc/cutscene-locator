@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from src.asr.base import ASRResult
 from src.ingest.script_parser import load_script_table
@@ -49,6 +49,32 @@ class MatchingEngineTests(unittest.TestCase):
         self.assertEqual(second.segment_id, "seg_0002")
         self.assertTrue(0.0 <= second.score <= 1.0)
         self.assertTrue(second.low_confidence)
+
+
+    def test_uses_rapidfuzz_wratio_for_similarity(self) -> None:
+        script_table = load_script_table(Path("tests/fixtures/script_sample.tsv"))
+        asr_result: ASRResult = {
+            "segments": [
+                {
+                    "segment_id": "seg_0001",
+                    "start": 1.0,
+                    "end": 2.0,
+                    "text": "hello world",
+                }
+            ],
+            "meta": {
+                "backend": "mock",
+                "model": "unknown",
+                "version": "1.0",
+                "device": "cpu",
+            },
+        }
+
+        with patch("src.match.engine.fuzz.WRatio", return_value=100.0) as wratio_mock:
+            output = match_segments_to_script(asr_result=asr_result, script_table=script_table)
+
+        self.assertGreater(wratio_mock.call_count, 0)
+        self.assertEqual(output.matches[0].score, 1.0)
 
     def test_threshold_is_configurable(self) -> None:
         script_table = load_script_table(Path("tests/fixtures/script_sample.tsv"))
