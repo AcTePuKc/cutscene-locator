@@ -110,7 +110,10 @@ Current declared backends (exact names):
 - `faster-whisper` (enabled when optional runtime dependencies are installed)
 - `qwen3-asr` (enabled only when optional runtime dependencies are installed)
 
-If you request a backend that is declared but disabled, the CLI fails with an actionable message listing missing dependencies and the exact extras target.
+Backend validation behavior is explicit:
+
+- If you request an **unknown backend name** (not declared), the CLI returns the existing `Unknown ASR backend` error with available enabled backends.
+- If you request a **declared but disabled backend**, the CLI returns an actionable error including exact missing optional dependencies and an install command for the matching extra (for example `pip install 'cutscene-locator[asr_qwen3]'`).
 
 Install extras:
 

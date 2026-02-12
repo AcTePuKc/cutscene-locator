@@ -103,11 +103,12 @@ def _validate_backend(args: argparse.Namespace) -> None:
     if status is not None and not status.enabled:
         missing = ", ".join(status.missing_dependencies)
         message = (
-            f"'{status.name}' is installed in code but disabled: missing {missing}."
+            f"ASR backend '{status.name}' is declared but currently disabled. "
+            f"Missing optional dependencies: {missing}."
         )
         if status.install_extra is not None:
             message = (
-                f"{message} Install extras: `cutscene-locator[{status.install_extra}]`."
+                f"{message} Install with: `pip install 'cutscene-locator[{status.install_extra}]'`."
             )
         raise CliError(message)
 

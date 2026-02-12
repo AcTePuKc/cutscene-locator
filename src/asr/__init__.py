@@ -14,6 +14,7 @@ from .registry import (
     get_backend,
     list_backends,
     list_backend_status,
+    list_declared_backends,
 )
 
 __all__ = [
@@ -39,4 +40,5 @@ __all__ = [
     "get_backend",
     "list_backends",
     "list_backend_status",
+    "list_declared_backends",
 ]
