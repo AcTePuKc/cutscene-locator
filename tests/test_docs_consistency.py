@@ -208,6 +208,7 @@ class DocsCliFlagParityTests(unittest.TestCase):
             "--script": "### `--script`",
             "--out": "### `--out`",
             "--asr-backend": "### `--asr-backend <name>`",
+            "--asr-preflight-only": "### `--asr-preflight-only`",
             "--mock-asr": "### `--mock-asr <file>`",
             "--model-path": "### `--model-path <path>`",
             "--model-id": "### `--model-id <repo_id>`",
@@ -250,6 +251,24 @@ class DocsCliFlagParityTests(unittest.TestCase):
         for flag, heading in expected_headings.items():
             with self.subTest(flag=flag):
                 self.assertIn(heading, documented)
+
+
+class DocsAsrPreflightInvocationTests(unittest.TestCase):
+    def test_preflight_docs_cover_installed_and_source_invocation_contract(self) -> None:
+        cli_doc = Path("docs/CLI.md").read_text(encoding="utf-8")
+
+        required_fragments = (
+            "cutscene-locator --asr-preflight-only",
+            "py .\\cli.py --asr-preflight-only",
+            "python ./cli.py --asr-preflight-only",
+            "must emit the same single-line JSON stdout contract in preflight-only mode",
+            "PowerShell",
+            "shell-level formatting artifacts",
+        )
+
+        for fragment in required_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, cli_doc)
 
 
 if __name__ == "__main__":
