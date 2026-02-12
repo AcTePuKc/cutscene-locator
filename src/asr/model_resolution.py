@@ -23,6 +23,39 @@ _FASTER_WHISPER_MODEL_REPOS: dict[str, str] = {
 _DEFAULT_MODEL_REVISION = "default"
 
 
+_BACKEND_SNAPSHOT_ARTIFACT_SCHEMAS: dict[str, dict[str, object]] = {
+    "faster-whisper": {
+        "required_files": ["config.json", "model.bin"],
+        "required_any": [
+            ["tokenizer.json", "vocabulary.json", "vocabulary.txt", "vocab.json", "vocab.txt"],
+        ],
+        "missing_prefix": "Resolved faster-whisper model is missing required files",
+        "expected_message": "Expected a CTranslate2-converted Whisper model directory.",
+    },
+    "qwen3-asr": {
+        "required_files": ["config.json"],
+        "required_any": [
+            ["tokenizer.json", "tokenizer.model", "vocab.json"],
+            ["tokenizer_config.json"],
+            ["preprocessor_config.json", "processor_config.json"],
+            [
+                "model.safetensors",
+                "pytorch_model.bin",
+                "model.safetensors.index.json",
+                "pytorch_model.bin.index.json",
+            ],
+        ],
+        "missing_prefix": "Resolved qwen3-asr model is missing required artifacts",
+        "expected_message": (
+            "Expected a Hugging Face Transformers ASR snapshot containing config + tokenizer + "
+            "tokenizer_config + processor/preprocessor config + model weights. "
+            "Provide a full local snapshot via --model-path, or use --model-id/--auto-download "
+            "to fetch a complete repository before retrying."
+        ),
+    },
+}
+
+
 class ModelResolutionError(ValueError):
     """Raised when model path resolution or download fails."""
 
@@ -73,72 +106,28 @@ def _validate_model_repo_snapshot(*, backend_name: str, model_dir: Path) -> None
         else "<none>"
     )
 
-    if backend_name == "faster-whisper":
-        required_paths = [
-            model_dir / "config.json",
-            model_dir / "model.bin",
-        ]
-        missing = [path.name for path in required_paths if not path.exists()]
+    schema = _BACKEND_SNAPSHOT_ARTIFACT_SCHEMAS.get(backend_name)
+    if schema is None:
+        return
 
-        tokenizer_assets = [
-            "tokenizer.json",
-            "vocabulary.json",
-            "vocabulary.txt",
-            "vocab.json",
-            "vocab.txt",
-        ]
-        has_tokenizer_asset = any((model_dir / filename).exists() for filename in tokenizer_assets)
-        if not has_tokenizer_asset:
-            missing.append(
-                "one of tokenizer.json, vocabulary.json, vocabulary.txt, vocab.json, vocab.txt"
-            )
+    missing: list[str] = []
+    for filename in schema["required_files"]:
+        if not (model_dir / str(filename)).exists():
+            missing.append(str(filename))
 
-        if missing:
-            missing_display = ", ".join(sorted(missing))
-            raise ModelResolutionError(
-                "Resolved faster-whisper model is missing required files: "
-                f"{missing_display}. Expected a CTranslate2-converted Whisper model directory. "
-                f"Found files: {found_files}"
-            )
+    for alternatives in schema["required_any"]:
+        option_names = [str(name) for name in alternatives]
+        has_any = any((model_dir / filename).exists() for filename in option_names)
+        if not has_any:
+            missing.append(f"one of {', '.join(option_names)}")
 
-    if backend_name == "qwen3-asr":
-        missing: list[str] = []
-
-        if not (model_dir / "config.json").exists():
-            missing.append("config.json")
-
-        tokenizer_assets = [
-            "tokenizer.json",
-            "tokenizer.model",
-            "vocab.json",
-        ]
-        has_tokenizer_asset = any((model_dir / filename).exists() for filename in tokenizer_assets)
-        if not has_tokenizer_asset:
-            missing.append("one of tokenizer.json, tokenizer.model, vocab.json")
-
-        model_weight_assets = [
-            "model.safetensors",
-            "pytorch_model.bin",
-            "model.safetensors.index.json",
-            "pytorch_model.bin.index.json",
-        ]
-        has_model_weights = any((model_dir / filename).exists() for filename in model_weight_assets)
-        if not has_model_weights:
-            missing.append(
-                "one of model.safetensors, pytorch_model.bin, "
-                "model.safetensors.index.json, pytorch_model.bin.index.json"
-            )
-
-        if missing:
-            missing_display = ", ".join(sorted(missing))
-            raise ModelResolutionError(
-                "Resolved qwen3-asr model is missing required artifacts: "
-                f"{missing_display}. Expected a Hugging Face Transformers model snapshot "
-                "containing config + tokenizer + model weights. "
-                "Provide a full local snapshot via --model-path, or use --model-id/--auto-download "
-                "to fetch a complete repository before retrying. "
-                f"Found files: {found_files}"
-            )
+    if missing:
+        missing_display = ", ".join(sorted(missing))
+        raise ModelResolutionError(
+            f"{schema['missing_prefix']}: {missing_display}. "
+            f"{schema['expected_message']} "
+            f"Found files: {found_files}"
+        )
 
 
 
