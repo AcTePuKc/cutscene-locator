@@ -177,6 +177,45 @@ Backend dependency expectations:
   - Install: `pip install 'cutscene-locator[asr_vibevoice]'`
   - Includes: `vibevoice`, `torch`.
 
+#### Deterministic backend readiness matrix (qwen3-asr / whisperx / vibevoice)
+
+Use `scripts/verify_backend_readiness.py` for a no-inference verification pass:
+
+```bash
+python scripts/verify_backend_readiness.py --json \
+  --qwen3-model-path <path-to-qwen3-snapshot> \
+  --whisperx-model-path <path-to-ctranslate2-whisper> \
+  --vibevoice-model-path <path-to-vibevoice-model>
+```
+
+This checklist verifies, per backend:
+
+- optional dependency importability (`find_spec`-based, deterministic),
+- backend enabled/disabled state in registry,
+- model artifact layout contract validation,
+- device preflight reason using backend-specific CUDA probe label (`torch` or `ctranslate2`).
+
+Readiness preconditions summary:
+
+| backend | install extra | runtime preconditions | CUDA probe path | CPU fallback semantics |
+| --- | --- | --- | --- | --- |
+| `qwen3-asr` | `asr_qwen3` | Transformers snapshot with `config.json`, tokenizer asset(s), `tokenizer_config.json`, processor/preprocessor config, and model weights | `torch.cuda.is_available()` | If CUDA preflight says unavailable, rerun with `--device cpu` (no backend auto-switch). |
+| `whisperx` | `asr_whisperx` | CTranslate2 Whisper snapshot with `config.json`, `model.bin`, and tokenizer/vocabulary asset | `torch.cuda.is_available()` | If CUDA preflight says unavailable, rerun with `--device cpu` (no backend auto-switch). |
+| `vibevoice` | `asr_vibevoice` | Local VibeVoice model path compatible with installed runtime | `torch.cuda.is_available()` | If CUDA preflight says unavailable, rerun with `--device cpu` (no backend auto-switch). |
+
+Common deterministic failure messages:
+
+- Declared but disabled backend: `ASR backend '<name>' is declared but currently disabled... missing optional dependencies ... Install with: pip install 'cutscene-locator[<extra>]'`.
+- qwen3 layout error: `Resolved qwen3-asr model is missing required artifacts...`.
+- whisperx layout error: `Resolved whisperx model is missing required files...`.
+- CUDA request failure: `Requested --device cuda, but CUDA is unavailable... or rerun with --device cpu`.
+
+Windows guidance:
+
+- Prefer quoting extras in PowerShell/CMD exactly as shown above.
+- If CUDA runtime/wheel compatibility is uncertain, start with `--device cpu` to confirm deterministic pipeline behavior first.
+- If CUDA fails after install, keep backend/model fixed and retry only with `--device cpu` (do not change backend implicitly).
+
 Default:
 
 ```bash

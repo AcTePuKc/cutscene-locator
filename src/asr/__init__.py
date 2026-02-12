@@ -18,6 +18,12 @@ from .adapters import (
 from .config import ASRConfig, ComputeType, DeviceType
 from .device import DeviceResolution, resolve_device, resolve_device_with_details
 from .model_resolution import ModelResolutionError, resolve_model_cache_dir, resolve_model_path
+from .readiness import (
+    BackendReadiness,
+    backend_runtime_preconditions,
+    collect_backend_readiness,
+    supported_readiness_backends,
+)
 from .registry import (
     BackendCapabilities,
     BackendRegistration,
@@ -58,6 +64,10 @@ __all__ = [
     "BackendCapabilities",
     "BackendRegistration",
     "BackendStatus",
+    "supported_readiness_backends",
+    "collect_backend_readiness",
+    "backend_runtime_preconditions",
+    "BackendReadiness",
     "get_backend",
     "list_backends",
     "list_backend_status",

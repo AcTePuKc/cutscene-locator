@@ -92,6 +92,25 @@ class ASRRegistryTests(unittest.TestCase):
             "missing optional dependencies: vibevoice, torch",
         )
 
+
+    def test_registry_status_includes_readiness_backends(self) -> None:
+        statuses = {status.name: status for status in list_backend_status()}
+
+        self.assertIn("qwen3-asr", statuses)
+        self.assertIn("whisperx", statuses)
+        self.assertIn("vibevoice", statuses)
+
+    def test_registry_disabled_reason_uses_missing_optional_dependencies_prefix(self) -> None:
+        def fake_find_spec(name: str) -> object | None:
+            if name in {"whisperx", "torch"}:
+                return None
+            return object()
+
+        with patch("src.asr.registry.find_spec", side_effect=fake_find_spec):
+            statuses = {status.name: status for status in list_backend_status()}
+
+        self.assertTrue(statuses["whisperx"].reason.startswith("missing optional dependencies:"))
+
     def test_get_backend_returns_faster_whisper_capabilities(self) -> None:
         backend = get_backend("faster-whisper")
 

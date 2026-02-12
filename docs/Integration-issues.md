@@ -268,3 +268,28 @@ Backends do not all support the same mode. ASR transcript-generation and forced-
 - `qwen3-forced-aligner` supports forced-alignment mode only.
 - CLI ASR mode (`--asr-backend`) must reject alignment-only backends with deterministic error text.
 - Missing optional backend dependencies must produce deterministic install guidance (matching backend extra name).
+
+## 15. Backend-specific CUDA preflight pitfalls (qwen3-asr / whisperx / vibevoice)
+
+### Description
+
+These backends rely on `torch` CUDA probing (`torch.cuda.is_available()`) during device preflight. CUDA install state can differ from backend import state.
+
+### Handling
+
+- Keep install checks and CUDA preflight checks separate and explicit:
+  - install/readiness: optional dependency importability (`torch` + backend package),
+  - runtime/readiness: CUDA probe reason from `torch` path.
+- Surface deterministic preflight reason text for operator troubleshooting (for example, `torch CUDA probe reported unavailable`).
+- Do not silently switch backend, model family, or mode if CUDA is unavailable.
+- If the operator requested `--device cuda` and preflight fails, show explicit retry guidance: `--device cpu`.
+
+### Windows-specific notes
+
+- Windows users frequently hit CUDA wheel/runtime mismatches even when imports succeed.
+- Preserve deterministic fallback semantics per backend:
+  - `qwen3-asr`: retry same command with `--device cpu`.
+  - `whisperx`: retry same command with `--device cpu`.
+  - `vibevoice`: retry same command with `--device cpu`.
+- Treat CPU fallback as a recovery mode only; never mutate backend choice automatically.
+
