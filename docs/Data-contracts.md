@@ -93,7 +93,44 @@ All ASR backends must produce output that conforms to this structure.
 
 ---
 
-## 4. Matches output (`matches.csv`)
+
+## 4. Forced alignment output (internal, normalized JSON)
+
+Forced alignment uses a separate contract from ASR transcript generation.
+
+### Alignment JSON schema
+
+```json
+{
+  "transcript_text": "you don't get it",
+  "spans": [
+    {
+      "span_id": "span_0001",
+      "start": 12.34,
+      "end": 15.56,
+      "text": "you don't get it",
+      "confidence": 0.94
+    }
+  ],
+  "meta": {
+    "backend": "forced-aligner",
+    "version": "1.0",
+    "device": "cpu"
+  }
+}
+```
+
+### Rules
+
+- Input transcript text is caller-provided known text and must be echoed in `transcript_text`.
+- `start` and `end` are absolute times (seconds) relative to original media.
+- `start < end` must hold for every span.
+- `confidence` is required and must be in `[0.0, 1.0]`.
+- Alignment does not rewrite transcript/script text.
+
+---
+
+## 5. Matches output (`matches.csv`)
 
 One row per ASR segment.
 
@@ -123,7 +160,7 @@ seg_0002,16.10,16.80,yeah,M01_002,Yeah.,0.81
 
 ---
 
-## 5. Scene reconstruction (`scenes.json`)
+## 6. Scene reconstruction (`scenes.json`)
 
 Scenes are time-ordered groups of matched lines.
 
@@ -159,7 +196,7 @@ Scenes are time-ordered groups of matched lines.
 
 ---
 
-## 6. QA subtitles (`subs_qa.srt`)
+## 7. QA subtitles (`subs_qa.srt`)
 
 Used for review and correction.
 
@@ -185,7 +222,7 @@ Used for review and correction.
 
 ---
 
-## 7. Target subtitles (`subs_target.srt`)
+## 8. Target subtitles (`subs_target.srt`)
 
 Final subtitles in target language.
 
@@ -209,7 +246,7 @@ Final subtitles in target language.
 
 ---
 
-## 8. Temporary files and caching
+## 9. Temporary files and caching
 
 - Temporary files live under `<out>/_tmp/`
 - The tool may clean this directory unless `--keep-wav` is set.
@@ -217,7 +254,7 @@ Final subtitles in target language.
 
 ---
 
-## 9. Versioning and metadata
+## 10. Versioning and metadata
 
 All outputs may include optional metadata headers/comments indicating:
 

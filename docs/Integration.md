@@ -13,11 +13,12 @@ High-level pipeline:
 1. Input ingestion (audio or video)
 2. Audio preprocessing via ffmpeg
 3. (Optional) chunking
-4. ASR (speech-to-text) with timestamps
-5. Text normalization
-6. Fuzzy matching against script
-7. Scene stitching
-8. Export (CSV / JSON / SRT)
+4. Branch A: ASR (speech-to-text) with timestamps
+5. Branch B: Forced alignment (known transcript/script text + timestamp spans)
+6. Text normalization
+7. Fuzzy matching against script
+8. Scene stitching
+9. Export (CSV / JSON / SRT)
 
 The tool never translates text. It only aligns existing text.
 
@@ -153,6 +154,32 @@ Later backends (out of scope for Milestone 1):
 - WhisperX
 - Qwen ASR
 - VibeVoice ASR
+
+---
+
+
+## Forced alignment stage (explicit path)
+
+Forced alignment is a distinct pipeline path and must not be routed through the ASR transcript interface.
+
+### Contract
+
+Forced alignment input:
+
+- canonical audio path
+- known transcript text (script/original text provided by caller)
+
+Forced alignment output must conform to the alignment contract in `docs/Data-contracts.md`:
+
+- `transcript_text` (echo of known transcript text)
+- `spans[]` with `span_id`, `start`, `end`, `text`, `confidence`
+- `meta` with `backend`, `version`, `device`
+
+### Capability gating
+
+Backends declaring `supports_alignment=True` are alignment backends and must be invoked via the alignment pipeline.
+
+CLI ASR mode (`--asr-backend`) is transcript-generation mode only and must reject alignment-only backends with a clear error.
 
 ---
 

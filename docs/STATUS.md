@@ -148,7 +148,7 @@ All agents must update this file when completing or modifying tasks.
 
 ### Advanced alignment
 
-- [ ] Forced alignment support
+- [x] Forced alignment support (explicit `src/align/` contract + validator, ASR capability gating in CLI/registry, tests/docs updates) (`src/align/base.py`, `src/align/validation.py`, `src/align/__init__.py`, `src/asr/registry.py`, `cli.py`, `tests/test_alignment.py`, `tests/test_cli.py`, `tests/test_asr_registry.py`, `docs/Data-contracts.md`, `docs/Integration.md`)
 - [ ] Word-level timestamps (optional)
 - [ ] Cross-chunk continuity handling
 
@@ -248,5 +248,6 @@ All agents must update this file when completing or modifying tasks.
 
 - 2026-02-12 – Replaced custom match similarity scoring with RapidFuzz (`fuzz.WRatio` primary, `fuzz.partial_ratio` fallback) while preserving deterministic candidate indexing/filtering and added a unit test that monkeypatches `fuzz.WRatio` to prove RapidFuzz invocation (`src/match/engine.py`, `tests/test_matching.py`, `docs/STATUS.md`).
 - 2026-02-12 – Added declared-vs-enabled ASR backend status metadata with missing-dependency reporting, actionable disabled-backend CLI errors, and backend availability docs/tests updates (`src/asr/registry.py`, `src/asr/__init__.py`, `cli.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/STATUS.md`).
+- 2026-02-12 – Added explicit forced-alignment path (separate `src/align/` contract/validator), marked alignment-capable backend metadata, and blocked alignment backends from ASR-only CLI mode with capability/contract tests (`src/align/base.py`, `src/align/validation.py`, `src/align/__init__.py`, `src/asr/registry.py`, `cli.py`, `tests/test_alignment.py`, `tests/test_cli.py`, `tests/test_asr_registry.py`, `docs/Data-contracts.md`, `docs/Integration.md`, `docs/STATUS.md`).
 
 - 2026-02-12 – Added qwen3-asr Hugging Face snapshot validation in model resolution (config/tokenizer/weights checks) covering explicit --model-path, model-id cache hits, and model-id downloads, with deterministic error messaging tests (`src/asr/model_resolution.py`, `tests/test_model_resolution.py`, `docs/STATUS.md`).
