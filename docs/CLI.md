@@ -192,7 +192,7 @@ Backend dependency expectations:
   - Includes: `torch`, `transformers`, `huggingface_hub`.
 - `whisperx`
   - Install: `pip install 'cutscene-locator[asr_whisperx]'`
-  - Includes: `whisperx`, `torch`, `huggingface_hub`.
+  - Includes: `whisperx`, `torch`, `huggingface_hub` (and WhisperX runtime preflight relies on `ctranslate2` CUDA probing).
 - `vibevoice`
   - Install: `pip install 'cutscene-locator[asr_vibevoice]'`
   - Includes: `vibevoice`, `torch`.

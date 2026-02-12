@@ -34,7 +34,7 @@ _BACKEND_RUNTIME_PRECONDITIONS: dict[str, tuple[str, tuple[str, ...], str]] = {
     ),
     "whisperx": (
         "asr_whisperx",
-        ("whisperx", "torch"),
+        ("whisperx", "ctranslate2"),
         "CTranslate2 Whisper snapshot: config.json + model.bin + tokenizer/vocabulary asset.",
     ),
     "vibevoice": (
