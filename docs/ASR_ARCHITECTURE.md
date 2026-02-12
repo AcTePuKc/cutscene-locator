@@ -80,6 +80,19 @@ Responsibilities:
 - Validate backend existence
 - Expose backend capability metadata
 
+### Adapter execution layer
+
+CLI dispatch must resolve a backend adapter from a registry (name -> adapter class) and call a single `adapter.transcribe(...)` path.
+
+Adapter responsibilities are standardized:
+
+- model loading/runtime initialization
+- backend-specific kwargs construction and deterministic filtering
+- backend execution
+- output normalization to `ASRResult`
+
+This keeps backend-specific branching out of `cli.py` and allows adding future backends (e.g., Qwen variants, VibeVoice) by registering a new adapter instead of adding another conditional chain.
+
 Example CLI usage:
 
 ```bash
@@ -98,6 +111,7 @@ Each backend declares capabilities:
 
 ```py
 
+supports_segment_timestamps: bool
 supports_word_timestamps: bool
 supports_alignment: bool
 supports_diarization: bool

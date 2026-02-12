@@ -4,6 +4,7 @@ from .backends import MockASRBackend, parse_asr_result, validate_asr_result
 from .faster_whisper_backend import FasterWhisperBackend
 from .qwen3_asr_backend import Qwen3ASRBackend
 from .base import ASRBackend, ASRResult
+from .adapters import ASRAdapter, ASRExecutionContext, CapabilityRequirements, get_asr_adapter, list_asr_adapters
 from .config import ASRConfig, ComputeType, DeviceType
 from .device import DeviceResolution, resolve_device, resolve_device_with_details
 from .model_resolution import ModelResolutionError, resolve_model_cache_dir, resolve_model_path
@@ -15,11 +16,17 @@ from .registry import (
     list_backends,
     list_backend_status,
     list_declared_backends,
+    validate_backend_capabilities,
 )
 
 __all__ = [
     "ASRBackend",
     "ASRResult",
+    "ASRAdapter",
+    "ASRExecutionContext",
+    "CapabilityRequirements",
+    "get_asr_adapter",
+    "list_asr_adapters",
     "MockASRBackend",
     "FasterWhisperBackend",
     "Qwen3ASRBackend",
@@ -41,4 +48,5 @@ __all__ = [
     "list_backends",
     "list_backend_status",
     "list_declared_backends",
+    "validate_backend_capabilities",
 ]

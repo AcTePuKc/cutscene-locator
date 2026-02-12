@@ -814,3 +814,79 @@ class CliPhaseOneTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CliAdapterDispatchTests(unittest.TestCase):
+    def test_cli_uses_adapter_registry_for_mock_backend_dispatch(self) -> None:
+        dispatch_calls: list[tuple[str, str]] = []
+
+        class FakeAdapter:
+            backend_name = "mock"
+
+            def transcribe(self, audio_path: str, config: object, context: object) -> dict[str, object]:
+                del context
+                dispatch_calls.append((audio_path, getattr(config, "backend_name", "")))
+                return {
+                    "segments": [
+                        {"segment_id": "seg_0001", "start": 0.0, "end": 1.0, "text": "hello"}
+                    ],
+                    "meta": {
+                        "backend": "mock",
+                        "model": "fixture",
+                        "version": "1",
+                        "device": "cpu",
+                    },
+                }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            out_dir = Path(tmp_dir) / "out"
+            with patch("cli.get_asr_adapter", return_value=FakeAdapter()):
+                code = cli.main(
+                    [
+                        "--input",
+                        "in.wav",
+                        "--script",
+                        "tests/fixtures/script_sample.tsv",
+                        "--out",
+                        str(out_dir),
+                        "--asr-backend",
+                        "mock",
+                        "--mock-asr",
+                        "tests/fixtures/mock_asr_valid.json",
+                        "--chunk",
+                        "0",
+                    ],
+                    which=lambda _: "/usr/bin/ffmpeg",
+                    runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                )
+
+        self.assertEqual(code, 0)
+        self.assertEqual(len(dispatch_calls), 1)
+        self.assertTrue(dispatch_calls[0][0].endswith("canonical.wav"))
+        self.assertEqual(dispatch_calls[0][1], "mock")
+
+    def test_cli_surfaces_adapter_registry_error_without_backend_branching(self) -> None:
+        stderr = io.StringIO()
+        with patch("cli.get_asr_adapter", side_effect=ValueError("No ASR adapter registered for backend 'mock'.")):
+            with redirect_stderr(stderr):
+                code = cli.main(
+                    [
+                        "--input",
+                        "in.wav",
+                        "--script",
+                        "tests/fixtures/script_sample.tsv",
+                        "--out",
+                        "out",
+                        "--asr-backend",
+                        "mock",
+                        "--mock-asr",
+                        "tests/fixtures/mock_asr_valid.json",
+                        "--chunk",
+                        "0",
+                    ],
+                    which=lambda _: "/usr/bin/ffmpeg",
+                    runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                )
+
+        self.assertEqual(code, 1)
+        self.assertIn("No ASR adapter registered", stderr.getvalue())

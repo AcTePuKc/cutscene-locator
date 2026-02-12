@@ -16,6 +16,7 @@ from src.align.qwen3_forced_aligner import Qwen3ForcedAligner
 class BackendCapabilities:
     """Capability metadata exposed for each ASR backend."""
 
+    supports_segment_timestamps: bool
     supports_word_timestamps: bool
     supports_alignment: bool
     supports_diarization: bool
@@ -59,12 +60,14 @@ def _missing_dependencies(required_dependencies: tuple[str, ...]) -> tuple[str, 
 
 def _build_declared_registry() -> dict[str, DeclaredBackend]:
     default_capabilities = BackendCapabilities(
+        supports_segment_timestamps=True,
         supports_word_timestamps=False,
         supports_alignment=False,
         supports_diarization=False,
         max_audio_duration=None,
     )
     alignment_capabilities = BackendCapabilities(
+        supports_segment_timestamps=True,
         supports_word_timestamps=False,
         supports_alignment=True,
         supports_diarization=False,
@@ -137,6 +140,29 @@ def list_declared_backends() -> list[str]:
 
     return sorted(_DECLARED_REGISTRY.keys())
 
+
+
+def validate_backend_capabilities(
+    registration: BackendRegistration,
+    *,
+    requires_segment_timestamps: bool,
+    allows_alignment_backends: bool,
+) -> None:
+    """Validate backend capabilities against pipeline requirements."""
+
+    supports_segment_timestamps = getattr(registration.capabilities, "supports_segment_timestamps", True)
+    supports_alignment = getattr(registration.capabilities, "supports_alignment", False)
+
+    if requires_segment_timestamps and not supports_segment_timestamps:
+        raise ValueError(
+            f"ASR backend '{registration.name}' does not provide required segment timestamps."
+        )
+
+    if not allows_alignment_backends and supports_alignment:
+        raise ValueError(
+            f"'{registration.name}' is an alignment backend and cannot be used with --asr-backend. "
+            "Use the alignment pipeline path instead of ASR-only transcription mode."
+        )
 
 def _build_enabled_registry() -> dict[str, BackendRegistration]:
     enabled_registry: dict[str, BackendRegistration] = {}

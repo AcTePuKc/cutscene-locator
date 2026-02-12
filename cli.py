@@ -18,13 +18,14 @@ from typing import Callable, Sequence
 from src.asr import (
     ASRConfig,
     ASRResult,
-    FasterWhisperBackend,
-    MockASRBackend,
-    Qwen3ASRBackend,
+    CapabilityRequirements,
+    ASRExecutionContext,
+    get_asr_adapter,
     get_backend,
     list_backend_status,
     parse_asr_result,
     resolve_device_with_details,
+    validate_backend_capabilities,
 )
 from src.asr.model_resolution import ModelResolutionError, resolve_model_path
 from src.export import (
@@ -120,11 +121,18 @@ def _validate_backend(args: argparse.Namespace) -> None:
     if registration.name == "mock" and not args.mock_asr_path:
         raise CliError("--mock-asr is required when --asr-backend mock is used.")
 
-    if registration.capabilities.supports_alignment:
-        raise CliError(
-            f"'{registration.name}' is an alignment backend and cannot be used with --asr-backend. "
-            "Use the alignment pipeline path instead of ASR-only transcription mode."
+    requirements = CapabilityRequirements(
+        requires_segment_timestamps=True,
+        allows_alignment_backends=False,
+    )
+    try:
+        validate_backend_capabilities(
+            registration,
+            requires_segment_timestamps=requirements.requires_segment_timestamps,
+            allows_alignment_backends=requirements.allows_alignment_backends,
         )
+    except ValueError as exc:
+        raise CliError(str(exc)) from exc
 
 
 
@@ -431,62 +439,35 @@ def main(
                 raise CliError(str(exc)) from exc
 
         backend_registration = get_backend(asr_config.backend_name)
+        requirements = CapabilityRequirements(
+            requires_segment_timestamps=True,
+            allows_alignment_backends=False,
+        )
+        validate_backend_capabilities(
+            backend_registration,
+            requires_segment_timestamps=requirements.requires_segment_timestamps,
+            allows_alignment_backends=requirements.allows_alignment_backends,
+        )
+
+        if backend_registration.name != "mock":
+            resolution = resolve_device_with_details(asr_config.device)
+            device_resolution_reason = resolution.reason
+
+        adapter = get_asr_adapter(backend_registration.name)
         asr_started = time.perf_counter()
         if args.verbose:
             print("stage: asr start")
-        if backend_registration.name == "mock":
-            asr_backend = MockASRBackend(Path(args.mock_asr_path))
-            asr_result = asr_backend.transcribe(str(preprocessing_output.canonical_wav_path), asr_config)
-        elif backend_registration.name in {"faster-whisper", "qwen3-asr"}:
-            resolution = resolve_device_with_details(asr_config.device)
-            device_resolution_reason = resolution.reason
-            if backend_registration.name == "faster-whisper":
-                asr_backend = FasterWhisperBackend()
-            else:
-                asr_backend = Qwen3ASRBackend()
-            effective_config = ASRConfig(
-                backend_name=asr_config.backend_name,
-                model_path=resolved_model_path,
-                model_id=asr_config.model_id,
-                revision=asr_config.revision,
-                auto_download=asr_config.auto_download,
-                device=asr_config.device,
-                compute_type=asr_config.compute_type,
-                language=asr_config.language,
-                beam_size=asr_config.beam_size,
-                temperature=asr_config.temperature,
-                best_of=asr_config.best_of,
-                no_speech_threshold=asr_config.no_speech_threshold,
-                log_prob_threshold=asr_config.log_prob_threshold,
-                vad_filter=asr_config.vad_filter,
-                merge_short_segments_seconds=asr_config.merge_short_segments_seconds,
-                ffmpeg_path=asr_config.ffmpeg_path,
-                download_progress=asr_config.download_progress,
-                progress_callback=asr_config.progress_callback,
-                cancel_check=asr_config.cancel_check,
-                log_callback=print if args.verbose else asr_config.log_callback,
-            )
-            if backend_registration.name == "faster-whisper":
-                _print_faster_whisper_cuda_preflight(
-                    device=resolution.resolved,
-                    compute_type=effective_config.compute_type,
-                )
-            if backend_registration.name == "faster-whisper" and effective_config.device == "cuda" and os.name == "nt":
-                if effective_config.model_path is None:
-                    raise CliError("faster-whisper backend requires a resolved model path.")
-                asr_result = _run_faster_whisper_subprocess(
-                    audio_path=preprocessing_output.canonical_wav_path,
-                    resolved_model_path=effective_config.model_path,
-                    asr_config=effective_config,
-                    verbose=args.verbose,
-                )
-            else:
-                asr_result = asr_backend.transcribe(
-                    str(preprocessing_output.canonical_wav_path),
-                    effective_config,
-                )
-        else:
-            raise CliError(f"ASR backend '{asr_config.backend_name}' is not implemented yet.")
+        asr_result = adapter.transcribe(
+            str(preprocessing_output.canonical_wav_path),
+            asr_config,
+            ASRExecutionContext(
+                resolved_model_path=resolved_model_path,
+                verbose=args.verbose,
+                mock_asr_path=args.mock_asr_path,
+                run_faster_whisper_subprocess=_run_faster_whisper_subprocess,
+                faster_whisper_preflight=_print_faster_whisper_cuda_preflight,
+            ),
+        )
         timings["asr"] = time.perf_counter() - asr_started
         if args.verbose:
             print("stage: asr end")
