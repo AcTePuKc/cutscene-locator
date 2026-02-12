@@ -12,6 +12,7 @@ from .base import ASRResult
 from .backends import validate_asr_result
 from .config import ASRConfig
 from .device import resolve_device_with_details
+from .timestamp_normalization import normalize_asr_segments_for_contract
 
 
 _FORBIDDEN_TRANSCRIBE_KWARGS = frozenset({"progress"})
@@ -171,6 +172,11 @@ class FasterWhisperBackend:
                 normalized_segments,
                 min_duration_seconds=config.merge_short_segments_seconds,
             )
+
+        normalized_segments = normalize_asr_segments_for_contract(
+            normalized_segments,
+            source="faster-whisper",
+        )
 
         model_name = Path(config.model_path).name or str(config.model_path)
         backend_version = "unknown"

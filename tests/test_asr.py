@@ -10,6 +10,7 @@ from src.asr import (
     resolve_device_with_details,
     validate_asr_result,
 )
+from src.asr.timestamp_normalization import normalize_asr_segments_for_contract
 
 
 class MockASRBackendTests(unittest.TestCase):
@@ -99,6 +100,33 @@ class MockASRBackendTests(unittest.TestCase):
                         "device": "cpu",
                     },
                 },
+                source="inline",
+            )
+
+
+    def test_timestamp_normalization_drops_zero_length_and_preserves_overlap_order(self) -> None:
+        normalized = normalize_asr_segments_for_contract(
+            [
+                {"segment_id": "seg_0002", "start": 2.0000004, "end": 3.0, "text": "second"},
+                {"segment_id": "seg_0001", "start": 1.0, "end": 1.0, "text": "drop"},
+                {"segment_id": "seg_0003", "start": 1.0000004, "end": 2.0000004, "text": "first"},
+                {"segment_id": "seg_0004", "start": 1.0000004, "end": 1.1000004, "text": "overlap"},
+            ],
+            source="inline",
+        )
+
+        self.assertEqual(len(normalized), 3)
+        self.assertEqual([segment["segment_id"] for segment in normalized], ["seg_0004", "seg_0003", "seg_0002"])
+        self.assertEqual(normalized[1]["end"], 2.0)
+
+    def test_timestamp_normalization_supports_empty_segments(self) -> None:
+        normalized = normalize_asr_segments_for_contract([], source="inline")
+        self.assertEqual(normalized, [])
+
+    def test_timestamp_normalization_rejects_pathological_timings(self) -> None:
+        with self.assertRaisesRegex(ValueError, "must be non-negative"):
+            normalize_asr_segments_for_contract(
+                [{"segment_id": "seg_0001", "start": -0.1, "end": 0.3, "text": "bad"}],
                 source="inline",
             )
 
