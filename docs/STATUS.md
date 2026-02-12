@@ -175,7 +175,7 @@ Contract notes:
 
 ## Milestone 3 – Quality and tooling
 
-- [x] CLI docs/parser flag parity consistency test (`tests/test_docs_consistency.py`, `docs/CLI.md`, `cli.py`)
+- [x] CLI docs/parser flag parity consistency test + declared-disabled backend definition consistency assertion (`tests/test_docs_consistency.py`, `docs/CLI.md`, `cli.py`)
 - [ ] Unit test coverage for core modules
 - [x] Test fixtures (audio + script) (`tests/fixtures/script_integration_sample.tsv`, `tests/fixtures/asr_normalized_faster_whisper.json`, `tests/fixtures/asr_normalized_qwen3_asr.json`, `tests/fixtures/asr_normalized_whisperx_vibevoice.json`)
 - [x] Integration test (optional, gated) (`tests/test_integration_pipeline.py`)
@@ -204,6 +204,7 @@ Contract notes:
 
 ## Change log (manual)
 
+- 2026-02-12 – Added authoritative CLI docs definition for "Declared but disabled" backend diagnostics (missing optional dependencies, feature-flag-disabled backend, experimental backend disabled by default), clarified that dependency-gated errors may include install-extra hints, and added docs consistency coverage for the new definition (`docs/CLI.md`, `tests/test_docs_consistency.py`, `docs/STATUS.md`).
 - 2026-02-12 – Replaced misleading CUDA "fallback" terminology with explicit CPU rerun wording in backend readiness/CUDA guidance docs, and added a docs consistency test that blocks reintroduction of CPU fallback phrasing in that context (`docs/CLI.md`, `docs/Integration-issues.md`, `tests/test_docs_consistency.py`, `docs/STATUS.md`).
 - 2026-02-12 – Verified backend CUDA probe source by actual runtime API usage (`faster-whisper`→`ctranslate2`; `qwen3-asr`/`whisperx`/`vibevoice`→`torch`), exposed probe label in `--asr-preflight-only` JSON (`device.cuda_probe_label`), aligned CLI backend matrix/docs, and added regression tests tying backend selection to declared probe label (`cli.py`, `src/asr/device.py`, `tests/test_cli.py`, `tests/test_asr.py`, `docs/CLI.md`, `docs/STATUS.md`).
 
