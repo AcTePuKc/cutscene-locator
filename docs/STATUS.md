@@ -163,7 +163,7 @@ Contract notes:
 ### Advanced alignment
 
 - [x] Forced alignment support (`src/align/base.py`, `src/align/validation.py`, `src/align/qwen3_forced_aligner.py`, `src/asr/registry.py`, `cli.py`, `tests/test_alignment.py`, `tests/test_qwen3_forced_aligner.py`, `tests/test_asr_registry.py`)
-- [ ] Word-level timestamps (optional)
+- [x] Word-level timestamps (optional) (`src/align/qwen3_forced_aligner.py`, `tests/test_qwen3_forced_aligner.py`, `docs/Data-contracts.md`)
 - [ ] Cross-chunk continuity handling
 
 ---
@@ -202,6 +202,7 @@ Contract notes:
 
 - YYYY-MM-DD – Initial STATUS.md created
 - 2026-02-12 – Clarified Milestone 2 stable implementation sequence (generic adapter → timestamp normalization → WhisperX → forced alignment path → VibeVoice), documented Qwen3-ASR shared-backend variant handling (`0.6B`/`1.7B`), and reaffirmed that forced-aligner models are alignment-mode only per Integration/Data-contracts authority (`docs/STATUS.md`).
+- 2026-02-12 – STATUS consistency audit: synchronized Milestone 2/Advanced alignment checkboxes with implemented backend features (including word-level alignment timestamps), and added docs consistency coverage to fail when changelog-complete backend milestones are left unchecked (`docs/STATUS.md`, `tests/test_docs_consistency.py`).
 - 2026-02-12 – Added VibeVoice ASR backend behind existing adapter/registry contracts with deterministic timestamp normalization and dependency-gated CLI guidance; documented backend mode limits and install extras; added backend/registry/CLI tests and implementation-order gate notes (`src/asr/vibevoice_backend.py`, `src/asr/registry.py`, `src/asr/adapters.py`, `src/asr/__init__.py`, `pyproject.toml`, `tests/test_vibevoice_backend.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/Integration-issues.md`, `docs/ASR_ARCHITECTURE.md`, `docs/STATUS.md`).
 - 2026-02-12 – Added WhisperX ASR backend behind existing backend registry/adapter contracts with optional extras + dependency-gated status reporting, wired deterministic model resolution compatibility (`--model-path`/`--model-id`) and canonical timestamp normalization into ASRResult mapping, and added registry/normalization tests (`src/asr/whisperx_backend.py`, `src/asr/registry.py`, `src/asr/adapters.py`, `src/asr/model_resolution.py`, `src/asr/__init__.py`, `pyproject.toml`, `tests/test_whisperx_backend.py`, `tests/test_asr_registry.py`, `docs/STATUS.md`).
 - 2026-02-12 – Extended backend-contract qwen3-asr snapshot validation to require transformers pipeline artifacts (`tokenizer_config.json` and processor/preprocessor config) for deterministic model-id/model-path resolution across valid 0.6B and 1.7B layouts; improved qwen pipeline init guidance and added valid/invalid layout tests (`src/asr/model_resolution.py`, `src/asr/qwen3_asr_backend.py`, `tests/test_model_resolution.py`, `docs/CLI.md`, `docs/STATUS.md`).
