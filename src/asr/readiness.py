@@ -30,7 +30,7 @@ _BACKEND_RUNTIME_PRECONDITIONS: dict[str, tuple[str, tuple[str, ...], str]] = {
     "qwen3-asr": (
         "asr_qwen3",
         ("torch", "qwen_asr"),
-        "Qwen3 ASR snapshot: config + tokenizer + tokenizer_config + model weights (processor/preprocessor configs optional).",
+        "Qwen3 ASR snapshot: config + tokenizer assets + tokenizer_config.json + model weights (processor_config.json/preprocessor_config.json optional).",
     ),
     "whisperx": (
         "asr_whisperx",

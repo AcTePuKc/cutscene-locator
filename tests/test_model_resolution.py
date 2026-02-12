@@ -319,6 +319,28 @@ class ModelResolutionTests(unittest.TestCase):
             self.assertNotIn("one of preprocessor_config.json", message)
             self.assertIn("Found files: config.json", message)
 
+    def test_qwen3_validation_fails_when_only_optional_processor_files_exist(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_home:
+            model_dir = Path(temp_home) / "models" / "qwen3-asr"
+            model_dir.mkdir(parents=True, exist_ok=True)
+            (model_dir / "processor_config.json").write_text("{}", encoding="utf-8")
+            (model_dir / "preprocessor_config.json").write_text("{}", encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                ModelResolutionError,
+                "Resolved qwen3-asr model is missing required artifacts",
+            ) as exc_info:
+                resolve_model_path(ASRConfig(backend_name="qwen3-asr", model_path=model_dir))
+
+            message = str(exc_info.exception)
+            self.assertIn("one of tokenizer.json, tokenizer.model, vocab.json", message)
+            self.assertIn("one of tokenizer_config.json", message)
+            self.assertIn(
+                "one of model.safetensors, pytorch_model.bin, model.safetensors.index.json, pytorch_model.bin.index.json",
+                message,
+            )
+            self.assertIn("Found files: preprocessor_config.json, processor_config.json", message)
+
     def test_qwen3_validation_error_message_is_deterministic(self) -> None:
         with tempfile.TemporaryDirectory() as temp_home:
             model_dir = Path(temp_home) / "models" / "qwen3-asr"

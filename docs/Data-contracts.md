@@ -282,7 +282,7 @@ Final subtitles in target language.
 
 Runtime ASR backends that load local model snapshots must pass deterministic artifact-layout validation before inference.
 
-- `qwen3-asr` required artifacts: `config.json`, tokenizer asset set (`tokenizer.json` or `tokenizer.model` or `vocab.json`), `tokenizer_config.json`, and model weights (`model.safetensors` or `pytorch_model.bin` or sharded index variants).
+- `qwen3-asr` required core artifacts: `config.json`, tokenizer asset set (`tokenizer.json` or `tokenizer.model` or `vocab.json`), `tokenizer_config.json`, and model weights (`model.safetensors` or `pytorch_model.bin` or sharded index variants).
 - `qwen3-asr` optional artifacts: `processor_config.json` and `preprocessor_config.json` (accepted when present but not required for readiness pass/fail).
 
 ---

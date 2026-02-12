@@ -207,6 +207,8 @@ Contract notes:
 
 ## Change log (manual)
 
+- 2026-02-12 – Unified qwen3-asr artifact contract wording across model-resolution/readiness/docs, keeping only core artifacts required (`config.json`, tokenizer assets, `tokenizer_config.json`, model weights) while treating `processor_config.json`/`preprocessor_config.json` as optional; retained regression coverage for pass-without-processor-configs and missing-core failures (`src/asr/model_resolution.py`, `src/asr/readiness.py`, `docs/CLI.md`, `docs/Data-contracts.md`, `tests/test_model_resolution.py`, `docs/STATUS.md`).
+
 - 2026-02-12 – Simplified qwen3-asr `dtype` resolver/loader kwargs to remove redundant `None`-guarding and redundant branching: `_resolve_dtype` now returns `str` passthrough deterministically and `from_pretrained` init kwargs are constructed directly with `dtype`, preserving no-`device` init and post-load device-move behavior (`src/asr/qwen3_asr_backend.py`, `docs/STATUS.md`).
 
 - 2026-02-12 – Updated qwen3-asr runtime init to match real API usage by removing `device=` from `Qwen3ASRModel.from_pretrained(...)`, preserving deterministic `dtype` mapping, enforcing explicit post-load device transfer (`.model.to(...)`/`.to(...)`) with deterministic loader/API-mismatch errors when unsupported, and expanded backend + readiness smoke tests for no-device-kwarg and transfer behavior (`src/asr/qwen3_asr_backend.py`, `tests/test_qwen3_asr_backend.py`, `tests/test_cli.py`, `docs/STATUS.md`).
