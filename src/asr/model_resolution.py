@@ -32,6 +32,14 @@ _BACKEND_SNAPSHOT_ARTIFACT_SCHEMAS: dict[str, dict[str, object]] = {
         "missing_prefix": "Resolved faster-whisper model is missing required files",
         "expected_message": "Expected a CTranslate2-converted Whisper model directory.",
     },
+    "whisperx": {
+        "required_files": ["config.json", "model.bin"],
+        "required_any": [
+            ["tokenizer.json", "vocabulary.json", "vocabulary.txt", "vocab.json", "vocab.txt"],
+        ],
+        "missing_prefix": "Resolved whisperx model is missing required files",
+        "expected_message": "Expected a local CTranslate2-converted Whisper model directory for WhisperX.",
+    },
     "qwen3-asr": {
         "required_files": ["config.json"],
         "required_any": [

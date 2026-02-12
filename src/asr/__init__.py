@@ -3,6 +3,7 @@
 from .backends import MockASRBackend, parse_asr_result, validate_asr_result
 from .faster_whisper_backend import FasterWhisperBackend
 from .qwen3_asr_backend import Qwen3ASRBackend
+from .whisperx_backend import WhisperXBackend
 from .base import ASRBackend, ASRResult
 from .adapters import (
     ASRAdapter,
@@ -38,6 +39,7 @@ __all__ = [
     "MockASRBackend",
     "FasterWhisperBackend",
     "Qwen3ASRBackend",
+    "WhisperXBackend",
     "validate_asr_result",
     "parse_asr_result",
     "ASRConfig",

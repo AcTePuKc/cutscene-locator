@@ -9,6 +9,7 @@ from typing import Any
 from .backends import MockASRBackend
 from .faster_whisper_backend import FasterWhisperBackend
 from .qwen3_asr_backend import Qwen3ASRBackend
+from .whisperx_backend import WhisperXBackend
 from src.align.qwen3_forced_aligner import Qwen3ForcedAligner
 
 
@@ -89,6 +90,21 @@ def _build_declared_registry() -> dict[str, DeclaredBackend]:
                 capabilities=default_capabilities,
             ),
             required_dependencies=(),
+        ),
+        "whisperx": DeclaredBackend(
+            registration=BackendRegistration(
+                name="whisperx",
+                backend_class=WhisperXBackend,
+                capabilities=BackendCapabilities(
+                    supports_segment_timestamps=True,
+                    supports_word_timestamps=False,
+                    supports_alignment=False,
+                    supports_diarization=True,
+                    max_audio_duration=None,
+                ),
+            ),
+            required_dependencies=("whisperx", "torch"),
+            install_extra="asr_whisperx",
         ),
         "qwen3-asr": DeclaredBackend(
             registration=BackendRegistration(
