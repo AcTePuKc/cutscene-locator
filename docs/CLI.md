@@ -99,15 +99,23 @@ Time gap threshold for starting a new scene.
 
 Select ASR backend.
 
-Supported values (initially):
+Backends are split into two sets:
 
-- `mock`
+- **declared backends**: implemented in code.
+- **enabled backends**: declared backends whose optional dependencies are installed.
 
-Future values:
+Current declared backends:
 
-- `whisperx`
-- `qwen`
-- `vibevoice`
+- `mock` (always enabled)
+- `faster-whisper` (enabled when runtime can import backend deps)
+- `qwen3-asr` (enabled only when `torch` + `transformers` are installed)
+
+If you request a backend that is declared but disabled, the CLI fails with an actionable message listing missing dependencies and the exact extras target.
+
+Install extras:
+
+- `pip install 'cutscene-locator[asr_faster_whisper]'`
+- `pip install 'cutscene-locator[asr_qwen3]'`
 
 Default:
 

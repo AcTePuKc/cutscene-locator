@@ -4,6 +4,7 @@ import sys
 import subprocess
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -48,6 +49,36 @@ class CliPhaseOneTests(unittest.TestCase):
 
         self.assertEqual(code, 1)
         self.assertIn("Unknown ASR backend", stderr.getvalue())
+
+    def test_declared_but_disabled_backend_exits_with_actionable_error(self) -> None:
+        stderr = io.StringIO()
+        disabled_backend = SimpleNamespace(
+            name="qwen3-asr",
+            enabled=False,
+            missing_dependencies=("torch", "transformers"),
+            install_extra="asr_qwen3",
+        )
+        with patch("cli.list_backend_status", return_value=[disabled_backend]):
+            with redirect_stderr(stderr):
+                code = cli.main(
+                    [
+                        "--input",
+                        "in.wav",
+                        "--script",
+                        "script.tsv",
+                        "--out",
+                        "out",
+                        "--asr-backend",
+                        "qwen3-asr",
+                    ],
+                    which=lambda _: "/usr/bin/ffmpeg",
+                    runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                )
+
+        self.assertEqual(code, 1)
+        self.assertIn("is installed in code but disabled", stderr.getvalue())
+        self.assertIn("missing torch, transformers", stderr.getvalue())
+        self.assertIn("cutscene-locator[asr_qwen3]", stderr.getvalue())
 
     def test_mock_backend_requires_mock_asr(self) -> None:
         stderr = io.StringIO()
