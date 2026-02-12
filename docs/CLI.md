@@ -109,6 +109,23 @@ Current declared backends (exact names):
 - `mock` (always enabled)
 - `faster-whisper` (enabled when optional runtime dependencies are installed)
 - `qwen3-asr` (enabled only when optional runtime dependencies are installed)
+- `qwen3-forced-aligner` (declared alignment backend; rejected in ASR transcription mode)
+
+#### Backend/model family support matrix
+
+| backend key | model examples | mode | required extras | minimum artifacts | output contract type |
+| --- | --- | --- | --- | --- | --- |
+| `mock` | local fixture JSON (for example `tests/fixtures/mock_asr_valid.json`) | `asr` | none | mock ASR JSON with `segments[]` and `meta` | ASR transcript contract (`ASRResult`) |
+| `faster-whisper` | `Systran/faster-whisper-tiny`, `Systran/faster-whisper-small` | `asr` | `asr_faster_whisper` | CTranslate2 snapshot (for example `model.bin` + tokenizer assets) | ASR transcript contract (`ASRResult`) |
+| `qwen3-asr` | `Qwen/Qwen3-ASR-0.6B` | `asr` | `asr_qwen3` | Transformers snapshot (`config.json`, tokenizer assets, model weights) | ASR transcript contract (`ASRResult`) |
+| `qwen3-forced-aligner` | `Qwen/Qwen3-ForcedAligner-0.6B` | `alignment` | `asr_qwen3` | canonical WAV + caller-provided `reference_spans[]` + aligner model snapshot | Alignment contract (`AlignmentResult`, `docs/Data-contracts.md`) |
+| `vibevoice` *(planned)* | `VibeVoice-*` *(TBD)* | `asr` *(planned)* | TBD | TBD | Pending (not implemented) |
+
+Mode gating is explicit and deterministic:
+
+- `--asr-backend` is ASR transcript-generation mode only.
+- Alignment backends (currently `qwen3-forced-aligner`) are loaded only when the explicit alignment pipeline path is requested.
+- There is no silent mode fallback (for example, no implicit switch from `qwen3-forced-aligner` to `qwen3-asr`).
 
 Backend validation behavior is explicit:
 
@@ -128,6 +145,9 @@ Backend dependency expectations:
   - Install: `pip install 'cutscene-locator[asr_faster_whisper]'`
   - Includes: `faster-whisper`, `huggingface_hub`.
 - `qwen3-asr`
+  - Install: `pip install 'cutscene-locator[asr_qwen3]'`
+  - Includes: `torch`, `transformers`, `huggingface_hub`.
+- `qwen3-forced-aligner`
   - Install: `pip install 'cutscene-locator[asr_qwen3]'`
   - Includes: `torch`, `transformers`, `huggingface_hub`.
 
@@ -164,6 +184,15 @@ Filesystem path to a local ASR model directory/file.
 
 - Path must already exist.
 - This flag is filesystem-only and never accepts a Hugging Face repo id.
+
+Model loading policy is deterministic and loaded only when requested:
+
+1. If `--model-path` is provided, that exact path is used (no search, no download).
+2. Else if `--model-id` is provided, resolve deterministic cache path first and download only when cache is missing.
+3. Else if `--auto-download` is provided, download the mapped backend/model-size artifact.
+4. Else resolve via local `models/` directory convention.
+
+If the selected backend/model artifacts are missing or invalid, the CLI fails with a clear error. It never silently changes backend, model family, or mode.
 
 ### `--model-id <repo_id>`
 
