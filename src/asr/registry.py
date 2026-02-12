@@ -9,6 +9,7 @@ from typing import Any
 from .backends import MockASRBackend
 from .faster_whisper_backend import FasterWhisperBackend
 from .qwen3_asr_backend import Qwen3ASRBackend
+from src.align.qwen3_forced_aligner import Qwen3ForcedAligner
 
 
 @dataclass(frozen=True)
@@ -90,6 +91,15 @@ def _build_declared_registry() -> dict[str, DeclaredBackend]:
             registration=BackendRegistration(
                 name="qwen3-asr",
                 backend_class=Qwen3ASRBackend,
+                capabilities=default_capabilities,
+            ),
+            required_dependencies=("torch", "transformers"),
+            install_extra="asr_qwen3",
+        ),
+        "qwen3-forced-aligner": DeclaredBackend(
+            registration=BackendRegistration(
+                name="qwen3-forced-aligner",
+                backend_class=Qwen3ForcedAligner,
                 capabilities=alignment_capabilities,
             ),
             required_dependencies=("torch", "transformers"),

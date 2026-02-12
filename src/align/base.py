@@ -15,6 +15,13 @@ class AlignmentSpan(TypedDict):
     confidence: float | int
 
 
+class ReferenceSpan(TypedDict):
+    """Known text span supplied by caller for forced alignment."""
+
+    ref_id: str
+    text: str
+
+
 class AlignmentMeta(TypedDict):
     """Alignment metadata structure."""
 
@@ -34,6 +41,6 @@ class AlignmentResult(TypedDict):
 class AlignmentBackend(Protocol):
     """Contract for forced-alignment backend implementations."""
 
-    def align(self, audio_path: str, transcript_text: str) -> AlignmentResult:
-        """Return aligned spans for known transcript text against audio input."""
+    def align(self, audio_path: str, reference_spans: list[ReferenceSpan]) -> AlignmentResult:
+        """Return aligned spans for caller-provided known text against audio input."""
         ...

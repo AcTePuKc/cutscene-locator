@@ -149,7 +149,7 @@ All agents must update this file when completing or modifying tasks.
 
 ### Advanced alignment
 
-- [ ] Forced alignment support
+- [x] Forced alignment support (`src/align/base.py`, `src/align/validation.py`, `src/align/qwen3_forced_aligner.py`, `src/asr/registry.py`, `cli.py`, `tests/test_alignment.py`, `tests/test_qwen3_forced_aligner.py`, `tests/test_asr_registry.py`)
 - [ ] Word-level timestamps (optional)
 - [ ] Cross-chunk continuity handling
 
@@ -188,6 +188,7 @@ All agents must update this file when completing or modifying tasks.
 > Keep this short. One line per meaningful change.
 
 - YYYY-MM-DD – Initial STATUS.md created
+- 2026-02-12 – Added dedicated `qwen3-forced-aligner` backend with explicit alignment I/O contract and validation, kept `qwen3-asr` on transcript semantics, and enforced capability-based CLI gating/tests for aligner-only backends (`src/align/base.py`, `src/align/qwen3_forced_aligner.py`, `src/align/validation.py`, `src/asr/registry.py`, `cli.py`, `tests/test_qwen3_forced_aligner.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/Data-contracts.md`, `docs/Integration.md`, `docs/STATUS.md`).
 - 2026-02-12 – Hardened qwen3-asr model snapshot validation with deterministic required-artifact checks across explicit --model-path, model-id cache hits, and post-download model-id paths; added valid/invalid snapshot layout tests (`src/asr/model_resolution.py`, `tests/test_model_resolution.py`, `docs/STATUS.md`).
 - 2026-02-12 – Refined backend discovery UX by adding structured backend `reason` status, exposing declared backend listing, preserving enabled-only lookup semantics, and improving disabled-backend CLI install guidance/messages with tests/docs updates (`src/asr/registry.py`, `src/asr/__init__.py`, `cli.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/STATUS.md`).
 - 2026-02-12 – Docs sync: updated CLI backend names/dependency extras and `--model-id` compatibility caveats; clarified explicit unchecked Milestone 2 next-work items (`docs/CLI.md`, `docs/STATUS.md`).
