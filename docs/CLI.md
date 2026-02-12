@@ -136,6 +136,8 @@ Current declared backends (exact names):
 | `faster-whisper` | `Systran/faster-whisper-tiny`, `Systran/faster-whisper-small` | `asr` | `asr_faster_whisper` | CTranslate2 snapshot (for example `model.bin` + tokenizer assets) | ASR transcript contract (`ASRResult`) |
 | `qwen3-asr` | `Qwen/Qwen3-ASR-0.6B`, `Qwen/Qwen3-ASR-1.7B` | `asr` | `asr_qwen3` | Transformers ASR snapshot (`config.json`, tokenizer assets, `tokenizer_config.json`, model weights; `processor_config.json`/`preprocessor_config.json` optional) | ASR transcript contract (`ASRResult`) |
 
+qwen3 model layout contract: `processor_config.json` and `preprocessor_config.json` are optional metadata files and are never required for snapshot validation pass.
+
 #### qwen3-asr compatibility matrix (deterministic smoke checks)
 
 The table below reflects deterministic backend smoke-check coverage (mocked pipeline, no heavy inference) that separates checkpoint artifact compatibility from runtime/API initialization issues.
