@@ -288,3 +288,8 @@ These belong to future milestones.
 6. Benchmark memory and runtime.
 
 Only after these are stable may additional backends be added.
+
+VibeVoice start gate (must all be complete before implementation):
+- Generic ASR adapter path is complete and used by CLI dispatch.
+- Shared timestamp normalization contract is complete across real ASR backends.
+- Alignment capability path/design decisions are complete and capability-gated from ASR mode.

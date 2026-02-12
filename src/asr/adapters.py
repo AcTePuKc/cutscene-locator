@@ -14,6 +14,7 @@ from .device import resolve_device_with_details
 from .faster_whisper_backend import FasterWhisperBackend
 from .qwen3_asr_backend import Qwen3ASRBackend
 from .whisperx_backend import WhisperXBackend
+from .vibevoice_backend import VibeVoiceBackend
 from .registry import get_backend, validate_backend_capabilities
 
 
@@ -164,11 +165,25 @@ class WhisperXASRAdapter(_BaseASRAdapter):
         return self.normalize_output(backend.transcribe(audio_path, effective_config))
 
 
+class VibeVoiceASRAdapter(_BaseASRAdapter):
+    backend_name = "vibevoice"
+
+    def transcribe(self, audio_path: str, config: ASRConfig, context: ASRExecutionContext) -> ASRResult:
+        backend = VibeVoiceBackend()
+        effective_config = replace(
+            config,
+            model_path=context.resolved_model_path,
+            log_callback=print if context.verbose else config.log_callback,
+        )
+        return self.normalize_output(backend.transcribe(audio_path, effective_config))
+
+
 _ADAPTER_REGISTRY: dict[str, type[_BaseASRAdapter]] = {
     "mock": MockASRAdapter,
     "faster-whisper": FasterWhisperASRAdapter,
     "qwen3-asr": Qwen3ASRAdapter,
     "whisperx": WhisperXASRAdapter,
+    "vibevoice": VibeVoiceASRAdapter,
 }
 
 

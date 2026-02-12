@@ -10,6 +10,7 @@ from .backends import MockASRBackend
 from .faster_whisper_backend import FasterWhisperBackend
 from .qwen3_asr_backend import Qwen3ASRBackend
 from .whisperx_backend import WhisperXBackend
+from .vibevoice_backend import VibeVoiceBackend
 from src.align.qwen3_forced_aligner import Qwen3ForcedAligner
 
 
@@ -123,6 +124,15 @@ def _build_declared_registry() -> dict[str, DeclaredBackend]:
             ),
             required_dependencies=("torch", "transformers"),
             install_extra="asr_qwen3",
+        ),
+        "vibevoice": DeclaredBackend(
+            registration=BackendRegistration(
+                name="vibevoice",
+                backend_class=VibeVoiceBackend,
+                capabilities=default_capabilities,
+            ),
+            required_dependencies=("vibevoice", "torch"),
+            install_extra="asr_vibevoice",
         ),
     }
 

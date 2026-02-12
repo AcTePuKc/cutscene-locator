@@ -121,7 +121,7 @@ Current declared backends (exact names):
 | `qwen3-asr` | `Qwen/Qwen3-ASR-0.6B`, `Qwen/Qwen3-ASR-1.7B` | `asr` | `asr_qwen3` | Transformers ASR snapshot (`config.json`, tokenizer assets, `tokenizer_config.json`, processor/preprocessor config, model weights) | ASR transcript contract (`ASRResult`) |
 | `whisperx` | local CTranslate2 Whisper snapshots compatible with WhisperX | `asr` | `asr_whisperx` | CTranslate2 snapshot (for example `model.bin` + tokenizer assets) | ASR transcript contract (`ASRResult`) |
 | `qwen3-forced-aligner` | `Qwen/Qwen3-ForcedAligner-0.6B` | `alignment` | `asr_qwen3` | canonical WAV + caller-provided `reference_spans[]` + aligner model snapshot | Alignment contract (`AlignmentResult`, `docs/Data-contracts.md`) |
-| `vibevoice` *(planned)* | `VibeVoice-*` *(TBD)* | `asr` *(planned)* | TBD | TBD | Pending (not implemented) |
+| `vibevoice` | local VibeVoice checkpoints compatible with runtime | `asr` | `asr_vibevoice` | local model snapshot path (`--model-path` or resolved `--model-id`) | ASR transcript contract (`ASRResult`) |
 
 Mode gating is explicit and deterministic:
 
@@ -139,6 +139,7 @@ Install extras:
 - `pip install 'cutscene-locator[asr_faster_whisper]'`
 - `pip install 'cutscene-locator[asr_qwen3]'`
 - `pip install 'cutscene-locator[asr_whisperx]'`
+- `pip install 'cutscene-locator[asr_vibevoice]'`
 
 Backend dependency expectations:
 
@@ -156,6 +157,9 @@ Backend dependency expectations:
 - `whisperx`
   - Install: `pip install 'cutscene-locator[asr_whisperx]'`
   - Includes: `whisperx`, `torch`, `huggingface_hub`.
+- `vibevoice`
+  - Install: `pip install 'cutscene-locator[asr_vibevoice]'`
+  - Includes: `vibevoice`, `torch`.
 
 Default:
 

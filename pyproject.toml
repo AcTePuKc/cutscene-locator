@@ -29,3 +29,8 @@ asr_qwen3 = [
   "torch>=2.2.0",
   "huggingface_hub>=0.20.0",
 ]
+
+asr_vibevoice = [
+  "vibevoice>=0.1.0",
+  "torch>=2.2.0",
+]
