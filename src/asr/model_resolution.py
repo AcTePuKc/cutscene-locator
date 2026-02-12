@@ -53,7 +53,6 @@ _BACKEND_SNAPSHOT_ARTIFACT_SCHEMAS: dict[str, SnapshotArtifactSchema] = {
         "required_any": [
             ["tokenizer.json", "tokenizer.model", "vocab.json"],
             ["tokenizer_config.json"],
-            ["preprocessor_config.json", "processor_config.json"],
             [
                 "model.safetensors",
                 "pytorch_model.bin",
@@ -64,7 +63,8 @@ _BACKEND_SNAPSHOT_ARTIFACT_SCHEMAS: dict[str, SnapshotArtifactSchema] = {
         "missing_prefix": "Resolved qwen3-asr model is missing required artifacts",
         "expected_message": (
             "Expected a Hugging Face Transformers ASR snapshot containing config + tokenizer + "
-            "tokenizer_config + processor/preprocessor config + model weights. "
+            "tokenizer_config + model weights. "
+            "processor_config.json / preprocessor_config.json are optional. "
             "Provide a full local snapshot via --model-path, or use --model-id/--auto-download "
             "to fetch a complete repository before retrying."
         ),

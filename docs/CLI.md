@@ -134,7 +134,7 @@ Current declared backends (exact names):
 | --- | --- | --- | --- | --- | --- |
 | `mock` | local fixture JSON (for example `tests/fixtures/mock_asr_valid.json`) | `asr` | none | mock ASR JSON with `segments[]` and `meta` | ASR transcript contract (`ASRResult`) |
 | `faster-whisper` | `Systran/faster-whisper-tiny`, `Systran/faster-whisper-small` | `asr` | `asr_faster_whisper` | CTranslate2 snapshot (for example `model.bin` + tokenizer assets) | ASR transcript contract (`ASRResult`) |
-| `qwen3-asr` | `Qwen/Qwen3-ASR-0.6B`, `Qwen/Qwen3-ASR-1.7B` | `asr` | `asr_qwen3` | Transformers ASR snapshot (`config.json`, tokenizer assets, `tokenizer_config.json`, processor/preprocessor config, model weights) | ASR transcript contract (`ASRResult`) |
+| `qwen3-asr` | `Qwen/Qwen3-ASR-0.6B`, `Qwen/Qwen3-ASR-1.7B` | `asr` | `asr_qwen3` | Transformers ASR snapshot (`config.json`, tokenizer assets, `tokenizer_config.json`, model weights; `processor_config.json`/`preprocessor_config.json` optional) | ASR transcript contract (`ASRResult`) |
 | `whisperx` | local CTranslate2 Whisper snapshots compatible with WhisperX | `asr` | `asr_whisperx` | CTranslate2 snapshot (for example `model.bin` + tokenizer assets) | ASR transcript contract (`ASRResult`) |
 | `qwen3-forced-aligner` | `Qwen/Qwen3-ForcedAligner-0.6B` | `alignment` | `asr_qwen3` | canonical WAV + caller-provided `reference_spans[]` + aligner model snapshot | Alignment contract (`AlignmentResult`, `docs/Data-contracts.md`) |
 | `vibevoice` | local VibeVoice checkpoints compatible with runtime | `asr` | `asr_vibevoice` | local model snapshot path (`--model-path` or resolved `--model-id`) | ASR transcript contract (`ASRResult`) |
@@ -199,7 +199,7 @@ Readiness preconditions summary:
 
 | backend | install extra | runtime preconditions | CUDA probe path | CPU fallback semantics |
 | --- | --- | --- | --- | --- |
-| `qwen3-asr` | `asr_qwen3` | Transformers snapshot with `config.json`, tokenizer asset(s), `tokenizer_config.json`, processor/preprocessor config, and model weights | `torch.cuda.is_available()` | If CUDA preflight says unavailable, rerun with `--device cpu` (no backend auto-switch). |
+| `qwen3-asr` | `asr_qwen3` | Transformers snapshot with `config.json`, tokenizer asset(s), `tokenizer_config.json`, and model weights (`processor_config.json`/`preprocessor_config.json` optional) | `torch.cuda.is_available()` | If CUDA preflight says unavailable, rerun with `--device cpu` (no backend auto-switch). |
 | `whisperx` | `asr_whisperx` | CTranslate2 Whisper snapshot with `config.json`, `model.bin`, and tokenizer/vocabulary asset | `torch.cuda.is_available()` | If CUDA preflight says unavailable, rerun with `--device cpu` (no backend auto-switch). |
 | `vibevoice` | `asr_vibevoice` | Local VibeVoice model path compatible with installed runtime | `torch.cuda.is_available()` | If CUDA preflight says unavailable, rerun with `--device cpu` (no backend auto-switch). |
 
@@ -319,7 +319,8 @@ Backend-specific compatibility caveats:
   - Standard Transformers checkpoints (for example, `openai/whisper-*`) are not compatible with faster-whisper runtime loading.
 - `qwen3-asr`
   - Accepted model-id examples include `Qwen/Qwen3-ASR-0.6B` and `Qwen/Qwen3-ASR-1.7B`.
-  - `--model-id` must resolve to a full Transformers ASR snapshot containing `config.json`, tokenizer assets, `tokenizer_config.json`, processor/preprocessor config (`processor_config.json` or `preprocessor_config.json`), and model weights.
+  - `--model-id` must resolve to a full Transformers ASR snapshot containing `config.json`, tokenizer assets, `tokenizer_config.json`, and model weights.
+  - `processor_config.json` / `preprocessor_config.json` are optional for `qwen3-asr` readiness validation.
   - Incomplete local folders are rejected with deterministic validation errors.
 - `whisperx`
   - `--model-id` must resolve to a local CTranslate2 Whisper snapshot directory containing `config.json`, `model.bin`, and tokenizer/vocabulary assets.
