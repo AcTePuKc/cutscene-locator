@@ -489,7 +489,7 @@ Optional ASR language hint.
   - `faster-whisper`: passed to `model.transcribe(language=...)`
   - `whisperx`: passed at model-load time
   - `vibevoice`: passed to runtime transcription call
-  - `qwen3-asr`: currently not consumed by backend implementation
+  - `qwen3-asr`: forwarded as optional runtime hint when provided
   - `mock`: not applicable
 
 ### `--asr-beam-size <int>`
@@ -500,7 +500,7 @@ Beam search width for ASR decoding where supported.
 - Valid range: integer `>= 1`
 - Backend applicability:
   - `faster-whisper`: consumed when value differs from default
-  - `qwen3-asr` / `whisperx` / `vibevoice` / `mock`: currently not consumed
+  - `qwen3-asr` / `whisperx` / `vibevoice` / `mock`: currently not consumed (unsupported by qwen3 backend and rejected deterministically)
 
 ### `--asr-temperature <float>`
 
@@ -510,7 +510,8 @@ Sampling temperature for ASR decoding where supported.
 - Valid range: float `>= 0.0`
 - Backend applicability:
   - `faster-whisper`: always passed
-  - `qwen3-asr` / `whisperx` / `vibevoice` / `mock`: currently not consumed
+  - `qwen3-asr`: forwarded only when runtime signature explicitly supports `temperature`
+  - `whisperx` / `vibevoice` / `mock`: currently not consumed
 
 ### `--asr-best-of <int>`
 
@@ -521,7 +522,37 @@ Number of sampling candidates for temperature-based decoding.
 - Deterministic guard: when `--asr-temperature` is `0.0`, `--asr-best-of` must remain `1`
 - Backend applicability:
   - `faster-whisper`: passed only when `temperature > 0.0` and `best_of != 1`
-  - `qwen3-asr` / `whisperx` / `vibevoice` / `mock`: currently not consumed
+  - `qwen3-asr` / `whisperx` / `vibevoice` / `mock`: currently not consumed (unsupported by qwen3 backend and rejected deterministically)
+
+### `--qwen3-batch-size <int>`
+
+Optional qwen3 runtime control for low-memory tuning.
+
+- Default: unset (`None`)
+- Valid range: integer `>= 1`
+- Backend applicability:
+  - `qwen3-asr`: forwarded only when provided and only if runtime `transcribe(...)` signature supports `batch_size`
+  - others: ignored by non-qwen backends
+
+### `--qwen3-chunk-length-s <float>`
+
+Optional qwen3 runtime control for chunk sizing.
+
+- Default: unset (`None`)
+- Valid range: float `> 0.0`
+- Backend applicability:
+  - `qwen3-asr`: forwarded only when provided and only if runtime `transcribe(...)` signature supports `chunk_length_s`
+  - others: ignored by non-qwen backends
+
+### qwen3 low-memory profiles (recommended)
+
+These are conservative, optional knobs for constrained environments. Omitting both keeps current behavior unchanged.
+
+- CPU-safe baseline: `--qwen3-batch-size 1 --qwen3-chunk-length-s 15`
+- CUDA low-VRAM baseline: `--qwen3-batch-size 1 --qwen3-chunk-length-s 20`
+- Throughput-balanced baseline: `--qwen3-batch-size 2 --qwen3-chunk-length-s 30`
+
+Use these as starting points only; final memory/runtime behavior is determined by installed `qwen_asr` runtime/model internals.
 
 ### `--asr-no-speech-threshold <float>`
 
@@ -531,7 +562,7 @@ Optional silence/no-speech detection threshold.
 - Valid range: float in `[0.0, 1.0]`
 - Backend applicability:
   - `faster-whisper`: forwarded when set
-  - `qwen3-asr` / `whisperx` / `vibevoice` / `mock`: currently not consumed
+  - `qwen3-asr` / `whisperx` / `vibevoice` / `mock`: currently not consumed (unsupported by qwen3 backend and rejected deterministically)
 
 ### `--asr-logprob-threshold <float>`
 
@@ -541,7 +572,7 @@ Optional low-confidence token log-probability threshold.
 - Valid range: float in `[0.0, 1.0]`
 - Backend applicability:
   - `faster-whisper`: forwarded when set
-  - `qwen3-asr` / `whisperx` / `vibevoice` / `mock`: currently not consumed
+  - `qwen3-asr` / `whisperx` / `vibevoice` / `mock`: currently not consumed (unsupported by qwen3 backend and rejected deterministically)
 
 ### `--progress <on|off>`
 

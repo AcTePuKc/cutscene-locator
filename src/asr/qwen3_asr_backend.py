@@ -14,7 +14,7 @@ from .base import ASRResult, ASRSegment
 from .config import ASRConfig
 from .timestamp_normalization import normalize_asr_segments_for_contract
 
-_SUPPORTED_BACKEND_CONTROLS = ("language", "device", "dtype")
+_SUPPORTED_BACKEND_CONTROLS = ("language", "device", "dtype", "batch_size", "chunk_length_s")
 
 
 class Qwen3ASRBackend:
@@ -162,6 +162,10 @@ def _build_qwen_transcribe_candidate_kwargs(config: ASRConfig) -> dict[str, obje
         candidate_kwargs["language"] = config.language
     if config.temperature != 0.0:
         candidate_kwargs["temperature"] = config.temperature
+    if config.qwen3_batch_size is not None:
+        candidate_kwargs["batch_size"] = config.qwen3_batch_size
+    if config.qwen3_chunk_length_s is not None:
+        candidate_kwargs["chunk_length_s"] = config.qwen3_chunk_length_s
 
     return candidate_kwargs
 

@@ -744,6 +744,8 @@ class CliPhaseOneTests(unittest.TestCase):
         self.assertEqual(args.asr_best_of, 1)
         self.assertIsNone(args.asr_no_speech_threshold)
         self.assertIsNone(args.asr_logprob_threshold)
+        self.assertIsNone(args.qwen3_batch_size)
+        self.assertIsNone(args.qwen3_chunk_length_s)
 
     def test_invalid_asr_beam_size_exits_one(self) -> None:
         stderr = io.StringIO()
@@ -790,6 +792,52 @@ class CliPhaseOneTests(unittest.TestCase):
 
         self.assertEqual(code, 1)
         self.assertIn("Invalid --asr-temperature value", stderr.getvalue())
+
+    def test_invalid_qwen3_batch_size_exits_one(self) -> None:
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            code = cli.main(
+                [
+                    "--input",
+                    "in.wav",
+                    "--script",
+                    "script.tsv",
+                    "--out",
+                    "out",
+                    "--mock-asr",
+                    "tests/fixtures/mock_asr_valid.json",
+                    "--qwen3-batch-size",
+                    "0",
+                ],
+                which=lambda _: "/usr/bin/ffmpeg",
+                runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+            )
+
+        self.assertEqual(code, 1)
+        self.assertIn("Invalid --qwen3-batch-size value", stderr.getvalue())
+
+    def test_invalid_qwen3_chunk_length_exits_one(self) -> None:
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            code = cli.main(
+                [
+                    "--input",
+                    "in.wav",
+                    "--script",
+                    "script.tsv",
+                    "--out",
+                    "out",
+                    "--mock-asr",
+                    "tests/fixtures/mock_asr_valid.json",
+                    "--qwen3-chunk-length-s",
+                    "0",
+                ],
+                which=lambda _: "/usr/bin/ffmpeg",
+                runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+            )
+
+        self.assertEqual(code, 1)
+        self.assertIn("Invalid --qwen3-chunk-length-s value", stderr.getvalue())
 
     def test_asr_best_of_rejected_when_temperature_zero(self) -> None:
         stderr = io.StringIO()
@@ -1405,6 +1453,8 @@ class CliPhaseOneTests(unittest.TestCase):
                 model_path=Path("models/whisperx"),
                 device="cpu",
                 compute_type="float32",
+                qwen3_batch_size=3,
+                qwen3_chunk_length_s=12.5,
             )
             captured_cmd: list[str] = []
 
@@ -1426,6 +1476,8 @@ class CliPhaseOneTests(unittest.TestCase):
 
         self.assertIn("--asr-backend", captured_cmd)
         self.assertEqual(captured_cmd[captured_cmd.index("--asr-backend") + 1], "whisperx")
+        self.assertEqual(captured_cmd[captured_cmd.index("--qwen3-batch-size") + 1], "3")
+        self.assertEqual(captured_cmd[captured_cmd.index("--qwen3-chunk-length-s") + 1], "12.5")
         self.assertEqual(Path(captured_cmd[captured_cmd.index("--audio-path") + 1]), audio_path)
         self.assertEqual(Path(captured_cmd[captured_cmd.index("--model-path") + 1]), Path("models/whisperx"))
 

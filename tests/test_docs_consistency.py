@@ -245,6 +245,8 @@ class DocsCliFlagParityTests(unittest.TestCase):
             "--asr-beam-size": "### `--asr-beam-size <int>`",
             "--asr-temperature": "### `--asr-temperature <float>`",
             "--asr-best-of": "### `--asr-best-of <int>`",
+            "--qwen3-batch-size": "### `--qwen3-batch-size <int>`",
+            "--qwen3-chunk-length-s": "### `--qwen3-chunk-length-s <float>`",
             "--asr-no-speech-threshold": "### `--asr-no-speech-threshold <float>`",
             "--asr-logprob-threshold": "### `--asr-logprob-threshold <float>`",
             "--progress": "### `--progress <on|off>`",

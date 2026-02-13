@@ -27,6 +27,8 @@ class ASRConfig:
     best_of: int = 1
     no_speech_threshold: float | None = None
     log_prob_threshold: float | None = None
+    qwen3_batch_size: int | None = None
+    qwen3_chunk_length_s: float | None = None
     vad_filter: bool = False
     merge_short_segments_seconds: float = 0.0
     ffmpeg_path: str | None = None

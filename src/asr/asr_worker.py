@@ -62,6 +62,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--asr-beam-size", type=int)
     parser.add_argument("--asr-temperature", type=float)
     parser.add_argument("--asr-best-of", type=int)
+    parser.add_argument("--qwen3-batch-size", type=int, default=None)
+    parser.add_argument("--qwen3-chunk-length-s", type=float, default=None)
     parser.add_argument("--asr-no-speech-threshold", type=float, default=None)
     parser.add_argument("--asr-logprob-threshold", type=float, default=None)
     parser.add_argument("--verbose", action="store_true")
@@ -92,6 +94,8 @@ def _build_runtime_asr_config(args: argparse.Namespace) -> ASRConfig:
             beam_size=args.asr_beam_size,
             temperature=args.asr_temperature,
             best_of=args.asr_best_of,
+            qwen3_batch_size=args.qwen3_batch_size,
+            qwen3_chunk_length_s=args.qwen3_chunk_length_s,
         )
     if args.asr_backend in {"whisperx", "vibevoice"}:
         return ASRConfig(

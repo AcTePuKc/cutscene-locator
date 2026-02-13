@@ -202,6 +202,94 @@ class Qwen3ASRBackendTests(unittest.TestCase):
 
         self.assertEqual(transcribe_kwargs, [{"language": "en"}])
 
+    def test_transcribe_passes_qwen3_runtime_knobs_when_signature_supports_them(self) -> None:
+        backend = Qwen3ASRBackend()
+        transcribe_calls: list[dict[str, object]] = []
+
+        class _FakeModel:
+            def transcribe(
+                self,
+                audio_path: str,
+                *,
+                language: str | None = None,
+                batch_size: int | None = None,
+                chunk_length_s: float | None = None,
+            ):
+                del audio_path
+                transcribe_calls.append(
+                    {
+                        "language": language,
+                        "batch_size": batch_size,
+                        "chunk_length_s": chunk_length_s,
+                    }
+                )
+                return {"chunks": [{"timestamp": (0.0, 1.0), "text": "hello"}]}
+
+        class _FakeQwen3ASRModel:
+            @classmethod
+            def from_pretrained(cls, model_path: str, **kwargs: object):
+                del model_path
+                del kwargs
+                model = _FakeModel()
+                model.model = _TorchModuleWithTo()
+                return model
+
+        fake_qwen_asr = types.SimpleNamespace(Qwen3ASRModel=_FakeQwen3ASRModel)
+
+        with patch("src.asr.qwen3_asr_backend.import_module", return_value=fake_qwen_asr):
+            backend.transcribe(
+                "in.wav",
+                ASRConfig(
+                    backend_name="qwen3-asr",
+                    model_path=Path("models/Qwen3-ASR-0.6B"),
+                    device="cpu",
+                    language="en",
+                    qwen3_batch_size=4,
+                    qwen3_chunk_length_s=30.0,
+                ),
+            )
+
+        self.assertEqual(
+            transcribe_calls,
+            [{"language": "en", "batch_size": 4, "chunk_length_s": 30.0}],
+        )
+
+    def test_transcribe_ignores_qwen3_runtime_knobs_when_signature_unsupported(self) -> None:
+        backend = Qwen3ASRBackend()
+        transcribe_calls: list[dict[str, object]] = []
+
+        class _FakeModel:
+            def transcribe(self, audio_path: str, *, language: str | None = None):
+                del audio_path
+                transcribe_calls.append({"language": language})
+                return {"chunks": [{"timestamp": (0.0, 1.0), "text": "hello"}]}
+
+        class _FakeQwen3ASRModel:
+            @classmethod
+            def from_pretrained(cls, model_path: str, **kwargs: object):
+                del model_path
+                del kwargs
+                model = _FakeModel()
+                model.model = _TorchModuleWithTo()
+                return model
+
+        fake_qwen_asr = types.SimpleNamespace(Qwen3ASRModel=_FakeQwen3ASRModel)
+
+        with patch("src.asr.qwen3_asr_backend.import_module", return_value=fake_qwen_asr):
+            backend.transcribe(
+                "in.wav",
+                ASRConfig(
+                    backend_name="qwen3-asr",
+                    model_path=Path("models/Qwen3-ASR-0.6B"),
+                    device="cpu",
+                    language="en",
+                    qwen3_batch_size=4,
+                    qwen3_chunk_length_s=30.0,
+                ),
+            )
+
+        self.assertEqual(transcribe_calls, [{"language": "en"}])
+
     def test_transcribe_passes_temperature_only_when_signature_supports_it(self) -> None:
         backend = Qwen3ASRBackend()
         transcribe_calls: list[dict[str, object]] = []
@@ -548,7 +636,7 @@ class Qwen3ASRBackendTests(unittest.TestCase):
                     ),
                 )
 
-        self.assertIn("Supported backend controls are: language, device, dtype", str(ctx.exception))
+        self.assertIn("Supported backend controls are: language, device, dtype, batch_size, chunk_length_s", str(ctx.exception))
 
     def test_device_move_uses_top_level_to_when_model_attribute_missing(self) -> None:
         backend = Qwen3ASRBackend()
