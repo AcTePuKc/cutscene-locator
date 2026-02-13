@@ -192,6 +192,7 @@ Contract notes:
 ## Milestone 3 – Quality and tooling
 
 - [x] CLI docs/parser flag parity consistency test + declared-disabled backend definition consistency assertion (`tests/test_docs_consistency.py`, `docs/CLI.md`, `cli.py`)
+- [x] Matching scorer now uses weighted fuzzy composition with prefix/low-coverage penalties so first-word-only partial matches no longer dominate fuller sentence overlap; added regression tests for prefix-dominance cases (`src/match/engine.py`, `tests/test_matching.py`, `docs/STATUS.md`)
 - [ ] Unit test coverage for core modules
 - [x] Shared ASR/alignment contract regression test module consolidating duplicated schema assertions with backend-labeled failure messages (`cli.py`, `tests/test_asr_contracts.py`, `tests/test_qwen3_asr_backend.py`, `tests/test_qwen3_forced_aligner.py`)
 - [x] Test fixtures (audio + script) (`src/asr/timestamp_normalization.py`, `cli.py`, `tests/fixtures/script_integration_sample.tsv`, `tests/fixtures/asr_normalized_faster_whisper.json`, `tests/fixtures/asr_normalized_qwen3_asr.json`, `tests/fixtures/asr_normalized_whisperx_vibevoice.json`)
@@ -221,6 +222,8 @@ Contract notes:
 ---
 
 ## Change log (manual)
+- 2026-02-13 – Improved matching scorer maintainability by extracting weighted-composition and penalty tuning values into named constants (no behavior change), preserving deterministic scoring bounds and rounding while keeping existing prefix-dominance regressions. (`src/match/engine.py`, `tests/test_matching.py`, `docs/STATUS.md`).
+- 2026-02-13 – Updated matching similarity scoring to a deterministic weighted blend (`WRatio`, `token_set_ratio`, capped `partial_ratio`) with short-prefix/low-coverage penalties so first-word-only candidates no longer outrank fuller sentence overlaps; added regression tests for similarity and end-to-end candidate preference. (`src/match/engine.py`, `tests/test_matching.py`, `docs/STATUS.md`).
 - 2026-02-13 – Refined ASR worker decode default handling after review by centralizing worker numeric decode defaults as module constants and enforcing deterministic worker-side invariant `best_of=1` whenever `temperature=0.0` (including direct invocation/config-builder paths); added regression coverage for direct worker invocation with `--asr-temperature 0.0 --asr-best-of 5`. (`src/asr/asr_worker.py`, `tests/test_asr_worker.py`, `docs/STATUS.md`).
 - 2026-02-13 – Hardened ASR worker decode option construction so omitted worker numeric args never propagate `None` at runtime (`asr_beam_size`→1, `asr_temperature`→0.0, `asr_best_of`→1) while preserving deterministic temperature/best-of behavior from upstream CLI validation; added worker regression tests for parser defaults and config fallback paths. (`src/asr/asr_worker.py`, `tests/test_asr_worker.py`, `docs/STATUS.md`).
 - 2026-02-13 – Added deterministic alignment reference span conversion from script tables: stable file-order mapping (`id`→`ref_id`, `original`→`text`) with no text rewriting, skip-on-empty/invalid row behavior, verbose-only row diagnostics, unit fixture coverage, and docs contract updates (`src/align/reference_spans.py`, `src/align/__init__.py`, `cli.py`, `tests/test_reference_spans.py`, `tests/fixtures/script_alignment_reference_spans.tsv`, `docs/Data-contracts.md`, `docs/CLI.md`, `docs/STATUS.md`).
