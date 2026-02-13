@@ -300,8 +300,7 @@ def _run_faster_whisper_subprocess(
                 if completed.stdout:
                     print(f"----- ASR worker stdout -----\n{completed.stdout}", end="")
                 if completed.stderr:
-                    print("----- ASR worker stderr -----", file=sys.stderr)
-                    print(completed.stderr, file=sys.stderr, end="")
+                    print(f"----- ASR worker stderr -----\n{completed.stderr}", file=sys.stderr, end="")
             model_ref = str(asr_config.model_id or resolved_model_path)
             context = (
                 f"device={asr_config.device} compute_type={asr_config.compute_type} "
