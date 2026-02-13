@@ -1808,6 +1808,180 @@ class Qwen3RuntimeSmokeTests(unittest.TestCase):
 
 
 class CliAdapterDispatchTests(unittest.TestCase):
+    def test_cli_per_chunk_mode_dispatches_each_chunk_path_and_merges_global_timestamps(self) -> None:
+        fake_preprocess = SimpleNamespace(
+            canonical_wav_path=Path("out/_tmp/audio/canonical.wav"),
+            chunk_metadata=[
+                SimpleNamespace(
+                    chunk_index=2,
+                    absolute_offset_seconds=20.0,
+                    chunk_wav_path=Path("out/_tmp/chunks/chunk_000002.wav"),
+                ),
+                SimpleNamespace(
+                    chunk_index=0,
+                    absolute_offset_seconds=0.0,
+                    chunk_wav_path=Path("out/_tmp/chunks/chunk_000000.wav"),
+                ),
+                SimpleNamespace(
+                    chunk_index=1,
+                    absolute_offset_seconds=10.0,
+                    chunk_wav_path=Path("out/_tmp/chunks/chunk_000001.wav"),
+                ),
+            ],
+        )
+
+        dispatched_results = [
+            {
+                "segments": [{"segment_id": "local_b", "start": 0.20, "end": 0.40, "text": "Hello world"}],
+                "meta": {"backend": "mock", "model": "fixture", "version": "1", "device": "cpu"},
+            },
+            {
+                "segments": [{"segment_id": "local_a", "start": 0.10, "end": 0.20, "text": "Second line"}],
+                "meta": {"backend": "mock", "model": "fixture", "version": "1", "device": "cpu"},
+            },
+            {
+                "segments": [{"segment_id": "local_c", "start": 0.30, "end": 0.70, "text": "Hello world"}],
+                "meta": {"backend": "mock", "model": "fixture", "version": "1", "device": "cpu"},
+            },
+        ]
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            out_dir = Path(tmp_dir) / "out"
+            with patch("cli.preprocess_media", return_value=fake_preprocess):
+                with patch("cli.dispatch_asr_transcription", side_effect=dispatched_results) as dispatch_call:
+                    code = cli.main(
+                        [
+                            "--input",
+                            "in.wav",
+                            "--script",
+                            "tests/fixtures/script_sample.tsv",
+                            "--out",
+                            str(out_dir),
+                            "--asr-backend",
+                            "mock",
+                            "--mock-asr",
+                            "tests/fixtures/mock_asr_valid.json",
+                            "--asr-chunk-mode",
+                            "per-chunk",
+                            "--chunk",
+                            "10",
+                            "--match-threshold",
+                            "0.0",
+                        ],
+                        which=lambda _: "/usr/bin/ffmpeg",
+                        runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                    )
+
+                    self.assertEqual(code, 0)
+                    self.assertEqual(dispatch_call.call_count, 3)
+                    dispatched_paths = [call.kwargs["audio_path"] for call in dispatch_call.call_args_list]
+                    self.assertEqual(
+                        dispatched_paths,
+                        [
+                            "out/_tmp/chunks/chunk_000000.wav",
+                            "out/_tmp/chunks/chunk_000001.wav",
+                            "out/_tmp/chunks/chunk_000002.wav",
+                        ],
+                    )
+                    self.assertNotIn("out/_tmp/audio/canonical.wav", dispatched_paths)
+
+                    matches_lines = (out_dir / "matches.csv").read_text(encoding="utf-8").splitlines()
+                    self.assertEqual(len(matches_lines), 4)
+                    self.assertTrue(matches_lines[1].startswith("seg_0001,0.2,0.4,"))
+                    self.assertTrue(matches_lines[2].startswith("seg_0002,10.1,10.2,"))
+                    self.assertTrue(matches_lines[3].startswith("seg_0003,20.3,20.7,"))
+
+    def test_cli_canonical_mode_uses_single_dispatch_call_to_canonical_wav(self) -> None:
+        fake_preprocess = SimpleNamespace(
+            canonical_wav_path=Path("out/_tmp/audio/canonical.wav"),
+            chunk_metadata=[
+                SimpleNamespace(
+                    chunk_index=0,
+                    absolute_offset_seconds=0.0,
+                    chunk_wav_path=Path("out/_tmp/chunks/chunk_000000.wav"),
+                ),
+                SimpleNamespace(
+                    chunk_index=1,
+                    absolute_offset_seconds=10.0,
+                    chunk_wav_path=Path("out/_tmp/chunks/chunk_000001.wav"),
+                ),
+            ],
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            out_dir = Path(tmp_dir) / "out"
+            with patch("cli.preprocess_media", return_value=fake_preprocess):
+                with patch(
+                    "cli.dispatch_asr_transcription",
+                    return_value={
+                        "segments": [{"segment_id": "local_1", "start": 0.0, "end": 0.5, "text": "Hello world"}],
+                        "meta": {"backend": "mock", "model": "fixture", "version": "1", "device": "cpu"},
+                    },
+                ) as dispatch_call:
+                    code = cli.main(
+                        [
+                            "--input",
+                            "in.wav",
+                            "--script",
+                            "tests/fixtures/script_sample.tsv",
+                            "--out",
+                            str(out_dir),
+                            "--asr-backend",
+                            "mock",
+                            "--mock-asr",
+                            "tests/fixtures/mock_asr_valid.json",
+                            "--asr-chunk-mode",
+                            "canonical",
+                            "--chunk",
+                            "10",
+                            "--match-threshold",
+                            "0.0",
+                        ],
+                        which=lambda _: "/usr/bin/ffmpeg",
+                        runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                    )
+
+        self.assertEqual(code, 0)
+        self.assertEqual(dispatch_call.call_count, 1)
+        self.assertEqual(dispatch_call.call_args.kwargs["audio_path"], "out/_tmp/audio/canonical.wav")
+
+    def test_cli_per_chunk_mode_with_empty_chunk_metadata_fails_deterministically(self) -> None:
+        fake_preprocess = SimpleNamespace(
+            canonical_wav_path=Path("out/_tmp/audio/canonical.wav"),
+            chunk_metadata=[],
+        )
+
+        stderr = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            out_dir = Path(tmp_dir) / "out"
+            with patch("cli.preprocess_media", return_value=fake_preprocess):
+                with patch("cli.dispatch_asr_transcription") as dispatch_call:
+                    with redirect_stderr(stderr):
+                        code = cli.main(
+                            [
+                                "--input",
+                                "in.wav",
+                                "--script",
+                                "tests/fixtures/script_sample.tsv",
+                                "--out",
+                                str(out_dir),
+                                "--asr-backend",
+                                "mock",
+                                "--mock-asr",
+                                "tests/fixtures/mock_asr_valid.json",
+                                "--asr-chunk-mode",
+                                "per-chunk",
+                                "--chunk",
+                                "10",
+                            ],
+                            which=lambda _: "/usr/bin/ffmpeg",
+                            runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                        )
+
+        self.assertEqual(code, 1)
+        self.assertEqual(dispatch_call.call_count, 0)
+        self.assertIn("ASR dispatch produced no results for selected audio inputs.", stderr.getvalue())
+
     def test_resolve_asr_audio_paths_per_chunk_orders_by_chunk_index(self) -> None:
         preprocess_result = SimpleNamespace(
             canonical_wav_path=Path("out/_tmp/audio/canonical.wav"),
