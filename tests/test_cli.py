@@ -1041,7 +1041,75 @@ class CliPhaseOneTests(unittest.TestCase):
         self.assertIn("backend=faster-whisper", str(ctx.exception))
         self.assertIn("device=cuda", str(ctx.exception))
 
+    def test_worker_failure_non_verbose_keeps_output_clean(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            audio_path = Path(temp_dir) / "audio.wav"
+            audio_path.write_text("fake", encoding="utf-8")
+            config = cli.ASRConfig(
+                backend_name="faster-whisper",
+                model_path=Path("models/faster-whisper"),
+                device="cpu",
+                compute_type="float32",
+            )
+            stdout = io.StringIO()
+            stderr = io.StringIO()
 
+            completed = subprocess.CompletedProcess(
+                ["worker"],
+                17,
+                stdout="worker stdout trace\n",
+                stderr="worker stderr trace\n",
+            )
+            with patch("cli.subprocess.run", return_value=completed):
+                with redirect_stdout(stdout), redirect_stderr(stderr):
+                    with self.assertRaisesRegex(cli.CliError, "ASR worker failed with exit code 17"):
+                        cli._run_faster_whisper_subprocess(
+                            audio_path=audio_path,
+                            resolved_model_path=Path("models/faster-whisper"),
+                            asr_config=config,
+                            verbose=False,
+                        )
+
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertEqual(stderr.getvalue(), "")
+
+    def test_worker_failure_verbose_prints_stdout_then_stderr(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            audio_path = Path(temp_dir) / "audio.wav"
+            audio_path.write_text("fake", encoding="utf-8")
+            config = cli.ASRConfig(
+                backend_name="faster-whisper",
+                model_path=Path("models/faster-whisper"),
+                device="cpu",
+                compute_type="float32",
+            )
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+
+            completed = subprocess.CompletedProcess(
+                ["worker"],
+                19,
+                stdout="worker stdout trace\n",
+                stderr="worker stderr trace\n",
+            )
+            with patch("cli.subprocess.run", return_value=completed):
+                with redirect_stdout(stdout), redirect_stderr(stderr):
+                    with self.assertRaisesRegex(cli.CliError, "ASR worker failed with exit code 19"):
+                        cli._run_faster_whisper_subprocess(
+                            audio_path=audio_path,
+                            resolved_model_path=Path("models/faster-whisper"),
+                            asr_config=config,
+                            verbose=True,
+                        )
+
+        self.assertEqual(
+            stdout.getvalue(),
+            "----- ASR worker stdout -----\nworker stdout trace\n",
+        )
+        self.assertEqual(
+            stderr.getvalue(),
+            "----- ASR worker stderr -----\nworker stderr trace\n",
+        )
 
     def test_faster_whisper_worker_subprocess_uses_unbuffered_and_faulthandler(self) -> None:
         fake_payload = {

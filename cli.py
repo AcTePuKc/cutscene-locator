@@ -294,12 +294,15 @@ def _run_faster_whisper_subprocess(
             cmd.append("--verbose")
 
         completed = subprocess.run(cmd, check=False, capture_output=True, text=True)
-        if completed.stdout:
-            print(completed.stdout, end="")
-        if completed.stderr:
-            print(completed.stderr, file=sys.stderr, end="")
 
         if completed.returncode != 0:
+            if verbose:
+                if completed.stdout:
+                    print("----- ASR worker stdout -----")
+                    print(completed.stdout, end="")
+                if completed.stderr:
+                    print("----- ASR worker stderr -----", file=sys.stderr)
+                    print(completed.stderr, file=sys.stderr, end="")
             model_ref = str(asr_config.model_id or resolved_model_path)
             context = (
                 f"device={asr_config.device} compute_type={asr_config.compute_type} "
