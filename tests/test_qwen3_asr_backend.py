@@ -124,6 +124,49 @@ class Qwen3ASRBackendTests(unittest.TestCase):
         self.assertEqual(transcribe_kwargs[0], {"language": "en"})
 
 
+
+    def test_transcribe_never_forwards_return_timestamps(self) -> None:
+        backend = Qwen3ASRBackend()
+        transcribe_kwargs: list[dict[str, object]] = []
+
+        class _FakeModel:
+            def transcribe(
+                self,
+                audio_path: str,
+                *,
+                language: str | None = None,
+                return_timestamps: bool | None = None,
+            ):
+                del audio_path
+                transcribe_kwargs.append(
+                    {"language": language, "return_timestamps": return_timestamps}
+                )
+                return {"chunks": [{"timestamp": (0.0, 1.0), "text": "hello"}]}
+
+        class _FakeQwen3ASRModel:
+            @classmethod
+            def from_pretrained(cls, model_path: str, **kwargs: object):
+                del model_path
+                del kwargs
+                model = _FakeModel()
+                model.model = _TorchModuleWithTo()
+                return model
+
+        fake_qwen_asr = types.SimpleNamespace(Qwen3ASRModel=_FakeQwen3ASRModel)
+
+        with patch("src.asr.qwen3_asr_backend.import_module", return_value=fake_qwen_asr):
+            backend.transcribe(
+                "in.wav",
+                ASRConfig(
+                    backend_name="qwen3-asr",
+                    model_path=Path("models/Qwen3-ASR-0.6B"),
+                    device="cpu",
+                    language="en",
+                ),
+            )
+
+        self.assertEqual(transcribe_kwargs, [{"language": "en", "return_timestamps": None}])
+
     def test_transcribe_filters_kwargs_by_runtime_signature(self) -> None:
         backend = Qwen3ASRBackend()
         transcribe_kwargs: list[dict[str, object]] = []
