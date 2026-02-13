@@ -115,6 +115,41 @@ class Qwen3ASRBackendTests(unittest.TestCase):
         self.assertNotIn("temperature", transcribe_kwargs[0])
         self.assertEqual(transcribe_kwargs[0], {"language": "en", "return_timestamps": True})
 
+    def test_temperature_filtering_avoids_unsupported_generation_warning_path(self) -> None:
+        backend = Qwen3ASRBackend()
+
+        class _FakeModel:
+            def transcribe(self, audio_path: str, **kwargs: object):
+                del audio_path
+                if "temperature" in kwargs:
+                    raise RuntimeError("unsupported generation flag: temperature")
+                return {"chunks": [{"timestamp": (0.0, 1.0), "text": "hello"}]}
+
+        class _FakeQwen3ASRModel:
+            @classmethod
+            def from_pretrained(cls, model_path: str, **kwargs: object):
+                del model_path
+                del kwargs
+                model = _FakeModel()
+                model.model = _TorchModuleWithTo()
+                return model
+
+        fake_qwen_asr = types.SimpleNamespace(Qwen3ASRModel=_FakeQwen3ASRModel)
+
+        with patch("src.asr.qwen3_asr_backend.import_module", return_value=fake_qwen_asr):
+            result = backend.transcribe(
+                "in.wav",
+                ASRConfig(
+                    backend_name="qwen3-asr",
+                    model_path=Path("models/Qwen3-ASR-0.6B"),
+                    device="cpu",
+                    language="en",
+                    temperature=0.7,
+                ),
+            )
+
+        self.assertEqual(result["segments"][0]["text"], "hello")
+
     def test_from_pretrained_does_not_receive_device_kwarg(self) -> None:
         backend = Qwen3ASRBackend()
         from_pretrained_kwargs: list[dict[str, object]] = []
@@ -447,6 +482,55 @@ class Qwen3ASRBackendTests(unittest.TestCase):
                 self.assertIsInstance(verbose_ctx.exception.__cause__, RuntimeError)
                 self.assertTrue(any("Traceback (most recent call last):" in message for message in verbose_logs))
                 self.assertTrue(any(f"RuntimeError: {error_msg}" in message for message in verbose_logs))
+
+    def test_failure_keeps_exception_chain_and_verbose_traceback(self) -> None:
+        backend = Qwen3ASRBackend()
+
+        class _FakeModel:
+            def transcribe(self, audio_path: str, **kwargs: object):
+                del audio_path
+                del kwargs
+                raise RuntimeError("transcribe exploded")
+
+        class _FakeQwen3ASRModel:
+            @classmethod
+            def from_pretrained(cls, model_path: str, **kwargs: object):
+                del model_path
+                del kwargs
+                model = _FakeModel()
+                model.model = _TorchModuleWithTo()
+                return model
+
+        fake_qwen_asr = types.SimpleNamespace(Qwen3ASRModel=_FakeQwen3ASRModel)
+
+        with patch("src.asr.qwen3_asr_backend.import_module", return_value=fake_qwen_asr):
+            with self.assertRaises(ValueError) as non_verbose_ctx:
+                backend.transcribe(
+                    "in.wav",
+                    ASRConfig(
+                        backend_name="qwen3-asr",
+                        model_path=Path("models/qwen3"),
+                        device="cpu",
+                    ),
+                )
+        self.assertIsInstance(non_verbose_ctx.exception.__cause__, RuntimeError)
+
+        verbose_logs: list[str] = []
+        with patch("src.asr.qwen3_asr_backend.import_module", return_value=fake_qwen_asr):
+            with self.assertRaises(ValueError) as verbose_ctx:
+                backend.transcribe(
+                    "in.wav",
+                    ASRConfig(
+                        backend_name="qwen3-asr",
+                        model_path=Path("models/qwen3"),
+                        device="cpu",
+                        log_callback=verbose_logs.append,
+                    ),
+                )
+
+        self.assertIsInstance(verbose_ctx.exception.__cause__, RuntimeError)
+        self.assertTrue(any("Traceback (most recent call last):" in entry for entry in verbose_logs))
+        self.assertTrue(any("RuntimeError: transcribe exploded" in entry for entry in verbose_logs))
 
     def test_pathological_timestamps_are_rejected_without_fabrication(self) -> None:
         backend = Qwen3ASRBackend()

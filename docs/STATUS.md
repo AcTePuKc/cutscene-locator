@@ -377,3 +377,5 @@ Contract notes:
 - 2026-02-13 – Improved qwen3-asr failure diagnostics by preserving concise deterministic ValueError messages while emitting full traceback only when verbose logging callback is enabled; exceptions now keep original root cause chaining and tests verify verbose-only traceback output plus __cause__ preservation (`src/asr/qwen3_asr_backend.py`, `tests/test_qwen3_asr_backend.py`, `docs/STATUS.md`).
 
 - 2026-02-13 – Refactored qwen3-asr verbose traceback coverage into a single subTest-parameterized unit test to remove duplicated init/transcribe failure assertions while preserving deterministic diagnostics checks (`tests/test_qwen3_asr_backend.py`, `docs/STATUS.md`).
+
+- 2026-02-13 – Codified regression tests for qwen3-asr and CLI worker failure diagnostics: added a warning-path guard proving qwen transcribe kwargs never forward `temperature`, added failure-path coverage for verbose traceback emission plus preserved chained causes, and hardened CLI worker failure assertions for verbose/non-verbose stdout/stderr behavior with Windows-safe newline and path assertions (`tests/test_qwen3_asr_backend.py`, `tests/test_cli.py`, `docs/STATUS.md`).
