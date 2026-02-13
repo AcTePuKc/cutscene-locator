@@ -85,11 +85,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--asr-logprob-threshold", type=float, default=None)
     parser.add_argument("--progress", choices=("on", "off"), default=None)
     parser.add_argument("--asr-preflight-only", action="store_true")
+    parser.add_argument("--alignment-preflight-only", action="store_true")
     return parser
 
 
 def _validate_required_args(args: argparse.Namespace) -> None:
-    if args.asr_preflight_only:
+    if args.asr_preflight_only or args.alignment_preflight_only:
         return
 
     missing: list[str] = []
@@ -105,13 +106,22 @@ def _validate_required_args(args: argparse.Namespace) -> None:
 
 
 def _validate_backend(args: argparse.Namespace) -> None:
+    if args.asr_preflight_only and args.alignment_preflight_only:
+        raise CliError("Use only one preflight mode: --asr-preflight-only or --alignment-preflight-only.")
+
     backend_status_by_name = {status.name: status for status in list_backend_status()}
     status = backend_status_by_name.get(args.asr_backend)
-    if status is not None and getattr(status, "supports_alignment", False):
+    is_alignment_backend = bool(status is not None and getattr(status, "supports_alignment", False))
+    if is_alignment_backend and not args.alignment_preflight_only:
         raise CliError(
             f"'{status.name}' is an alignment backend and cannot be used with --asr-backend. "
             "Use the explicit alignment pipeline path and alignment input contract "
             "(`reference_spans[]`) instead of ASR-only transcription mode."
+        )
+    if args.alignment_preflight_only and status is not None and not is_alignment_backend:
+        raise CliError(
+            f"'{status.name}' is not an alignment backend and cannot be used with --alignment-preflight-only. "
+            "Use an alignment backend (for example, qwen3-forced-aligner)."
         )
     if status is not None and not status.enabled:
         missing_deps = tuple(status.missing_dependencies)
@@ -136,9 +146,17 @@ def _validate_backend(args: argparse.Namespace) -> None:
     if registration.name == "mock" and not args.mock_asr_path:
         raise CliError("--mock-asr is required when --asr-backend mock is used.")
 
-    requirements = CapabilityRequirements(
-        requires_segment_timestamps=True,
-        allows_alignment_backends=False,
+    requirements = (
+        CapabilityRequirements(
+            requires_segment_timestamps=False,
+            allows_alignment_backends=True,
+            requires_deterministic_timestamps=False,
+        )
+        if args.alignment_preflight_only
+        else CapabilityRequirements(
+            requires_segment_timestamps=True,
+            allows_alignment_backends=False,
+        )
     )
     try:
         validate_backend_capabilities(
@@ -378,6 +396,7 @@ def _print_faster_whisper_cuda_preflight(*, device: str, compute_type: str) -> N
 
 def _build_preflight_output(
     *,
+    mode: str,
     asr_config: ASRConfig,
     backend_name: str,
     timestamp_guarantee: str,
@@ -387,7 +406,7 @@ def _build_preflight_output(
     cuda_probe_label: str | None,
 ) -> dict[str, object]:
     output: dict[str, object] = {
-        "mode": "asr_preflight_only",
+        "mode": mode,
         "backend": backend_name,
         "model_resolution": {
             "requested": {
@@ -456,12 +475,52 @@ def _run_asr_preflight_only(
         resolution_reason = "mock backend does not require device probing"
 
     payload = _build_preflight_output(
+        mode="asr_preflight_only",
         asr_config=asr_config,
         backend_name=backend_registration.name,
         timestamp_guarantee=getattr(backend_registration.capabilities, "timestamp_guarantee", "segment-level"),
         supports_alignment=getattr(backend_registration.capabilities, "supports_alignment", False),
         resolved_model_path=resolved_model_path,
         device_resolution_reason=resolution_reason,
+        cuda_probe_label=cuda_probe_label,
+    )
+    print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+    return 0
+
+
+def _run_alignment_preflight_only(*, asr_config: ASRConfig) -> int:
+    try:
+        resolved_model_path = resolve_model_path(asr_config)
+    except ModelResolutionError as exc:
+        raise CliError(str(exc)) from exc
+
+    backend_registration = get_backend(asr_config.backend_name)
+    requirements = CapabilityRequirements(
+        requires_segment_timestamps=False,
+        allows_alignment_backends=True,
+        requires_deterministic_timestamps=False,
+    )
+    validate_backend_capabilities(
+        backend_registration,
+        requires_segment_timestamps=requirements.requires_segment_timestamps,
+        allows_alignment_backends=requirements.allows_alignment_backends,
+        requires_deterministic_timestamps=requirements.requires_deterministic_timestamps,
+    )
+
+    cuda_checker, cuda_probe_label = select_cuda_probe(backend_registration.name)
+    resolution = resolve_device_with_details(
+        asr_config.device,
+        cuda_available_checker=cuda_checker,
+        cuda_probe_reason_label=cuda_probe_label,
+    )
+    payload = _build_preflight_output(
+        mode="alignment_preflight_only",
+        asr_config=asr_config,
+        backend_name=backend_registration.name,
+        timestamp_guarantee=getattr(backend_registration.capabilities, "timestamp_guarantee", "alignment-required"),
+        supports_alignment=getattr(backend_registration.capabilities, "supports_alignment", False),
+        resolved_model_path=resolved_model_path,
+        device_resolution_reason=resolution.reason,
         cuda_probe_label=cuda_probe_label,
     )
     print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
@@ -519,6 +578,8 @@ def main(
         )
         if args.asr_preflight_only:
             return _run_asr_preflight_only(args=args, asr_config=asr_config)
+        if args.alignment_preflight_only:
+            return _run_alignment_preflight_only(asr_config=asr_config)
 
         ffmpeg_binary = resolve_ffmpeg_binary(args.ffmpeg_path, which=which)
         asr_config = ASRConfig(

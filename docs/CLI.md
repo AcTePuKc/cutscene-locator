@@ -323,6 +323,40 @@ Qwen readiness/smoke checks (optional, env-gated):
 
 ---
 
+### `--alignment-preflight-only`
+
+Run forced-alignment backend readiness checks only, then exit before ingest/transcription/matching/exports.
+
+This mode is distinct from `--asr-preflight-only` and is intended for deterministic validation of alignment-only backends (for example `qwen3-forced-aligner`) without requiring media/script/output pipeline arguments.
+
+This mode performs only:
+
+- alignment backend availability/capability validation,
+- model resolution via existing model-resolution rules,
+- backend-specific device probing via the same runtime device-resolution logic.
+
+Stdout contract: alignment preflight emits **exactly one line** containing one JSON object serialized with sorted keys and compact separators (`json.dumps(..., sort_keys=True, separators=(',', ':'))`).
+
+Example:
+
+```bash
+cutscene-locator --alignment-preflight-only --asr-backend qwen3-forced-aligner --model-path models/qwen3-forced-aligner
+```
+
+Example output shape:
+
+```json
+{"backend":"qwen3-forced-aligner","capabilities":{"supports_alignment":true,"timestamp_guarantee":"alignment-required"},"device":{"compute_type":"auto","cuda_probe_label":"ctranslate2","requested":"auto","resolution_reason":"--device auto selected cpu because ctranslate2 CUDA probe reported unavailable"},"mode":"alignment_preflight_only","model_resolution":{"requested":{"auto_download":null,"model_id":null,"model_path":"models/qwen3-forced-aligner","revision":null},"resolved_model_path":"models/qwen3-forced-aligner"}}
+```
+
+Behavior notes:
+
+- Skips `--input`, `--script`, and `--out` requirements in alignment preflight mode.
+- Requires an alignment backend; non-alignment ASR backends are rejected with deterministic guidance.
+- Does not run ffmpeg preflight, ingest/preprocess, transcription, matching, scene reconstruction, or exports.
+
+---
+
 ### `--mock-asr <file>`
 
 Path to mock ASR JSON output.
