@@ -1731,5 +1731,108 @@ class CliAdapterDispatchTests(unittest.TestCase):
         self.assertIn("No ASR adapter registered", stderr.getvalue())
 
 
+    def test_qwen_text_only_transcript_only_output_fails_with_forced_alignment_guidance(self) -> None:
+        stderr = io.StringIO()
+        backend_registration = SimpleNamespace(
+            name="qwen3-asr",
+            capabilities=SimpleNamespace(
+                supports_segment_timestamps=True,
+                supports_alignment=False,
+                timestamp_guarantee="text-only",
+            ),
+        )
+        enabled_status = SimpleNamespace(
+            name="qwen3-asr",
+            enabled=True,
+            missing_dependencies=(),
+            reason="enabled",
+            install_extra="asr_qwen3",
+            supports_alignment=False,
+        )
+        fake_preprocess = SimpleNamespace(canonical_wav_path=Path("out/_tmp/canonical.wav"), chunk_metadata=[])
+
+        with patch("cli.list_backend_status", return_value=[enabled_status]):
+            with patch("cli.get_backend", return_value=backend_registration):
+                with patch("cli.preprocess_media", return_value=fake_preprocess):
+                    with patch("cli.load_script_table", return_value=SimpleNamespace(rows=[], delimiter="\t")):
+                        with patch("cli.resolve_model_path", return_value=Path("models/qwen3-asr")):
+                            with patch(
+                                "cli.dispatch_asr_transcription",
+                                side_effect=ValueError(
+                                    "qwen3-asr backend did not return timestamped chunks. "
+                                    "Expected a non-empty 'chunks' list with per-segment timestamps; "
+                                    "qwen3-asr may emit text-only output depending on runtime/model behavior."
+                                ),
+                            ):
+                                with patch("cli.match_segments_to_script") as matching_call:
+                                    with redirect_stderr(stderr):
+                                        code = cli.main(
+                                            [
+                                                "--input",
+                                                "in.wav",
+                                                "--script",
+                                                "script.tsv",
+                                                "--out",
+                                                "out",
+                                                "--asr-backend",
+                                                "qwen3-asr",
+                                            ],
+                                            which=lambda _: "/usr/bin/ffmpeg",
+                                            runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                                        )
+
+        self.assertEqual(code, 1)
+        self.assertIn("timestamp_guarantee='text-only'", stderr.getvalue())
+        self.assertIn("Run explicit forced alignment first", stderr.getvalue())
+        self.assertIn("qwen3-forced-aligner", stderr.getvalue())
+        matching_call.assert_not_called()
+
+    def test_non_text_only_timestamp_errors_are_not_rewritten(self) -> None:
+        stderr = io.StringIO()
+        backend_registration = SimpleNamespace(
+            name="faster-whisper",
+            capabilities=SimpleNamespace(
+                supports_segment_timestamps=True,
+                supports_alignment=False,
+                timestamp_guarantee="segment-level",
+            ),
+        )
+        enabled_status = SimpleNamespace(
+            name="faster-whisper",
+            enabled=True,
+            missing_dependencies=(),
+            reason="enabled",
+            install_extra="asr_faster_whisper",
+            supports_alignment=False,
+        )
+        fake_preprocess = SimpleNamespace(canonical_wav_path=Path("out/_tmp/canonical.wav"), chunk_metadata=[])
+
+        with patch("cli.list_backend_status", return_value=[enabled_status]):
+            with patch("cli.get_backend", return_value=backend_registration):
+                with patch("cli.preprocess_media", return_value=fake_preprocess):
+                    with patch("cli.load_script_table", return_value=SimpleNamespace(rows=[], delimiter="\t")):
+                        with patch("cli.resolve_model_path", return_value=Path("models/faster-whisper/tiny")):
+                            with patch("cli.dispatch_asr_transcription", side_effect=ValueError("backend timestamp parse failure")):
+                                with redirect_stderr(stderr):
+                                    code = cli.main(
+                                        [
+                                            "--input",
+                                            "in.wav",
+                                            "--script",
+                                            "script.tsv",
+                                            "--out",
+                                            "out",
+                                            "--asr-backend",
+                                            "faster-whisper",
+                                        ],
+                                        which=lambda _: "/usr/bin/ffmpeg",
+                                        runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                                    )
+
+        self.assertEqual(code, 1)
+        self.assertIn("backend timestamp parse failure", stderr.getvalue())
+        self.assertNotIn("Run explicit forced alignment first", stderr.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()

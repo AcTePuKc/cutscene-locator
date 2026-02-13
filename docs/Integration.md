@@ -197,6 +197,8 @@ Registry capability metadata also includes `timestamp_guarantee` so downstream l
 - `segment-level`: deterministic segment timestamps are available directly from ASR output.
 - `alignment-required`: backend is not an ASR transcript generator and must run through forced alignment contracts.
 
+When runtime ASR output is transcript-only (for example, `qwen3-asr` returns text chunks without deterministic timestamps), the ASR→matching bridge must fail fast with an actionable deterministic error and must not continue into matching/scene reconstruction. The error must direct callers to run explicit forced alignment (for example, `qwen3-forced-aligner` via the alignment pipeline).
+
 `qwen3-asr` is explicitly `text-only`; `qwen3-forced-aligner` remains a separate `alignment-required` backend.
 
 ---

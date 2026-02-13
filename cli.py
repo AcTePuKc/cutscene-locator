@@ -527,6 +527,15 @@ def _run_alignment_preflight_only(*, asr_config: ASRConfig) -> int:
     return 0
 
 
+def _build_text_only_timestamp_error(*, backend_name: str, reason: str) -> CliError:
+    return CliError(
+        f"ASR backend '{backend_name}' is marked timestamp_guarantee='text-only' and returned transcript-only output "
+        "without deterministic segment timestamps required by matching/scene reconstruction. "
+        "Run explicit forced alignment first (for example, qwen3-forced-aligner via the alignment pipeline) "
+        f"to produce deterministic timing. Runtime details: {reason}"
+    )
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -652,18 +661,24 @@ def main(
         asr_started = time.perf_counter()
         if args.verbose:
             print("stage: asr start")
-        asr_result = dispatch_asr_transcription(
-            audio_path=str(preprocessing_output.canonical_wav_path),
-            config=asr_config,
-            context=ASRExecutionContext(
-                resolved_model_path=resolved_model_path,
-                verbose=args.verbose,
-                mock_asr_path=args.mock_asr_path,
-                run_faster_whisper_subprocess=_run_faster_whisper_subprocess,
-                faster_whisper_preflight=_print_faster_whisper_cuda_preflight,
-            ),
-            requirements=requirements,
-        )
+        try:
+            asr_result = dispatch_asr_transcription(
+                audio_path=str(preprocessing_output.canonical_wav_path),
+                config=asr_config,
+                context=ASRExecutionContext(
+                    resolved_model_path=resolved_model_path,
+                    verbose=args.verbose,
+                    mock_asr_path=args.mock_asr_path,
+                    run_faster_whisper_subprocess=_run_faster_whisper_subprocess,
+                    faster_whisper_preflight=_print_faster_whisper_cuda_preflight,
+                ),
+                requirements=requirements,
+            )
+        except ValueError as exc:
+            timestamp_guarantee = getattr(backend_registration.capabilities, "timestamp_guarantee", "segment-level")
+            if timestamp_guarantee == "text-only" and "timestamp" in str(exc).lower():
+                raise _build_text_only_timestamp_error(backend_name=backend_registration.name, reason=str(exc)) from exc
+            raise
         asr_result = apply_cross_chunk_continuity(
             asr_result=asr_result,
             chunk_offsets_by_index={
