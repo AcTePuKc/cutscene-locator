@@ -202,6 +202,85 @@ class Qwen3ASRBackendTests(unittest.TestCase):
 
         self.assertEqual(transcribe_kwargs, [{"language": "en"}])
 
+
+    def test_transcribe_uses_signature_filter_when_transcribe_is_callable_attribute(self) -> None:
+        backend = Qwen3ASRBackend()
+        transcribe_calls: list[dict[str, object]] = []
+
+        class _FakeTranscriber:
+            def __call__(
+                self,
+                audio_path: str,
+                *,
+                language: str | None = None,
+                batch_size: int | None = None,
+            ):
+                del audio_path
+                transcribe_calls.append({"language": language, "batch_size": batch_size})
+                return {"chunks": [{"timestamp": (0.0, 1.0), "text": "hello"}]}
+
+        class _FakeModel:
+            def __init__(self) -> None:
+                self.transcribe = _FakeTranscriber()
+
+        class _FakeQwen3ASRModel:
+            @classmethod
+            def from_pretrained(cls, model_path: str, **kwargs: object):
+                del model_path
+                del kwargs
+                model = _FakeModel()
+                model.model = _TorchModuleWithTo()
+                return model
+
+        fake_qwen_asr = types.SimpleNamespace(Qwen3ASRModel=_FakeQwen3ASRModel)
+
+        with patch("src.asr.qwen3_asr_backend.import_module", return_value=fake_qwen_asr):
+            backend.transcribe(
+                "in.wav",
+                ASRConfig(
+                    backend_name="qwen3-asr",
+                    model_path=Path("models/Qwen3-ASR-0.6B"),
+                    device="cpu",
+                    language="en",
+                    qwen3_batch_size=4,
+                    qwen3_chunk_length_s=30.0,
+                ),
+            )
+
+        self.assertEqual(transcribe_calls, [{"language": "en", "batch_size": 4}])
+
+    def test_transcribe_falls_back_when_transcribe_attribute_is_non_callable(self) -> None:
+        backend = Qwen3ASRBackend()
+
+        class _FakeModel:
+            def __init__(self) -> None:
+                self.transcribe = "not-callable"
+
+        class _FakeQwen3ASRModel:
+            @classmethod
+            def from_pretrained(cls, model_path: str, **kwargs: object):
+                del model_path
+                del kwargs
+                model = _FakeModel()
+                model.model = _TorchModuleWithTo()
+                return model
+
+        fake_qwen_asr = types.SimpleNamespace(Qwen3ASRModel=_FakeQwen3ASRModel)
+
+        with patch("src.asr.qwen3_asr_backend.import_module", return_value=fake_qwen_asr):
+            with self.assertRaises(ValueError) as ctx:
+                backend.transcribe(
+                    "in.wav",
+                    ASRConfig(
+                        backend_name="qwen3-asr",
+                        model_path=Path("models/Qwen3-ASR-0.6B"),
+                        device="cpu",
+                        language="en",
+                        qwen3_batch_size=4,
+                    ),
+                )
+
+        self.assertIn("qwen3-asr transcription failed", str(ctx.exception))
     def test_transcribe_passes_qwen3_runtime_knobs_when_signature_supports_them(self) -> None:
         backend = Qwen3ASRBackend()
         transcribe_calls: list[dict[str, object]] = []
