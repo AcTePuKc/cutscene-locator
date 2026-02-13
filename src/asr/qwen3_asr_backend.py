@@ -32,8 +32,8 @@ class Qwen3ASRBackend:
             qwen_asr_module = import_module("qwen_asr")
         except ModuleNotFoundError as exc:
             raise ValueError(
-                "qwen3-asr backend requires optional dependencies. "
-                "Install them with: pip install 'cutscene-locator[asr_qwen3]'"
+                "qwen3-asr backend requires optional dependencies and the `qwen_asr` import target. "
+                "Install them with: pip install 'cutscene-locator[asr_qwen3]' and verify `import qwen_asr` works."
             ) from exc
 
         qwen_model_class = getattr(qwen_asr_module, "Qwen3ASRModel", None)

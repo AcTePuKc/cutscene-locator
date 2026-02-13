@@ -52,6 +52,22 @@ class ASRRegistryTests(unittest.TestCase):
             "missing optional dependencies: torch, qwen_asr",
         )
 
+    def test_registry_checks_qwen_import_target_with_underscore_name(self) -> None:
+        requested: list[str] = []
+
+        def fake_find_spec(name: str) -> object | None:
+            requested.append(name)
+            if name == "qwen_asr":
+                return None
+            return object()
+
+        with patch("src.asr.registry.find_spec", side_effect=fake_find_spec):
+            statuses = {status.name: status for status in list_backend_status()}
+
+        self.assertIn("qwen_asr", requested)
+        self.assertNotIn("qwen-asr", requested)
+        self.assertEqual(statuses["qwen3-asr"].missing_dependencies, ("qwen_asr",))
+
 
     def test_registry_reports_whisperx_disabled_dependencies(self) -> None:
         def fake_find_spec(name: str) -> object | None:
