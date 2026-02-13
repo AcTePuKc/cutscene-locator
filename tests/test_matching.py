@@ -98,6 +98,89 @@ class MatchingEngineTests(unittest.TestCase):
 
         self.assertEqual(output.matches[0].matched_id, "S02")
 
+
+    def test_quick_filter_rejects_first_word_only_overlap(self) -> None:
+        script_table = ScriptTable(
+            delimiter="	",
+            columns=["id", "original"],
+            rows=[
+                ScriptRow(
+                    row_number=2,
+                    values={"id": "S01", "original": "hello"},
+                    normalized_original="hello",
+                ),
+                ScriptRow(
+                    row_number=3,
+                    values={"id": "S02", "original": "hello there general kenobi indeed"},
+                    normalized_original="hello there general kenobi indeed",
+                ),
+            ],
+        )
+        asr_result: ASRResult = {
+            "segments": [
+                {
+                    "segment_id": "seg_0001",
+                    "start": 0.0,
+                    "end": 1.0,
+                    "text": "hello there general kenobi",
+                }
+            ],
+            "meta": {"backend": "mock", "model": "unknown", "version": "1.0", "device": "cpu"},
+        }
+        progress_logger = Mock()
+
+        with patch("src.match.engine._similarity_score", wraps=_similarity_score) as similarity_mock:
+            output = match_segments_to_script(
+                asr_result=asr_result,
+                script_table=script_table,
+                progress_logger=progress_logger,
+            )
+
+        self.assertEqual(output.matches[0].matched_id, "S02")
+        self.assertEqual(similarity_mock.call_count, 1)
+        self.assertFalse(
+            any(
+                "quick-filter rejected all" in call.args[0]
+                for call in progress_logger.call_args_list
+            )
+        )
+
+    def test_quick_filter_keeps_legitimate_short_line_match(self) -> None:
+        script_table = ScriptTable(
+            delimiter="	",
+            columns=["id", "original"],
+            rows=[
+                ScriptRow(
+                    row_number=2,
+                    values={"id": "S01", "original": "on me"},
+                    normalized_original="on me",
+                ),
+                ScriptRow(
+                    row_number=3,
+                    values={"id": "S02", "original": "off target"},
+                    normalized_original="off target",
+                ),
+            ],
+        )
+        asr_result: ASRResult = {
+            "segments": [
+                {
+                    "segment_id": "seg_0001",
+                    "start": 0.0,
+                    "end": 1.0,
+                    "text": "on me",
+                }
+            ],
+            "meta": {"backend": "mock", "model": "unknown", "version": "1.0", "device": "cpu"},
+        }
+
+        output = match_segments_to_script(
+            asr_result=asr_result,
+            script_table=script_table,
+        )
+
+        self.assertEqual(output.matches[0].matched_id, "S01")
+
     def test_uses_rapidfuzz_wratio_for_similarity(self) -> None:
         script_table = load_script_table(Path("tests/fixtures/script_sample.tsv"))
         asr_result: ASRResult = {
@@ -235,7 +318,7 @@ class MatchingEngineTests(unittest.TestCase):
             progress_logger=progress_logger,
         )
 
-        progress_logger.assert_called_once_with("Verbose: matching progress 2/2 segments")
+        self.assertEqual(progress_logger.call_args_list[-1].args[0], "Verbose: matching progress 2/2 segments")
 
     def test_monotonic_window_biases_following_rows(self) -> None:
         script_table = load_script_table(Path("tests/fixtures/script_sample.tsv"))
