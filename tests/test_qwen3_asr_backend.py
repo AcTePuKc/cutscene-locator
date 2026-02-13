@@ -382,6 +382,101 @@ class Qwen3ASRBackendTests(unittest.TestCase):
 
         self.assertEqual(result["segments"], fixture["expected"])
 
+
+    def test_model_init_failure_logs_traceback_only_with_verbose_log_callback(self) -> None:
+        backend = Qwen3ASRBackend()
+
+        class _FakeQwen3ASRModel:
+            @classmethod
+            def from_pretrained(cls, model_path: str, **kwargs: object):
+                del model_path
+                del kwargs
+                raise RuntimeError("init failed")
+
+        fake_qwen_asr = types.SimpleNamespace(Qwen3ASRModel=_FakeQwen3ASRModel)
+
+        with patch("src.asr.qwen3_asr_backend.import_module", return_value=fake_qwen_asr):
+            with self.assertRaises(ValueError) as non_verbose_ctx:
+                backend.transcribe(
+                    "in.wav",
+                    ASRConfig(
+                        backend_name="qwen3-asr",
+                        model_path=Path("models/qwen3"),
+                        device="cpu",
+                        log_callback=None,
+                    ),
+                )
+
+        self.assertIsInstance(non_verbose_ctx.exception.__cause__, RuntimeError)
+
+        verbose_logs: list[str] = []
+        with patch("src.asr.qwen3_asr_backend.import_module", return_value=fake_qwen_asr):
+            with self.assertRaises(ValueError) as verbose_ctx:
+                backend.transcribe(
+                    "in.wav",
+                    ASRConfig(
+                        backend_name="qwen3-asr",
+                        model_path=Path("models/qwen3"),
+                        device="cpu",
+                        log_callback=verbose_logs.append,
+                    ),
+                )
+
+        self.assertIsInstance(verbose_ctx.exception.__cause__, RuntimeError)
+        self.assertTrue(any("Traceback (most recent call last):" in message for message in verbose_logs))
+        self.assertTrue(any("RuntimeError: init failed" in message for message in verbose_logs))
+
+    def test_transcribe_failure_logs_traceback_only_with_verbose_log_callback(self) -> None:
+        backend = Qwen3ASRBackend()
+
+        class _FakeModel:
+            def transcribe(self, audio_path: str, **kwargs: object):
+                del audio_path
+                del kwargs
+                raise RuntimeError("transcribe failed")
+
+        class _FakeQwen3ASRModel:
+            @classmethod
+            def from_pretrained(cls, model_path: str, **kwargs: object):
+                del model_path
+                del kwargs
+                model = _FakeModel()
+                model.model = _TorchModuleWithTo()
+                return model
+
+        fake_qwen_asr = types.SimpleNamespace(Qwen3ASRModel=_FakeQwen3ASRModel)
+
+        with patch("src.asr.qwen3_asr_backend.import_module", return_value=fake_qwen_asr):
+            with self.assertRaises(ValueError) as non_verbose_ctx:
+                backend.transcribe(
+                    "in.wav",
+                    ASRConfig(
+                        backend_name="qwen3-asr",
+                        model_path=Path("models/qwen3"),
+                        device="cpu",
+                        log_callback=None,
+                    ),
+                )
+
+        self.assertIsInstance(non_verbose_ctx.exception.__cause__, RuntimeError)
+
+        verbose_logs: list[str] = []
+        with patch("src.asr.qwen3_asr_backend.import_module", return_value=fake_qwen_asr):
+            with self.assertRaises(ValueError) as verbose_ctx:
+                backend.transcribe(
+                    "in.wav",
+                    ASRConfig(
+                        backend_name="qwen3-asr",
+                        model_path=Path("models/qwen3"),
+                        device="cpu",
+                        log_callback=verbose_logs.append,
+                    ),
+                )
+
+        self.assertIsInstance(verbose_ctx.exception.__cause__, RuntimeError)
+        self.assertTrue(any("Traceback (most recent call last):" in message for message in verbose_logs))
+        self.assertTrue(any("RuntimeError: transcribe failed" in message for message in verbose_logs))
+
     def test_pathological_timestamps_are_rejected_without_fabrication(self) -> None:
         backend = Qwen3ASRBackend()
 
