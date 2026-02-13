@@ -683,7 +683,9 @@ Minimum confidence score for “high-confidence” matches.
 Quick-filter minimum token-overlap score used before expensive fuzzy scoring.
 
 - Default: `0.25`
-- Set to `0.0` to disable quick-filter pruning.
+- The gate has two checks: candidate overlap score must be `>= --match-quick-threshold`, and it must also pass a minimum coverage guard (`>=2` shared unique tokens or at least `0.5` overlap coverage against the larger token set).
+- Set to `0.0` to disable only the score threshold; the minimum coverage guard still rejects weak first-word-only overlaps.
+- If the gate rejects every reduced candidate for a segment, matching deterministically falls back to scoring the full reduced set (verbose mode logs the fallback reason).
 - Valid range: float (recommended `[0.0, 1.0]`)
 - Backend applicability: all backends (post-ASR matching)
 

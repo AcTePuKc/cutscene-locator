@@ -22,6 +22,8 @@ _SINGLE_WORD_OVERLAP_PENALTY = 0.7
 _COVERAGE_RATIO_THRESHOLD = 0.45
 _MIN_COVERAGE_PENALTY_FACTOR = 0.4
 _MAX_FUZZ_SCORE = 100.0
+_QUICK_FILTER_MIN_SHARED_TOKENS = 2
+_QUICK_FILTER_MIN_MAX_COVERAGE_RATIO = 0.5
 
 @dataclass(frozen=True)
 class MatchResult:
@@ -105,17 +107,54 @@ def _tokenize(text: str) -> list[str]:
     return stripped.split()
 
 
-def _quick_filter_score(asr_tokens: list[str], candidate_tokens: list[str]) -> float:
+def _quick_filter_stats(
+    asr_tokens: list[str],
+    candidate_tokens: list[str],
+) -> tuple[float, int, float]:
+    """Return quick score, overlap count, and max-set coverage ratio."""
+
     if not asr_tokens and not candidate_tokens:
-        return 1.0
+        return 1.0, 0, 1.0
     if not asr_tokens or not candidate_tokens:
-        return 0.0
+        return 0.0, 0, 0.0
 
     asr_set = set(asr_tokens)
     candidate_set = set(candidate_tokens)
     overlap = len(asr_set.intersection(candidate_set))
-    denom = max(1, min(len(asr_set), len(candidate_set)))
-    return overlap / float(denom)
+
+    quick_denom = max(1, min(len(asr_set), len(candidate_set)))
+    quick_score = overlap / float(quick_denom)
+
+    coverage_denom = max(len(asr_set), len(candidate_set))
+    max_coverage_ratio = overlap / float(coverage_denom)
+
+    return quick_score, overlap, max_coverage_ratio
+
+
+def _quick_filter_score(asr_tokens: list[str], candidate_tokens: list[str]) -> float:
+    quick_score, _, _ = _quick_filter_stats(asr_tokens, candidate_tokens)
+    return quick_score
+
+
+def _quick_filter_passes(
+    *,
+    asr_tokens: list[str],
+    candidate_tokens: list[str],
+    quick_filter_threshold: float,
+) -> bool:
+    if not asr_tokens and not candidate_tokens:
+        return True
+    if not asr_tokens or not candidate_tokens:
+        return False
+
+    quick_score, overlap, max_coverage_ratio = _quick_filter_stats(asr_tokens, candidate_tokens)
+    if quick_score < quick_filter_threshold:
+        return False
+
+    if overlap >= _QUICK_FILTER_MIN_SHARED_TOKENS:
+        return True
+
+    return max_coverage_ratio >= _QUICK_FILTER_MIN_MAX_COVERAGE_RATIO
 
 
 def _build_script_indexes(
@@ -248,8 +287,11 @@ def match_segments_to_script(
         scored_candidates: list[tuple[float, str, int, str]] = []
         for row_idx in sorted(candidate_indexes):
             row = script_table.rows[row_idx]
-            quick_score = _quick_filter_score(asr_tokens, token_rows[row_idx])
-            if quick_score < effective_config.quick_filter_threshold:
+            if not _quick_filter_passes(
+                asr_tokens=asr_tokens,
+                candidate_tokens=token_rows[row_idx],
+                quick_filter_threshold=effective_config.quick_filter_threshold,
+            ):
                 continue
 
             line_id = row.values["id"]
@@ -257,6 +299,12 @@ def match_segments_to_script(
             scored_candidates.append((score, line_id, row.row_number, row.values["original"]))
 
         if not scored_candidates:
+            if progress_logger is not None:
+                progress_logger(
+                    "Verbose: quick-filter rejected all "
+                    f"{len(candidate_indexes)} candidates for segment {segment['segment_id']}; "
+                    "falling back to full candidate scoring"
+                )
             for row_idx in sorted(candidate_indexes):
                 row = script_table.rows[row_idx]
                 line_id = row.values["id"]
