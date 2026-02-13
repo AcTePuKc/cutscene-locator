@@ -84,6 +84,7 @@ All agents must update this file when completing or modifying tasks.
 - [x] Exit codes
 - [x] Verbose logging
 - [x] Error handling
+- [x] Worker failure diagnostics preserve clean non-verbose failures and emit deterministic labeled stdout/stderr blocks in verbose mode (`cli.py`, `tests/test_cli.py`, `docs/CLI.md`)
 - [x] ASR preflight-only CLI mode (`--asr-preflight-only`) for backend availability/model resolution/device probe sanity checks with deterministic JSON output (`cli.py`, `tests/test_cli.py`, `docs/CLI.md`)
 - [x] Qwen3 readiness QA coverage: deterministic `qwen3-asr` preflight JSON smoke assertion + optional env-gated local init-only loader smoke (no inference, offline-by-default CI), including from_pretrained-without-`device` and explicit post-load device transfer assertions (`tests/test_cli.py`, `tests/test_qwen3_asr_backend.py`, `docs/CLI.md`)
 - [x] Windows progress-thread guard + verbose stage markers (`cli.py`, `src/match/engine.py`, `tests/test_cli.py`, `tests/test_matching.py`)
@@ -209,6 +210,7 @@ Contract notes:
 
 ## Change log (manual)
 
+- 2026-02-13 – Added deterministic worker-failure diagnostics gating in CLI ASR subprocess handling: non-verbose mode keeps concise errors without dumping worker streams, while `--verbose` now prints labeled worker stdout/stderr blocks in deterministic order before raising; added regression tests for both paths and documented troubleshooting behavior (`cli.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/STATUS.md`).
 - 2026-02-13 – Removed `temperature` from qwen3-asr transcribe/generation kwargs path to avoid qwen_asr/Transformers invalid-generation-flag warnings while preserving deterministic unsupported-option filtering for other non-qwen decode knobs; added regression coverage asserting qwen transcribe is called without `temperature` (`src/asr/qwen3_asr_backend.py`, `tests/test_qwen3_asr_backend.py`, `docs/STATUS.md`).
 
 - 2026-02-12 – Ensured project-managed qwen install flow matches runtime importability by constraining `asr_qwen3` to explicit `qwen-asr` compatibility range, keeping registry/readiness dependency checks on `qwen_asr`, improving qwen backend missing-dependency error guidance (`cutscene-locator[asr_qwen3]` + `import qwen_asr`), and adding dependency-focused registry/backend tests (`pyproject.toml`, `src/asr/qwen3_asr_backend.py`, `tests/test_asr_registry.py`, `tests/test_qwen3_asr_backend.py`, `docs/CLI.md`, `docs/STATUS.md`).

@@ -615,6 +615,10 @@ Enable verbose logging.
 - Valid values: switch flag (present/absent)
 - Backend applicability: all backends
 
+Troubleshooting note:
+
+- When the ASR worker subprocess exits non-zero, `--verbose` prints captured worker output blocks in deterministic order (`stdout` block first, then `stderr`) before the CLI raises the concise failure error. Without `--verbose`, worker output remains suppressed to keep failure output clean.
+
 ---
 
 ### `--version`
