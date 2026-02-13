@@ -384,6 +384,7 @@ class CliPhaseOneTests(unittest.TestCase):
             missing_dependencies=(),
             reason="enabled",
             install_extra=None,
+            supports_alignment=False,
         )
         with patch("cli.list_backend_status", return_value=[enabled_backend]):
             with redirect_stderr(stderr):
@@ -433,6 +434,40 @@ class CliPhaseOneTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("alignment backend", stderr.getvalue())
         self.assertIn("alignment pipeline path", stderr.getvalue())
+
+
+    def test_alignment_backend_status_rejected_before_disabled_dependency_message(self) -> None:
+        stderr = io.StringIO()
+        alignment_status = SimpleNamespace(
+            name="qwen3-forced-aligner",
+            enabled=False,
+            missing_dependencies=("qwen_asr",),
+            reason="missing optional dependencies: qwen_asr",
+            install_extra="asr_qwen3",
+            supports_alignment=True,
+        )
+
+        with patch("cli.list_backend_status", return_value=[alignment_status]):
+            with redirect_stderr(stderr):
+                code = cli.main(
+                    [
+                        "--input",
+                        "in.wav",
+                        "--script",
+                        "script.tsv",
+                        "--out",
+                        "out",
+                        "--asr-backend",
+                        "qwen3-forced-aligner",
+                    ],
+                    which=lambda _: "/usr/bin/ffmpeg",
+                    runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                )
+
+        self.assertEqual(code, 1)
+        self.assertIn("alignment backend", stderr.getvalue())
+        self.assertIn("reference_spans[]", stderr.getvalue())
+        self.assertNotIn("declared but currently disabled", stderr.getvalue())
 
     def test_mock_backend_requires_mock_asr(self) -> None:
         stderr = io.StringIO()

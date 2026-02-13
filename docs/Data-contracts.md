@@ -109,6 +109,7 @@ All ASR backends must produce output that conforms to this structure.
 ## 4. Forced alignment output (internal, normalized JSON)
 
 Forced alignment uses a separate contract from ASR transcript generation.
+`qwen3-asr` belongs to the ASR transcript contract (`ASRResult`) path. Forced-aligner model families (for example `qwen3-forced-aligner`) require this alignment contract/input and are not drop-in ASR replacements.
 
 ### Alignment input contract
 

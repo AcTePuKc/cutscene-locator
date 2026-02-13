@@ -183,8 +183,8 @@ Contract notes:
 
 - [x] CLI docs/parser flag parity consistency test + declared-disabled backend definition consistency assertion (`tests/test_docs_consistency.py`, `docs/CLI.md`, `cli.py`)
 - [ ] Unit test coverage for core modules
-- [x] Test fixtures (audio + script) (`tests/fixtures/script_integration_sample.tsv`, `tests/fixtures/asr_normalized_faster_whisper.json`, `tests/fixtures/asr_normalized_qwen3_asr.json`, `tests/fixtures/asr_normalized_whisperx_vibevoice.json`)
-- [x] Integration test (optional, gated) (`tests/test_integration_pipeline.py`)
+- [x] Test fixtures (audio + script) (`src/asr/timestamp_normalization.py`, `cli.py`, `tests/fixtures/script_integration_sample.tsv`, `tests/fixtures/asr_normalized_faster_whisper.json`, `tests/fixtures/asr_normalized_qwen3_asr.json`, `tests/fixtures/asr_normalized_whisperx_vibevoice.json`)
+- [x] Integration test (optional, gated) (`cli.py`, `src/export/writers.py`, `tests/test_integration_pipeline.py`)
 - [ ] Performance profiling (large scripts)
 - [ ] Config file support (optional)
 
@@ -348,8 +348,10 @@ Contract notes:
 
 - [x] Backend-specific CUDA probe routing in ASR adapter dispatch with centralized torch/ctranslate2 selection and deterministic reason labels (`src/asr/device.py`, `src/asr/adapters.py`, `src/asr/qwen3_asr_backend.py`, `src/asr/whisperx_backend.py`, `src/asr/vibevoice_backend.py`, `tests/test_asr.py`, `tests/test_asr_registry.py`)
 - [x] Authoritative backend→CUDA-probe mapping codified from runtime API usage, exposed in ASR preflight output (`device.cuda_probe_label`), and synchronized in CLI docs/backend tests (`src/asr/device.py`, `cli.py`, `tests/test_asr.py`, `tests/test_cli.py`, `docs/CLI.md`)
+- [x] Deterministic ASR-vs-alignment mode/contract gating guidance: qwen3 model-family separation documented and forced-aligner backend identifiers rejected from ASR-only path with explicit alignment-contract messaging (`src/asr/registry.py`, `cli.py`, `tests/test_cli.py`, `tests/test_asr_registry.py`, `docs/Integration.md`, `docs/Data-contracts.md`, `docs/CLI.md`)
 
 - 2026-02-12 – Removed deprecated Hugging Face `local_dir_use_symlinks` usage from snapshot download wrapper using signature-based kwargs gating, preserved deterministic HF progress env toggling, and expanded model-resolution progress on/off tests (`src/asr/model_resolution.py`, `tests/test_model_resolution.py`, `docs/STATUS.md`).
+- 2026-02-13 – Clarified qwen3 ASR-vs-forced-alignment flow separation across integration/data-contract/CLI docs and tightened runtime ASR-path gating to reject alignment backends with explicit `reference_spans[]` guidance; added CLI/registry validation tests for mode-contract gating (`docs/Integration.md`, `docs/Data-contracts.md`, `docs/CLI.md`, `src/asr/registry.py`, `cli.py`, `tests/test_cli.py`, `tests/test_asr_registry.py`, `docs/STATUS.md`).
 
 - 2026-02-12 – Added lightweight `--asr-preflight-only` CLI path that reuses backend registry/capability checks, model resolution, and backend-specific device probe logic, prints deterministic structured JSON for QA logs, and exits before ingest/transcribe/match/export; added success/failure CLI tests and docs usage notes (`cli.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/STATUS.md`).
 

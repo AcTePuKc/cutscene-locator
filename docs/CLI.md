@@ -151,6 +151,12 @@ The table below reflects deterministic backend smoke-check coverage (mocked pipe
 | `qwen3-forced-aligner` | `Qwen/Qwen3-ForcedAligner-0.6B` | `alignment` | `asr_qwen3` | canonical WAV + caller-provided `reference_spans[]` + aligner model snapshot | Alignment contract (`AlignmentResult`, `docs/Data-contracts.md`) |
 | `vibevoice` | local VibeVoice checkpoints compatible with runtime | `asr` | `asr_vibevoice` | local model snapshot path (`--model-path` or resolved `--model-id`) | ASR transcript contract (`ASRResult`) |
 
+Qwen model-family note (mode-separated, authoritative):
+
+- `Qwen/Qwen3-ASR-*` checkpoints are supported in `asr` mode via backend key `qwen3-asr` and produce the ASR transcript contract (`ASRResult`).
+- `Qwen/Qwen3-ForcedAligner-*` checkpoints are supported only in `alignment` mode via backend key `qwen3-forced-aligner` and require alignment inputs (`reference_spans[]`) with AlignmentResult output.
+- Forced-aligner identifiers are rejected in `--asr-backend` ASR-only path with deterministic guidance; there is no implicit mode/model-family fallback.
+
 Mode gating is explicit and deterministic:
 
 - `--asr-backend` is ASR transcript-generation mode only.
