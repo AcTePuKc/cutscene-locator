@@ -167,6 +167,7 @@ Contract notes:
 - [x] Deterministic backend readiness audit matrix + verification checklist (qwen3-asr/whisperx/vibevoice) including registry/install-state diagnostics, model artifact layout validation, and backend-specific CUDA preflight reason reporting (`src/asr/readiness.py`, `src/asr/model_resolution.py`, `scripts/verify_backend_readiness.py`, `tests/test_backend_readiness.py`, `tests/test_asr_registry.py`, `docs/CLI.md`, `docs/Integration-issues.md`, `docs/Integration.md`)
 - [x] Qwen3-ASR deterministic compatibility smoke checks (pipeline call shape + `return_timestamps=True` + strict chunk timestamp tuple normalization assumptions) and docs matrix/troubleshooting separation for artifact-vs-runtime init failures (`src/asr/qwen3_asr_backend.py`, `tests/test_qwen3_asr_backend.py`, `docs/CLI.md`, `docs/Integration-issues.md`)
 - [x] Qwen extras/importability alignment: pinned project-managed `asr_qwen3` extra to explicit `qwen-asr` compatible range, kept registry/readiness checks on `qwen_asr` import target, and tightened dependency error/install guidance with import-target tests (`pyproject.toml`, `src/asr/qwen3_asr_backend.py`, `src/asr/registry.py`, `src/asr/readiness.py`, `tests/test_asr_registry.py`, `tests/test_qwen3_asr_backend.py`, `docs/CLI.md`)
+- [x] Qwen3-ASR transcribe kwarg filtering excludes `temperature` to prevent qwen_asr/Transformers invalid-generation-flag warnings while keeping deterministic unsupported-option handling for other decode knobs (`src/asr/qwen3_asr_backend.py`, `tests/test_qwen3_asr_backend.py`, `docs/STATUS.md`)
 
 ### Advanced alignment
 
@@ -207,6 +208,8 @@ Contract notes:
 ---
 
 ## Change log (manual)
+
+- 2026-02-13 – Removed `temperature` from qwen3-asr transcribe/generation kwargs path to avoid qwen_asr/Transformers invalid-generation-flag warnings while preserving deterministic unsupported-option filtering for other non-qwen decode knobs; added regression coverage asserting qwen transcribe is called without `temperature` (`src/asr/qwen3_asr_backend.py`, `tests/test_qwen3_asr_backend.py`, `docs/STATUS.md`).
 
 - 2026-02-12 – Ensured project-managed qwen install flow matches runtime importability by constraining `asr_qwen3` to explicit `qwen-asr` compatibility range, keeping registry/readiness dependency checks on `qwen_asr`, improving qwen backend missing-dependency error guidance (`cutscene-locator[asr_qwen3]` + `import qwen_asr`), and adding dependency-focused registry/backend tests (`pyproject.toml`, `src/asr/qwen3_asr_backend.py`, `tests/test_asr_registry.py`, `tests/test_qwen3_asr_backend.py`, `docs/CLI.md`, `docs/STATUS.md`).
 - 2026-02-12 – Added lightweight qwen QA checks that stay inference-free by default: reinforced `--asr-preflight-only --asr-backend qwen3-asr` single-line JSON contract coverage, added explicit no-`device` `from_pretrained` kwarg-shape assertions in qwen backend/init smoke, introduced fully env-gated local runtime smoke (`CUTSCENE_QWEN3_RUNTIME_SMOKE`, `CUTSCENE_QWEN3_MODEL_PATH`, `CUTSCENE_QWEN3_RUNTIME_AUDIO`), and documented env vars + expected smoke output contracts in CLI preflight troubleshooting notes (`tests/test_cli.py`, `tests/test_qwen3_asr_backend.py`, `docs/CLI.md`, `docs/STATUS.md`).

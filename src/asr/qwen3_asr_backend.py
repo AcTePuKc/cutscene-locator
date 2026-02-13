@@ -148,8 +148,6 @@ def _validate_supported_options(config: ASRConfig) -> None:
 
     if config.beam_size != 1:
         unsupported_options.append("beam_size")
-    if config.temperature != 0.0:
-        unsupported_options.append("temperature")
     if config.best_of != 1:
         unsupported_options.append("best_of")
     if config.no_speech_threshold is not None:
@@ -158,6 +156,11 @@ def _validate_supported_options(config: ASRConfig) -> None:
         unsupported_options.append("log_prob_threshold")
     if config.vad_filter:
         unsupported_options.append("vad_filter")
+
+    # qwen_asr/transformers generation path does not accept temperature for this
+    # ASR usage and emits invalid-generation-flag warnings when provided.
+    # We intentionally ignore ASRConfig.temperature for qwen3-asr and never
+    # forward it to model.transcribe().
 
     if unsupported_options:
         raise ValueError(
