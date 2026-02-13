@@ -275,7 +275,11 @@ def _validate_asr_options(args: argparse.Namespace) -> None:
         raise CliError("Use only one of: --alignment-model-path or --alignment-model-id.")
 
 
-def _load_alignment_reference_spans(args: argparse.Namespace) -> list[ReferenceSpan]:
+def _load_alignment_reference_spans(
+    args: argparse.Namespace,
+    *,
+    script_table: ScriptTable,
+) -> list[ReferenceSpan]:
     if args.alignment_reference_spans:
         reference_spans_path = Path(args.alignment_reference_spans)
         if not reference_spans_path.exists():
@@ -303,7 +307,6 @@ def _load_alignment_reference_spans(args: argparse.Namespace) -> list[ReferenceS
             raise CliError("Alignment reference spans cannot be empty.")
         return reference_spans
 
-    script_table = load_script_table(Path(args.script_path))
     reference_spans_from_script: list[ReferenceSpan] = []
     for row in script_table.rows:
         reference_spans_from_script.append(
@@ -343,7 +346,7 @@ def _run_alignment_mode(
     args: argparse.Namespace,
     ffmpeg_binary: str,
     runner: Callable[..., subprocess.CompletedProcess[str]],
-) -> tuple[ASRResult, object, Path, Path, object]:
+) -> tuple[ASRResult, ScriptTable, Path, Path, PreprocessResult]:
     alignment_config = ASRConfig(
         backend_name=args.alignment_backend,
         model_path=Path(args.alignment_model_path) if args.alignment_model_path else None,
@@ -387,7 +390,8 @@ def _run_alignment_mode(
             compute_type="auto",
         )
     )
-    reference_spans = _load_alignment_reference_spans(args)
+    script_table = load_script_table(Path(args.script_path))
+    reference_spans = _load_alignment_reference_spans(args, script_table=script_table)
     alignment_result = aligner.align(
         audio_path=str(preprocessing_output.canonical_wav_path),
         reference_spans=reference_spans,
@@ -397,7 +401,6 @@ def _run_alignment_mode(
         raise CliError(
             "Alignment backend returned no timestamped spans/chunks; expected non-empty deterministic timestamps."
         )
-    script_table = load_script_table(Path(args.script_path))
     return asr_result, script_table, out_dir, input_path, preprocessing_output
 
 

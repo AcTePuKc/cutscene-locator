@@ -1768,31 +1768,33 @@ class CliAdapterDispatchTests(unittest.TestCase):
                 with patch("cli.get_backend", return_value=registration):
                     with patch("cli.resolve_model_path", return_value=Path("models/qwen3-forced-aligner")):
                         with patch("cli.preprocess_media", return_value=fake_preprocess):
-                            code = cli.main(
-                                [
-                                    "--input",
-                                    "in.wav",
-                                    "--script",
-                                    "tests/fixtures/script_sample.tsv",
-                                    "--out",
-                                    str(out_dir),
-                                    "--alignment-backend",
-                                    "qwen3-forced-aligner",
-                                    "--alignment-model-path",
-                                    "models/qwen3-forced-aligner",
-                                    "--chunk",
-                                    "0",
-                                ],
-                                which=lambda _: "/usr/bin/ffmpeg",
-                                runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
-                            )
+                            with patch("cli.load_script_table", wraps=cli.load_script_table) as load_script_table_call:
+                                code = cli.main(
+                                    [
+                                        "--input",
+                                        "in.wav",
+                                        "--script",
+                                        "tests/fixtures/script_sample.tsv",
+                                        "--out",
+                                        str(out_dir),
+                                        "--alignment-backend",
+                                        "qwen3-forced-aligner",
+                                        "--alignment-model-path",
+                                        "models/qwen3-forced-aligner",
+                                        "--chunk",
+                                        "0",
+                                    ],
+                                    which=lambda _: "/usr/bin/ffmpeg",
+                                    runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                                )
 
-                            self.assertEqual(code, 0)
-                            matches_path = out_dir / "matches.csv"
-                            self.assertTrue(matches_path.exists())
-                            lines = matches_path.read_text(encoding="utf-8").splitlines()
-                            self.assertGreater(len(lines), 1)
-                            self.assertIn(",0,0.75,", lines[1])
+                                self.assertEqual(code, 0)
+                                self.assertEqual(load_script_table_call.call_count, 1)
+                                matches_path = out_dir / "matches.csv"
+                                self.assertTrue(matches_path.exists())
+                                lines = matches_path.read_text(encoding="utf-8").splitlines()
+                                self.assertGreater(len(lines), 1)
+                                self.assertIn(",0,0.75,", lines[1])
 
     def test_cli_uses_adapter_registry_for_mock_backend_dispatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
