@@ -1714,6 +1714,86 @@ class Qwen3RuntimeSmokeTests(unittest.TestCase):
 
 
 class CliAdapterDispatchTests(unittest.TestCase):
+    def test_alignment_mode_runs_forced_aligner_and_produces_timestamped_outputs(self) -> None:
+        class _MockAlignmentBackend:
+            def __init__(self, config: object):
+                self.config = config
+
+            def align(self, audio_path: str, reference_spans: list[dict[str, str]]) -> dict[str, object]:
+                self_audio_path = audio_path
+                del self_audio_path
+                spans: list[dict[str, object]] = []
+                for index, ref in enumerate(reference_spans):
+                    start = float(index)
+                    spans.append(
+                        {
+                            "span_id": ref["ref_id"],
+                            "start": start,
+                            "end": start + 0.75,
+                            "text": ref["text"],
+                            "confidence": 1.0,
+                        }
+                    )
+                return {
+                    "transcript_text": " ".join(ref["text"] for ref in reference_spans),
+                    "spans": spans,
+                    "meta": {
+                        "backend": "qwen3-forced-aligner",
+                        "version": "test",
+                        "device": "cpu",
+                    },
+                }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            out_dir = Path(tmp_dir) / "out"
+            registration = SimpleNamespace(
+                name="qwen3-forced-aligner",
+                backend_class=_MockAlignmentBackend,
+                capabilities=SimpleNamespace(
+                    supports_segment_timestamps=True,
+                    supports_alignment=True,
+                    timestamp_guarantee="alignment-required",
+                ),
+            )
+            alignment_backend_status = SimpleNamespace(
+                name="qwen3-forced-aligner",
+                enabled=True,
+                missing_dependencies=(),
+                reason="enabled",
+                install_extra="asr_qwen3",
+                supports_alignment=True,
+            )
+            fake_preprocess = SimpleNamespace(canonical_wav_path=Path("out/_tmp/canonical.wav"), chunk_metadata=[])
+            with patch("cli.list_backend_status", return_value=[alignment_backend_status]):
+                with patch("cli.get_backend", return_value=registration):
+                    with patch("cli.resolve_model_path", return_value=Path("models/qwen3-forced-aligner")):
+                        with patch("cli.preprocess_media", return_value=fake_preprocess):
+                            code = cli.main(
+                                [
+                                    "--input",
+                                    "in.wav",
+                                    "--script",
+                                    "tests/fixtures/script_sample.tsv",
+                                    "--out",
+                                    str(out_dir),
+                                    "--alignment-backend",
+                                    "qwen3-forced-aligner",
+                                    "--alignment-model-path",
+                                    "models/qwen3-forced-aligner",
+                                    "--chunk",
+                                    "0",
+                                ],
+                                which=lambda _: "/usr/bin/ffmpeg",
+                                runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                            )
+
+                            self.assertEqual(code, 0)
+                            matches_path = out_dir / "matches.csv"
+                            self.assertTrue(matches_path.exists())
+                            lines = matches_path.read_text(encoding="utf-8").splitlines()
+                            self.assertGreater(len(lines), 1)
+                            self.assertIn(",0,0.75,", lines[1])
+
     def test_cli_uses_adapter_registry_for_mock_backend_dispatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             out_dir = Path(tmp_dir) / "out"

@@ -28,6 +28,7 @@ from src.asr import (
     resolve_device_with_details,
     validate_backend_capabilities,
 )
+from src.align import ReferenceSpan, validate_alignment_result
 from src.asr.device import select_cuda_probe
 from src.asr.model_resolution import ModelResolutionError, resolve_model_path
 from src.export import (
@@ -36,7 +37,7 @@ from src.export import (
     write_subs_qa_srt,
     write_subs_target_srt,
 )
-from src.ingest import load_script_table, preprocess_media
+from src.ingest import PreprocessResult, ScriptTable, load_script_table, preprocess_media
 from src.match.engine import MatchingConfig, match_segments_to_script
 from src.scene import reconstruct_scenes
 
@@ -56,12 +57,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--script", dest="script_path")
     parser.add_argument("--out", dest="out_dir")
     parser.add_argument("--asr-backend", default="mock")
+    parser.add_argument("--alignment-backend")
     parser.add_argument("--mock-asr", dest="mock_asr_path")
     parser.add_argument("--model-path")
+    parser.add_argument("--alignment-model-path")
     parser.add_argument("--model-id")
+    parser.add_argument("--alignment-model-id")
     parser.add_argument("--revision")
+    parser.add_argument("--alignment-revision")
     parser.add_argument("--auto-download")
     parser.add_argument("--device", default="auto")
+    parser.add_argument("--alignment-device", default="auto")
     parser.add_argument("--compute-type", default="auto")
     parser.add_argument("--chunk", type=int, default=300)
     parser.add_argument("--scene-gap", type=int, default=10)
@@ -88,6 +94,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--progress", choices=("on", "off"), default=None)
     parser.add_argument("--asr-preflight-only", action="store_true")
     parser.add_argument("--alignment-preflight-only", action="store_true")
+    parser.add_argument("--alignment-reference-spans")
     return parser
 
 
@@ -106,25 +113,36 @@ def _validate_required_args(args: argparse.Namespace) -> None:
     if missing:
         raise CliError(f"Missing required arguments: {', '.join(missing)}")
 
+    if args.alignment_backend and not args.alignment_reference_spans and not args.script_path:
+        raise CliError("Alignment mode requires --script or --alignment-reference-spans.")
+
 
 def _validate_backend(args: argparse.Namespace) -> None:
     if args.asr_preflight_only and args.alignment_preflight_only:
         raise CliError("Use only one preflight mode: --asr-preflight-only or --alignment-preflight-only.")
 
+    if args.alignment_backend and (args.asr_preflight_only or args.alignment_preflight_only):
+        raise CliError("--alignment-backend cannot be combined with preflight-only flags.")
+
+    selected_backend_name = args.alignment_backend if args.alignment_backend else args.asr_backend
     backend_status_by_name = {status.name: status for status in list_backend_status()}
-    status = backend_status_by_name.get(args.asr_backend)
+    status = backend_status_by_name.get(selected_backend_name)
     if status is None:
         pass
-    elif status.supports_alignment and not args.alignment_preflight_only:
+    elif getattr(status, "supports_alignment", False) and not args.alignment_preflight_only and not args.alignment_backend:
         raise CliError(
             f"'{status.name}' is an alignment backend and cannot be used with --asr-backend. "
             "Use the explicit alignment pipeline path and alignment input contract "
             "(`reference_spans[]`) instead of ASR-only transcription mode."
         )
 
-    if args.alignment_preflight_only and status is not None and not status.supports_alignment:
+    if (
+        (args.alignment_preflight_only or args.alignment_backend)
+        and status is not None
+        and not getattr(status, "supports_alignment", False)
+    ):
         raise CliError(
-            f"'{status.name}' is not an alignment backend and cannot be used with --alignment-preflight-only. "
+            f"'{status.name}' is not an alignment backend and cannot be used with alignment mode. "
             "Use an alignment backend (for example, qwen3-forced-aligner)."
         )
     if status is not None and not status.enabled:
@@ -143,11 +161,11 @@ def _validate_backend(args: argparse.Namespace) -> None:
         raise CliError(message)
 
     try:
-        registration = get_backend(args.asr_backend)
+        registration = get_backend(selected_backend_name)
     except ValueError as exc:
         raise CliError(str(exc)) from exc
 
-    if registration.name == "mock" and not args.mock_asr_path:
+    if not args.alignment_backend and registration.name == "mock" and not args.mock_asr_path:
         raise CliError("--mock-asr is required when --asr-backend mock is used.")
 
     requirements = (
@@ -156,7 +174,7 @@ def _validate_backend(args: argparse.Namespace) -> None:
             allows_alignment_backends=True,
             requires_deterministic_timestamps=False,
         )
-        if args.alignment_preflight_only
+        if args.alignment_preflight_only or args.alignment_backend
         else CapabilityRequirements(
             requires_segment_timestamps=True,
             allows_alignment_backends=False,
@@ -238,6 +256,9 @@ def _validate_asr_options(args: argparse.Namespace) -> None:
     if args.revision is not None and args.model_id is None:
         raise CliError("--revision requires --model-id.")
 
+    if args.alignment_revision is not None and args.alignment_model_id is None:
+        raise CliError("--alignment-revision requires --alignment-model-id.")
+
     selected_model_source_flags = [
         args.model_path is not None,
         args.model_id is not None,
@@ -245,6 +266,139 @@ def _validate_asr_options(args: argparse.Namespace) -> None:
     ]
     if sum(1 for selected in selected_model_source_flags if selected) > 1:
         raise CliError("Use only one of: --model-path, --model-id, or --auto-download.")
+
+    selected_alignment_model_source_flags = [
+        args.alignment_model_path is not None,
+        args.alignment_model_id is not None,
+    ]
+    if sum(1 for selected in selected_alignment_model_source_flags if selected) > 1:
+        raise CliError("Use only one of: --alignment-model-path or --alignment-model-id.")
+
+
+def _load_alignment_reference_spans(args: argparse.Namespace) -> list[ReferenceSpan]:
+    if args.alignment_reference_spans:
+        reference_spans_path = Path(args.alignment_reference_spans)
+        if not reference_spans_path.exists():
+            raise CliError(f"Alignment reference spans file not found: {reference_spans_path}")
+        try:
+            raw_payload = json.loads(reference_spans_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise CliError(
+                f"Alignment reference spans JSON parse error in '{reference_spans_path}': {exc.msg}"
+            ) from exc
+        if not isinstance(raw_payload, list):
+            raise CliError("Alignment reference spans file must contain a JSON array.")
+        reference_spans: list[ReferenceSpan] = []
+        for index, item in enumerate(raw_payload):
+            if not isinstance(item, dict):
+                raise CliError(f"Alignment reference span at index {index} must be an object.")
+            ref_id = item.get("ref_id")
+            text = item.get("text")
+            if not isinstance(ref_id, str) or not ref_id.strip():
+                raise CliError(f"Alignment reference span at index {index} requires non-empty 'ref_id'.")
+            if not isinstance(text, str) or not text.strip():
+                raise CliError(f"Alignment reference span at index {index} requires non-empty 'text'.")
+            reference_spans.append({"ref_id": ref_id, "text": text})
+        if not reference_spans:
+            raise CliError("Alignment reference spans cannot be empty.")
+        return reference_spans
+
+    script_table = load_script_table(Path(args.script_path))
+    reference_spans_from_script: list[ReferenceSpan] = []
+    for row in script_table.rows:
+        reference_spans_from_script.append(
+            {
+                "ref_id": row.values["id"],
+                "text": row.values["original"],
+            }
+        )
+    if not reference_spans_from_script:
+        raise CliError("Alignment mode requires at least one script row to build reference spans.")
+    return reference_spans_from_script
+
+
+def _alignment_result_to_asr_result(alignment_result: dict[str, object]) -> ASRResult:
+    validated = validate_alignment_result(alignment_result, source="alignment_result")
+    return {
+        "segments": [
+            {
+                "segment_id": span["span_id"],
+                "start": span["start"],
+                "end": span["end"],
+                "text": span["text"],
+            }
+            for span in validated["spans"]
+        ],
+        "meta": {
+            "backend": validated["meta"]["backend"],
+            "model": "alignment",
+            "version": validated["meta"]["version"],
+            "device": validated["meta"]["device"],
+        },
+    }
+
+
+def _run_alignment_mode(
+    *,
+    args: argparse.Namespace,
+    ffmpeg_binary: str,
+    runner: Callable[..., subprocess.CompletedProcess[str]],
+) -> tuple[ASRResult, object, Path, Path, object]:
+    alignment_config = ASRConfig(
+        backend_name=args.alignment_backend,
+        model_path=Path(args.alignment_model_path) if args.alignment_model_path else None,
+        model_id=args.alignment_model_id,
+        revision=args.alignment_revision,
+        auto_download=None,
+        device=args.alignment_device,
+        compute_type="auto",
+    )
+    try:
+        resolved_model_path = resolve_model_path(alignment_config)
+    except ModelResolutionError as exc:
+        raise CliError(str(exc)) from exc
+
+    backend_registration = get_backend(alignment_config.backend_name)
+    validate_backend_capabilities(
+        backend_registration,
+        requires_segment_timestamps=False,
+        allows_alignment_backends=True,
+        requires_deterministic_timestamps=False,
+    )
+
+    input_path = Path(args.input_path)
+    out_dir = Path(args.out_dir)
+    preprocessing_output = preprocess_media(
+        ffmpeg_binary=ffmpeg_binary,
+        input_path=input_path,
+        out_dir=out_dir,
+        chunk_seconds=args.chunk,
+        runner=runner,
+    )
+
+    aligner = backend_registration.backend_class(
+        ASRConfig(
+            backend_name=alignment_config.backend_name,
+            model_path=resolved_model_path,
+            model_id=alignment_config.model_id,
+            revision=alignment_config.revision,
+            auto_download=None,
+            device=alignment_config.device,
+            compute_type="auto",
+        )
+    )
+    reference_spans = _load_alignment_reference_spans(args)
+    alignment_result = aligner.align(
+        audio_path=str(preprocessing_output.canonical_wav_path),
+        reference_spans=reference_spans,
+    )
+    asr_result = _alignment_result_to_asr_result(alignment_result)
+    if not asr_result["segments"]:
+        raise CliError(
+            "Alignment backend returned no timestamped spans/chunks; expected non-empty deterministic timestamps."
+        )
+    script_table = load_script_table(Path(args.script_path))
+    return asr_result, script_table, out_dir, input_path, preprocessing_output
 
 
 def resolve_ffmpeg_binary(
@@ -629,83 +783,100 @@ def main(
             log_callback=model_resolution_logs.append,
         )
         run_ffmpeg_preflight(ffmpeg_binary, runner=runner)
-        input_path = Path(args.input_path)
-        out_dir = Path(args.out_dir)
-        preprocess_started = time.perf_counter()
-        if args.verbose:
-            print("stage: preprocess start")
-        preprocessing_output = preprocess_media(
-            ffmpeg_binary=ffmpeg_binary,
-            input_path=input_path,
-            out_dir=out_dir,
-            chunk_seconds=args.chunk,
-            runner=runner,
-        )
-        timings["preprocess"] = time.perf_counter() - preprocess_started
-        if args.verbose:
-            print("stage: preprocess end")
-        script_table = load_script_table(Path(args.script_path))
-
         resolved_model_path: Path | None = None
-        should_resolve_model = (
-            asr_config.backend_name != "mock"
-            or asr_config.model_path is not None
-            or asr_config.model_id is not None
-            or asr_config.auto_download is not None
-        )
-        if should_resolve_model:
-            try:
-                resolved_model_path = resolve_model_path(asr_config)
-            except ModelResolutionError as exc:
-                raise CliError(str(exc)) from exc
+        preprocessing_output: PreprocessResult
+        script_table: ScriptTable
+        input_path: Path
+        out_dir: Path
 
-        backend_registration = get_backend(asr_config.backend_name)
-        requirements = CapabilityRequirements(
-            requires_segment_timestamps=True,
-            allows_alignment_backends=False,
-        )
-        validate_backend_capabilities(
-            backend_registration,
-            requires_segment_timestamps=requirements.requires_segment_timestamps,
-            allows_alignment_backends=requirements.allows_alignment_backends,
-            requires_deterministic_timestamps=requirements.requires_deterministic_timestamps,
-        )
-
-        if backend_registration.name != "mock":
-            resolution = resolve_device_with_details(asr_config.device)
-            device_resolution_reason = resolution.reason
-
-        asr_started = time.perf_counter()
-        if args.verbose:
-            print("stage: asr start")
-        try:
-            asr_result = dispatch_asr_transcription(
-                audio_path=str(preprocessing_output.canonical_wav_path),
-                config=asr_config,
-                context=ASRExecutionContext(
-                    resolved_model_path=resolved_model_path,
-                    verbose=args.verbose,
-                    mock_asr_path=args.mock_asr_path,
-                    run_faster_whisper_subprocess=_run_faster_whisper_subprocess,
-                    faster_whisper_preflight=_print_faster_whisper_cuda_preflight,
-                ),
-                requirements=requirements,
+        if args.alignment_backend:
+            if args.verbose:
+                print("stage: alignment start")
+            asr_result, script_table, out_dir, input_path, preprocessing_output = _run_alignment_mode(
+                args=args,
+                ffmpeg_binary=ffmpeg_binary,
+                runner=runner,
             )
-        except ValueError as exc:
-            timestamp_guarantee = getattr(backend_registration.capabilities, "timestamp_guarantee", "segment-level")
-            if timestamp_guarantee == "text-only" and "timestamp" in str(exc).lower():
-                raise _build_text_only_timestamp_error(backend_name=backend_registration.name, reason=str(exc)) from exc
-            raise
-        asr_result = apply_cross_chunk_continuity(
-            asr_result=asr_result,
-            chunk_offsets_by_index={
-                chunk.chunk_index: chunk.absolute_offset_seconds
-                for chunk in preprocessing_output.chunk_metadata
-            },
-        )
-        timings["asr"] = time.perf_counter() - asr_started
-        if args.verbose:
-            print("stage: asr end")
+            timings["asr"] = 0.0
+            if args.verbose:
+                print("stage: alignment end")
+        else:
+            input_path = Path(args.input_path)
+            out_dir = Path(args.out_dir)
+            preprocess_started = time.perf_counter()
+            if args.verbose:
+                print("stage: preprocess start")
+            preprocessing_output = preprocess_media(
+                ffmpeg_binary=ffmpeg_binary,
+                input_path=input_path,
+                out_dir=out_dir,
+                chunk_seconds=args.chunk,
+                runner=runner,
+            )
+            timings["preprocess"] = time.perf_counter() - preprocess_started
+            if args.verbose:
+                print("stage: preprocess end")
+            script_table = load_script_table(Path(args.script_path))
+
+            should_resolve_model = (
+                asr_config.backend_name != "mock"
+                or asr_config.model_path is not None
+                or asr_config.model_id is not None
+                or asr_config.auto_download is not None
+            )
+            if should_resolve_model:
+                try:
+                    resolved_model_path = resolve_model_path(asr_config)
+                except ModelResolutionError as exc:
+                    raise CliError(str(exc)) from exc
+
+            backend_registration = get_backend(asr_config.backend_name)
+            requirements = CapabilityRequirements(
+                requires_segment_timestamps=True,
+                allows_alignment_backends=False,
+            )
+            validate_backend_capabilities(
+                backend_registration,
+                requires_segment_timestamps=requirements.requires_segment_timestamps,
+                allows_alignment_backends=requirements.allows_alignment_backends,
+                requires_deterministic_timestamps=requirements.requires_deterministic_timestamps,
+            )
+
+            if backend_registration.name != "mock":
+                resolution = resolve_device_with_details(asr_config.device)
+                device_resolution_reason = resolution.reason
+
+            asr_started = time.perf_counter()
+            if args.verbose:
+                print("stage: asr start")
+            try:
+                asr_result = dispatch_asr_transcription(
+                    audio_path=str(preprocessing_output.canonical_wav_path),
+                    config=asr_config,
+                    context=ASRExecutionContext(
+                        resolved_model_path=resolved_model_path,
+                        verbose=args.verbose,
+                        mock_asr_path=args.mock_asr_path,
+                        run_faster_whisper_subprocess=_run_faster_whisper_subprocess,
+                        faster_whisper_preflight=_print_faster_whisper_cuda_preflight,
+                    ),
+                    requirements=requirements,
+                )
+            except ValueError as exc:
+                timestamp_guarantee = getattr(backend_registration.capabilities, "timestamp_guarantee", "segment-level")
+                if timestamp_guarantee == "text-only" and "timestamp" in str(exc).lower():
+                    raise _build_text_only_timestamp_error(backend_name=backend_registration.name, reason=str(exc)) from exc
+                raise
+            asr_result = apply_cross_chunk_continuity(
+                asr_result=asr_result,
+                chunk_offsets_by_index={
+                    chunk.chunk_index: chunk.absolute_offset_seconds
+                    for chunk in preprocessing_output.chunk_metadata
+                },
+            )
+            timings["asr"] = time.perf_counter() - asr_started
+            if args.verbose:
+                print("stage: asr end")
 
         matching_started = time.perf_counter()
         if args.verbose:

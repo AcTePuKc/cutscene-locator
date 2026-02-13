@@ -201,6 +201,17 @@ When runtime ASR output is transcript-only (for example, `qwen3-asr` returns tex
 
 `qwen3-asr` is explicitly `text-only`; `qwen3-forced-aligner` remains a separate `alignment-required` backend.
 
+### Runnable CLI alignment mode
+
+Explicit alignment execution must use dedicated alignment CLI flags (not `--asr-backend`):
+
+- `--alignment-backend`
+- `--alignment-model-path` or `--alignment-model-id` (+ optional `--alignment-revision`)
+- `--alignment-device`
+- optional `--alignment-reference-spans` (JSON array of `{ref_id,text}`); otherwise derive from script rows (`id`,`original`)
+
+Alignment mode must call the selected alignment backend contract directly (`align(audio_path, reference_spans)`), validate output with alignment validators, and produce non-empty deterministic timestamped spans/chunks before matching.
+
 ---
 
 ## Text normalization
