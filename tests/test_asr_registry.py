@@ -154,6 +154,19 @@ class ASRRegistryTests(unittest.TestCase):
         self.assertFalse(backend.capabilities.supports_alignment)
         self.assertEqual(backend.capabilities.timestamp_guarantee, "text-only")
 
+
+    def test_qwen3_capability_matrix_contract(self) -> None:
+        with patch("importlib.util.find_spec", side_effect=lambda name: object()):
+            registry_module = importlib.import_module("src.asr.registry")
+            registry_module = importlib.reload(registry_module)
+            qwen_asr = registry_module.get_backend("qwen3-asr")
+            qwen_aligner = registry_module.get_backend("qwen3-forced-aligner")
+
+        self.assertEqual(qwen_asr.capabilities.timestamp_guarantee, "text-only")
+        self.assertFalse(qwen_asr.capabilities.supports_alignment)
+        self.assertEqual(qwen_aligner.capabilities.timestamp_guarantee, "alignment-required")
+        self.assertTrue(qwen_aligner.capabilities.supports_alignment)
+
     def test_qwen3_forced_aligner_marks_alignment_capability(self) -> None:
         with patch("importlib.util.find_spec", side_effect=lambda name: object()):
             registry_module = importlib.import_module("src.asr.registry")

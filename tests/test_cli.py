@@ -550,6 +550,43 @@ class CliPhaseOneTests(unittest.TestCase):
         self.assertIn("--mock-asr is required", stderr.getvalue())
         self.assertNotIn("declared but currently disabled", stderr.getvalue())
 
+
+    def test_alignment_backend_rejected_in_asr_mode_with_deterministic_error(self) -> None:
+        stderr = io.StringIO()
+        alignment_backend = SimpleNamespace(
+            name="qwen3-forced-aligner",
+            enabled=True,
+            missing_dependencies=(),
+            reason="enabled",
+            install_extra="asr_qwen3",
+            supports_alignment=True,
+        )
+
+        with patch("cli.list_backend_status", return_value=[alignment_backend]):
+            with redirect_stderr(stderr):
+                code = cli.main(
+                    [
+                        "--input",
+                        "in.wav",
+                        "--script",
+                        "script.tsv",
+                        "--out",
+                        "out",
+                        "--asr-backend",
+                        "qwen3-forced-aligner",
+                    ],
+                    which=lambda _: "/usr/bin/ffmpeg",
+                    runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                )
+
+        self.assertEqual(code, 1)
+        self.assertEqual(
+            stderr.getvalue().strip(),
+            "Error: 'qwen3-forced-aligner' is an alignment backend and cannot be used with --asr-backend. "
+            "Use the explicit alignment pipeline path and alignment input contract "
+            "(`reference_spans[]`) instead of ASR-only transcription mode.",
+        )
+
     def test_alignment_backends_are_rejected_in_asr_mode_before_disabled_dependency_diagnostics(self) -> None:
         scenarios = (
             {

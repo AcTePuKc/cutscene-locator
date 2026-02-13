@@ -265,6 +265,25 @@ class DocsCliFlagParityTests(unittest.TestCase):
 
 
 class DocsAsrPreflightInvocationTests(unittest.TestCase):
+    def test_qwen3_mode_contracts_are_documented(self) -> None:
+        integration_doc = Path("docs/Integration.md").read_text(encoding="utf-8")
+        contracts_doc = Path("docs/Data-contracts.md").read_text(encoding="utf-8")
+
+        required_fragments = (
+            "`qwen3-asr` is explicitly `text-only`",
+            "Forced alignment is a distinct pipeline path",
+            "qwen3-forced-aligner",
+            "alignment contract/input",
+        )
+
+        for fragment in required_fragments[:2]:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, integration_doc)
+
+        for fragment in required_fragments[2:]:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, contracts_doc)
+
     def test_preflight_docs_cover_installed_and_source_invocation_contract(self) -> None:
         cli_doc = Path("docs/CLI.md").read_text(encoding="utf-8")
 
@@ -275,6 +294,20 @@ class DocsAsrPreflightInvocationTests(unittest.TestCase):
             "must emit the same single-line JSON stdout contract in preflight-only mode",
             "PowerShell",
             "shell-level formatting artifacts",
+        )
+
+        for fragment in required_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, cli_doc)
+
+    def test_preflight_docs_include_supported_preflight_modes(self) -> None:
+        cli_doc = Path("docs/CLI.md").read_text(encoding="utf-8")
+
+        required_fragments = (
+            "\"mode\":\"asr_preflight_only\"",
+            "\"mode\":\"alignment_preflight_only\"",
+            "`--asr-preflight-only`",
+            "`--alignment-preflight-only`",
         )
 
         for fragment in required_fragments:
