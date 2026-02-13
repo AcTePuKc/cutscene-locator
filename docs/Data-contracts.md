@@ -103,6 +103,7 @@ All ASR backends must produce output that conforms to this structure.
 - `speaker` is optional.
 - ASR text is not rewritten by timestamp normalization.
 - `qwen3-asr` is text-first ASR at runtime: timestamped `chunks[]` are consumed when present, but timestamp emission is not guaranteed by a universal runtime flag and must be treated as backend-output dependent.
+- Bridge enforcement: if a backend advertises `timestamp_guarantee="text-only"` and runtime output lacks deterministic segment timestamps, the CLI bridge must raise a deterministic actionable error and stop before matching; timestamps must never be fabricated.
 
 ---
 
