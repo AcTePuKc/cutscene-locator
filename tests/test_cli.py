@@ -270,6 +270,112 @@ class CliPhaseOneTests(unittest.TestCase):
         self.assertIn("Requested --device cuda, but CUDA is unavailable", stderr.getvalue())
 
 
+    def test_alignment_preflight_only_success_outputs_deterministic_json(self) -> None:
+        stdout = io.StringIO()
+        alignment_backend = SimpleNamespace(
+            name="qwen3-forced-aligner",
+            enabled=True,
+            missing_dependencies=(),
+            reason="enabled",
+            install_extra="asr_qwen3",
+            supports_alignment=True,
+        )
+        registration = SimpleNamespace(
+            name="qwen3-forced-aligner",
+            capabilities=SimpleNamespace(
+                supports_segment_timestamps=False,
+                supports_alignment=True,
+                timestamp_guarantee="alignment-required",
+            ),
+        )
+        with patch("cli.list_backend_status", return_value=[alignment_backend]):
+            with patch("cli.get_backend", return_value=registration):
+                with patch("cli.resolve_model_path", return_value=Path("models/qwen3-forced-aligner")):
+                    with patch(
+                        "cli.resolve_device_with_details",
+                        return_value=SimpleNamespace(
+                            requested="auto",
+                            resolved="cpu",
+                            reason="--device auto selected cpu because torch CUDA probe reported unavailable",
+                        ),
+                    ):
+                        with redirect_stdout(stdout):
+                            code = cli.main(
+                                [
+                                    "--alignment-preflight-only",
+                                    "--asr-backend",
+                                    "qwen3-forced-aligner",
+                                    "--model-path",
+                                    "models/qwen3-forced-aligner",
+                                ]
+                            )
+
+        self.assertEqual(code, 0)
+        stdout_lines = stdout.getvalue().splitlines()
+        self.assertEqual(len(stdout_lines), 1)
+        payload = json.loads(stdout_lines[0])
+        self.assertEqual(payload["mode"], "alignment_preflight_only")
+        self.assertEqual(payload["backend"], "qwen3-forced-aligner")
+        self.assertTrue(payload["capabilities"]["supports_alignment"])
+        self.assertEqual(payload["capabilities"]["timestamp_guarantee"], "alignment-required")
+        self.assertEqual(payload["model_resolution"]["resolved_model_path"], "models/qwen3-forced-aligner")
+        self.assertEqual(payload["device"]["cuda_probe_label"], "ctranslate2")
+
+    def test_alignment_preflight_only_rejects_non_alignment_backends(self) -> None:
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            code = cli.main(
+                [
+                    "--alignment-preflight-only",
+                    "--asr-backend",
+                    "faster-whisper",
+                    "--model-path",
+                    "models/faster-whisper/tiny",
+                ]
+            )
+
+        self.assertEqual(code, 1)
+        self.assertIn("is not an alignment backend", stderr.getvalue())
+
+    def test_alignment_preflight_only_model_resolution_failure_exits_one(self) -> None:
+        stderr = io.StringIO()
+        alignment_backend = SimpleNamespace(
+            name="qwen3-forced-aligner",
+            enabled=True,
+            missing_dependencies=(),
+            reason="enabled",
+            install_extra="asr_qwen3",
+            supports_alignment=True,
+        )
+        registration = SimpleNamespace(
+            name="qwen3-forced-aligner",
+            capabilities=SimpleNamespace(
+                supports_segment_timestamps=False,
+                supports_alignment=True,
+                timestamp_guarantee="alignment-required",
+            ),
+        )
+        with patch("cli.list_backend_status", return_value=[alignment_backend]):
+            with patch("cli.get_backend", return_value=registration):
+                with patch(
+                    "cli.resolve_model_path",
+                    side_effect=cli.ModelResolutionError("Resolved qwen3-forced-aligner model is missing required artifacts."),
+                ):
+                    with redirect_stderr(stderr):
+                        code = cli.main(["--alignment-preflight-only", "--asr-backend", "qwen3-forced-aligner"])
+
+        self.assertEqual(code, 1)
+        self.assertIn("missing required artifacts", stderr.getvalue())
+
+    def test_preflight_modes_are_mutually_exclusive(self) -> None:
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            code = cli.main(["--asr-preflight-only", "--alignment-preflight-only"])
+
+        self.assertEqual(code, 1)
+        self.assertIn("Use only one preflight mode", stderr.getvalue())
+
+
 
     def test_missing_required_args_exits_one(self) -> None:
         stderr = io.StringIO()

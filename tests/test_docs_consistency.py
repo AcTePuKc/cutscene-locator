@@ -219,6 +219,7 @@ class DocsCliFlagParityTests(unittest.TestCase):
             "--out": "### `--out`",
             "--asr-backend": "### `--asr-backend <name>`",
             "--asr-preflight-only": "### `--asr-preflight-only`",
+            "--alignment-preflight-only": "### `--alignment-preflight-only`",
             "--mock-asr": "### `--mock-asr <file>`",
             "--model-path": "### `--model-path <path>`",
             "--model-id": "### `--model-id <repo_id>`",
