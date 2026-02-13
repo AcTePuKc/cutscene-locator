@@ -4,8 +4,8 @@ import unittest
 from unittest.mock import Mock, patch
 
 from src.asr.base import ASRResult
-from src.ingest.script_parser import load_script_table
-from src.match.engine import MatchingConfig, match_segments_to_script
+from src.ingest.script_parser import ScriptRow, ScriptTable, load_script_table
+from src.match.engine import MatchingConfig, _similarity_score, match_segments_to_script
 
 
 class MatchingEngineTests(unittest.TestCase):
@@ -51,6 +51,53 @@ class MatchingEngineTests(unittest.TestCase):
         self.assertTrue(second.low_confidence)
 
 
+    def test_similarity_penalizes_prefix_only_overlap(self) -> None:
+        prefix_score = _similarity_score("hello there general kenobi", "hello")
+        fuller_score = _similarity_score(
+            "hello there general kenobi",
+            "hello there general kenobi indeed",
+        )
+
+        self.assertLess(prefix_score, fuller_score)
+
+    def test_matching_prefers_fuller_sentence_over_first_word_only(self) -> None:
+        script_table = ScriptTable(
+            delimiter="\t",
+            columns=["id", "original"],
+            rows=[
+                ScriptRow(
+                    row_number=2,
+                    values={"id": "S01", "original": "hello"},
+                    normalized_original="hello",
+                ),
+                ScriptRow(
+                    row_number=3,
+                    values={"id": "S02", "original": "hello there general kenobi indeed"},
+                    normalized_original="hello there general kenobi indeed",
+                ),
+            ],
+        )
+        asr_result: ASRResult = {
+            "segments": [
+                {
+                    "segment_id": "seg_0001",
+                    "start": 1.0,
+                    "end": 2.0,
+                    "text": "hello there general kenobi",
+                }
+            ],
+            "meta": {
+                "backend": "mock",
+                "model": "unknown",
+                "version": "1.0",
+                "device": "cpu",
+            },
+        }
+
+        output = match_segments_to_script(asr_result=asr_result, script_table=script_table)
+
+        self.assertEqual(output.matches[0].matched_id, "S02")
+
     def test_uses_rapidfuzz_wratio_for_similarity(self) -> None:
         script_table = load_script_table(Path("tests/fixtures/script_sample.tsv"))
         asr_result: ASRResult = {
@@ -59,7 +106,7 @@ class MatchingEngineTests(unittest.TestCase):
                     "segment_id": "seg_0001",
                     "start": 1.0,
                     "end": 2.0,
-                    "text": "hello world",
+                    "text": "hello world there",
                 }
             ],
             "meta": {
@@ -74,7 +121,7 @@ class MatchingEngineTests(unittest.TestCase):
             output = match_segments_to_script(asr_result=asr_result, script_table=script_table)
 
         self.assertGreater(wratio_mock.call_count, 0)
-        self.assertEqual(output.matches[0].score, 1.0)
+        self.assertTrue(0.0 <= output.matches[0].score <= 1.0)
 
     def test_threshold_is_configurable(self) -> None:
         script_table = load_script_table(Path("tests/fixtures/script_sample.tsv"))

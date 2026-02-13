@@ -54,13 +54,30 @@ def _similarity_score(left: str, right: str) -> float:
 
     if not left or not right:
         return 0.0
+    if left == right:
+        return 1.0
 
-    score = max(
-        fuzz.WRatio(left, right),
-        fuzz.partial_ratio(left, right),
-    )
+    wratio = fuzz.WRatio(left, right)
+    token_set = fuzz.token_set_ratio(left, right)
+    partial = fuzz.partial_ratio(left, right)
+    partial_capped = min(partial, 85.0)
 
-    return score / 100.0
+    base_score = (0.55 * wratio) + (0.35 * token_set) + (0.10 * partial_capped)
+
+    left_tokens = set(_tokenize(left))
+    right_tokens = set(_tokenize(right))
+    overlap = len(left_tokens.intersection(right_tokens))
+    max_token_count = max(len(left_tokens), len(right_tokens), 1)
+    coverage_ratio = overlap / float(max_token_count)
+
+    penalty_factor = 1.0
+    if overlap <= 1:
+        penalty_factor *= 0.7
+    if coverage_ratio < 0.45:
+        penalty_factor *= max(0.4, coverage_ratio / 0.45)
+
+    bounded_score = max(0.0, min(100.0, base_score * penalty_factor))
+    return bounded_score / 100.0
 
 
 
