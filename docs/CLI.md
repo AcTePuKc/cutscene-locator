@@ -124,7 +124,7 @@ Current declared backends (exact names):
 
 - `mock` (always enabled)
 - `faster-whisper` (enabled when optional runtime dependencies are installed)
-- `qwen3-asr` (enabled only when optional runtime dependencies are installed)
+- `qwen3-asr` (enabled only when optional runtime dependencies are installed; text-first timestamps, not deterministic without alignment)
 - `whisperx` (enabled only when optional runtime dependencies are installed)
 - `qwen3-forced-aligner` (declared alignment backend; rejected in ASR transcription mode)
 
@@ -156,6 +156,13 @@ Qwen model-family note (mode-separated, authoritative):
 - `Qwen/Qwen3-ASR-*` checkpoints are supported in `asr` mode via backend key `qwen3-asr` and produce the ASR transcript contract (`ASRResult`).
 - `Qwen/Qwen3-ForcedAligner-*` checkpoints are supported only in `alignment` mode via backend key `qwen3-forced-aligner` and require alignment inputs (`reference_spans[]`) with AlignmentResult output.
 - Forced-aligner identifiers are rejected in `--asr-backend` ASR-only path with deterministic guidance; there is no implicit mode/model-family fallback.
+
+
+Timestamp capability marker (registry + diagnostics):
+
+- `text-only`: backend transcript is usable for text matching, but timestamp guarantees are non-deterministic unless followed by explicit forced alignment.
+- `segment-level`: backend provides deterministic segment timestamps suitable for downstream scene reconstruction directly.
+- `alignment-required`: backend is alignment-mode only and must be used through the explicit alignment pipeline.
 
 Mode gating is explicit and deterministic:
 
@@ -290,7 +297,7 @@ Both the installed entrypoint (`cutscene-locator ...`) and source-checkout invoc
 Example output shape:
 
 ```json
-{"backend":"faster-whisper","device":{"compute_type":"auto","cuda_probe_label":"ctranslate2","requested":"auto","resolution_reason":"--device auto selected cuda because ctranslate2 CUDA probe reported available"},"mode":"asr_preflight_only","model_resolution":{"requested":{"auto_download":null,"model_id":null,"model_path":"models/faster-whisper/tiny","revision":null},"resolved_model_path":"models/faster-whisper/tiny"}}
+{"backend":"faster-whisper","capabilities":{"supports_alignment":false,"timestamp_guarantee":"segment-level"},"device":{"compute_type":"auto","cuda_probe_label":"ctranslate2","requested":"auto","resolution_reason":"--device auto selected cuda because ctranslate2 CUDA probe reported available"},"mode":"asr_preflight_only","model_resolution":{"requested":{"auto_download":null,"model_id":null,"model_path":"models/faster-whisper/tiny","revision":null},"resolved_model_path":"models/faster-whisper/tiny"}}
 ```
 
 Behavior notes:
@@ -303,7 +310,7 @@ Behavior notes:
 
 Qwen readiness/smoke checks (optional, env-gated):
 
-- `tests/test_cli.py` includes a deterministic preflight QA assertion for `qwen3-asr` JSON payload shape (`mode/backend/model_resolution/device` fields) with single-line stdout enforcement.
+- `tests/test_cli.py` includes deterministic preflight QA assertions for `qwen3-asr` JSON payload shape including capability fields (`mode/backend/capabilities/model_resolution/device`) with single-line stdout enforcement.
 - Optional loader-init smoke (`Qwen3ReadinessSmokeTests`) is gated to stay offline by default:
   - `CUTSCENE_QWEN3_INIT_SMOKE=1` enables the init-only class.
   - `CUTSCENE_QWEN3_MODEL_PATH=<local_qwen3_snapshot_dir>` must point to an existing local model snapshot.

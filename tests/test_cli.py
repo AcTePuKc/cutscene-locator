@@ -63,6 +63,8 @@ class CliPhaseOneTests(unittest.TestCase):
         payload = json.loads(stdout_lines[0])
         self.assertEqual(payload["mode"], "asr_preflight_only")
         self.assertEqual(payload["backend"], "faster-whisper")
+        self.assertEqual(payload["capabilities"]["timestamp_guarantee"], "segment-level")
+        self.assertFalse(payload["capabilities"]["supports_alignment"])
         self.assertEqual(payload["model_resolution"]["resolved_model_path"], "models/faster-whisper/tiny")
         self.assertEqual(payload["device"]["requested"], "auto")
         self.assertEqual(payload["device"]["compute_type"], "auto")
@@ -164,7 +166,11 @@ class CliPhaseOneTests(unittest.TestCase):
         )
         registration = SimpleNamespace(
             name="qwen3-asr",
-            capabilities=SimpleNamespace(supports_segment_timestamps=True, supports_alignment=False),
+            capabilities=SimpleNamespace(
+                supports_segment_timestamps=True,
+                supports_alignment=False,
+                timestamp_guarantee="text-only",
+            ),
         )
         with patch("cli.list_backend_status", return_value=[enabled_backend]):
             with patch("cli.get_backend", return_value=registration):
@@ -196,6 +202,8 @@ class CliPhaseOneTests(unittest.TestCase):
         payload = json.loads(stdout_lines[0])
         self.assertEqual(payload["mode"], "asr_preflight_only")
         self.assertEqual(payload["backend"], "qwen3-asr")
+        self.assertEqual(payload["capabilities"]["timestamp_guarantee"], "text-only")
+        self.assertFalse(payload["capabilities"]["supports_alignment"])
         self.assertEqual(payload["model_resolution"]["resolved_model_path"], "models/qwen3-asr")
         self.assertEqual(payload["device"]["requested"], "auto")
         self.assertEqual(payload["device"]["compute_type"], "auto")
@@ -270,6 +278,36 @@ class CliPhaseOneTests(unittest.TestCase):
 
         self.assertEqual(code, 1)
         self.assertIn("Missing required arguments", stderr.getvalue())
+
+    def test_text_only_timestamp_backend_rejected_when_deterministic_timestamps_required(self) -> None:
+        stderr = io.StringIO()
+        registration = SimpleNamespace(
+            name="qwen3-asr",
+            capabilities=SimpleNamespace(
+                supports_segment_timestamps=True,
+                supports_alignment=False,
+                timestamp_guarantee="text-only",
+            ),
+        )
+        enabled_status = SimpleNamespace(
+            name="qwen3-asr",
+            enabled=True,
+            missing_dependencies=(),
+            reason="enabled",
+            install_extra="asr_qwen3",
+            supports_alignment=False,
+        )
+        with patch("cli.list_backend_status", return_value=[enabled_status]):
+            with patch("cli.get_backend", return_value=registration):
+                with patch("cli.validate_backend_capabilities") as validate_patch:
+                    validate_patch.side_effect = ValueError("ASR backend 'qwen3-asr' is text-first and does not guarantee deterministic timestamps.")
+                    with redirect_stderr(stderr):
+                        code = cli.main([
+                            "--input", "in.wav", "--script", "script.tsv", "--out", "out", "--asr-backend", "qwen3-asr",
+                        ], which=lambda _: "/usr/bin/ffmpeg", runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0))
+
+        self.assertEqual(code, 1)
+        self.assertIn("does not guarantee deterministic timestamps", stderr.getvalue())
 
     def test_invalid_backend_exits_one(self) -> None:
         stderr = io.StringIO()

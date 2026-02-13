@@ -191,6 +191,14 @@ Backends declaring `supports_alignment=True` are alignment backends and must be 
 
 CLI ASR mode (`--asr-backend`) is transcript-generation mode only and must reject alignment-only backends with a clear error.
 
+Registry capability metadata also includes `timestamp_guarantee` so downstream logic can reason deterministically about timestamp trust level:
+
+- `text-only`: transcript-first backend; timestamps are not deterministic guarantees and should be treated as provisional unless explicit forced alignment is run.
+- `segment-level`: deterministic segment timestamps are available directly from ASR output.
+- `alignment-required`: backend is not an ASR transcript generator and must run through forced alignment contracts.
+
+`qwen3-asr` is explicitly `text-only`; `qwen3-forced-aligner` remains a separate `alignment-required` backend.
+
 ---
 
 ## Text normalization
