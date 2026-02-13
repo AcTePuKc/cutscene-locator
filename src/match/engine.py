@@ -13,6 +13,16 @@ from src.ingest.script_parser import ScriptRow, ScriptTable
 from src.match.normalization import normalize_text
 
 
+_WRATIO_WEIGHT = 0.55
+_TOKEN_SET_RATIO_WEIGHT = 0.35
+_PARTIAL_RATIO_WEIGHT = 0.10
+_PARTIAL_RATIO_CAP = 85.0
+
+_SINGLE_WORD_OVERLAP_PENALTY = 0.7
+_COVERAGE_RATIO_THRESHOLD = 0.45
+_MIN_COVERAGE_PENALTY_FACTOR = 0.4
+_MAX_FUZZ_SCORE = 100.0
+
 @dataclass(frozen=True)
 class MatchResult:
     """Best-match result for one ASR segment."""
@@ -60,9 +70,13 @@ def _similarity_score(left: str, right: str) -> float:
     wratio = fuzz.WRatio(left, right)
     token_set = fuzz.token_set_ratio(left, right)
     partial = fuzz.partial_ratio(left, right)
-    partial_capped = min(partial, 85.0)
+    partial_capped = min(partial, _PARTIAL_RATIO_CAP)
 
-    base_score = (0.55 * wratio) + (0.35 * token_set) + (0.10 * partial_capped)
+    base_score = (
+        (_WRATIO_WEIGHT * wratio)
+        + (_TOKEN_SET_RATIO_WEIGHT * token_set)
+        + (_PARTIAL_RATIO_WEIGHT * partial_capped)
+    )
 
     left_tokens = set(_tokenize(left))
     right_tokens = set(_tokenize(right))
@@ -72,12 +86,15 @@ def _similarity_score(left: str, right: str) -> float:
 
     penalty_factor = 1.0
     if overlap <= 1:
-        penalty_factor *= 0.7
-    if coverage_ratio < 0.45:
-        penalty_factor *= max(0.4, coverage_ratio / 0.45)
+        penalty_factor *= _SINGLE_WORD_OVERLAP_PENALTY
+    if coverage_ratio < _COVERAGE_RATIO_THRESHOLD:
+        penalty_factor *= max(
+            _MIN_COVERAGE_PENALTY_FACTOR,
+            coverage_ratio / _COVERAGE_RATIO_THRESHOLD,
+        )
 
-    bounded_score = max(0.0, min(100.0, base_score * penalty_factor))
-    return bounded_score / 100.0
+    bounded_score = max(0.0, min(_MAX_FUZZ_SCORE, base_score * penalty_factor))
+    return bounded_score / _MAX_FUZZ_SCORE
 
 
 
