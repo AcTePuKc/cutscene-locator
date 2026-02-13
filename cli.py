@@ -369,6 +369,50 @@ def _alignment_result_to_asr_result(alignment_result: dict[str, object]) -> ASRR
     }
 
 
+
+
+def _run_forced_alignment_backend(
+    *,
+    alignment_config: ASRConfig,
+    audio_path: str,
+    reference_spans: list[ReferenceSpan],
+) -> ASRResult:
+    try:
+        resolved_model_path = resolve_model_path(alignment_config)
+    except ModelResolutionError as exc:
+        raise CliError(str(exc)) from exc
+
+    backend_registration = get_backend(alignment_config.backend_name)
+    validate_backend_capabilities(
+        backend_registration,
+        requires_segment_timestamps=False,
+        allows_alignment_backends=True,
+        requires_deterministic_timestamps=False,
+    )
+
+    aligner = backend_registration.backend_class(
+        ASRConfig(
+            backend_name=alignment_config.backend_name,
+            model_path=resolved_model_path,
+            model_id=alignment_config.model_id,
+            revision=alignment_config.revision,
+            auto_download=None,
+            device=alignment_config.device,
+            compute_type="auto",
+        )
+    )
+    alignment_result = aligner.align(
+        audio_path=audio_path,
+        reference_spans=reference_spans,
+    )
+    asr_result = _alignment_result_to_asr_result(alignment_result)
+    if not asr_result["segments"]:
+        raise CliError(
+            "Alignment backend returned no timestamped spans/chunks; expected non-empty deterministic timestamps."
+        )
+    return asr_result
+
+
 def _reference_spans_from_asr_text(asr_result: ASRResult) -> list[ReferenceSpan]:
     reference_spans: list[ReferenceSpan] = []
     for index, segment in enumerate(asr_result["segments"]):
@@ -388,10 +432,14 @@ def _run_two_stage_qwen3_mode(
     ffmpeg_binary: str,
     runner: Callable[..., subprocess.CompletedProcess[str]],
     asr_config: ASRConfig,
-) -> tuple[ASRResult, ScriptTable, Path, Path, PreprocessResult, Path | None, str | None]:
+) -> tuple[ASRResult, ScriptTable, Path, Path, PreprocessResult, Path | None, str | None, dict[str, float]]:
     input_path = Path(args.input_path)
     out_dir = Path(args.out_dir)
+    timings: dict[str, float] = {}
 
+    preprocess_started = time.perf_counter()
+    if args.verbose:
+        print("stage: preprocess start")
     preprocess_result = preprocess_media(
         ffmpeg_binary=ffmpeg_binary,
         input_path=input_path,
@@ -399,6 +447,10 @@ def _run_two_stage_qwen3_mode(
         chunk_seconds=args.chunk,
         runner=runner,
     )
+    timings["preprocess"] = time.perf_counter() - preprocess_started
+    if args.verbose:
+        print("stage: preprocess end")
+
     script_table = load_script_table(Path(args.script_path))
 
     resolved_asr_model_path: Path | None = None
@@ -416,10 +468,12 @@ def _run_two_stage_qwen3_mode(
         requires_deterministic_timestamps=False,
     )
 
-    device_resolution_reason: str | None = None
     resolution = resolve_device_with_details(asr_config.device)
-    device_resolution_reason = resolution.reason
+    device_resolution_reason: str | None = resolution.reason
 
+    stage1_started = time.perf_counter()
+    if args.verbose:
+        print("stage: two-stage stage-1 qwen3-asr start")
     stage1_result = dispatch_asr_transcription(
         audio_path=str(preprocess_result.canonical_wav_path),
         config=asr_config,
@@ -436,6 +490,10 @@ def _run_two_stage_qwen3_mode(
             requires_deterministic_timestamps=False,
         ),
     )
+    timings["asr_stage1"] = time.perf_counter() - stage1_started
+    if args.verbose:
+        print("stage: two-stage stage-1 qwen3-asr end")
+
     reference_spans = _reference_spans_from_asr_text(stage1_result)
 
     alignment_config = ASRConfig(
@@ -447,38 +505,19 @@ def _run_two_stage_qwen3_mode(
         device=args.alignment_device,
         compute_type="auto",
     )
-    try:
-        resolved_alignment_model_path = resolve_model_path(alignment_config)
-    except ModelResolutionError as exc:
-        raise CliError(str(exc)) from exc
 
-    alignment_registration = get_backend(alignment_config.backend_name)
-    validate_backend_capabilities(
-        alignment_registration,
-        requires_segment_timestamps=False,
-        allows_alignment_backends=True,
-        requires_deterministic_timestamps=False,
-    )
-    aligner = alignment_registration.backend_class(
-        ASRConfig(
-            backend_name=alignment_config.backend_name,
-            model_path=resolved_alignment_model_path,
-            model_id=alignment_config.model_id,
-            revision=alignment_config.revision,
-            auto_download=None,
-            device=alignment_config.device,
-            compute_type="auto",
-        )
-    )
-    alignment_result = aligner.align(
+    stage2_started = time.perf_counter()
+    if args.verbose:
+        print("stage: two-stage stage-2 qwen3-forced-aligner start")
+    asr_result = _run_forced_alignment_backend(
+        alignment_config=alignment_config,
         audio_path=str(preprocess_result.canonical_wav_path),
         reference_spans=reference_spans,
     )
-    asr_result = _alignment_result_to_asr_result(alignment_result)
-    if not asr_result["segments"]:
-        raise CliError(
-            "Alignment backend returned no timestamped spans/chunks; expected non-empty deterministic timestamps."
-        )
+    timings["asr_stage2"] = time.perf_counter() - stage2_started
+    timings["asr"] = timings["asr_stage1"] + timings["asr_stage2"]
+    if args.verbose:
+        print("stage: two-stage stage-2 qwen3-forced-aligner end")
 
     return (
         asr_result,
@@ -488,6 +527,7 @@ def _run_two_stage_qwen3_mode(
         preprocess_result,
         resolved_asr_model_path,
         device_resolution_reason,
+        timings,
     )
 
 
@@ -506,19 +546,6 @@ def _run_alignment_mode(
         device=args.alignment_device,
         compute_type="auto",
     )
-    try:
-        resolved_model_path = resolve_model_path(alignment_config)
-    except ModelResolutionError as exc:
-        raise CliError(str(exc)) from exc
-
-    backend_registration = get_backend(alignment_config.backend_name)
-    validate_backend_capabilities(
-        backend_registration,
-        requires_segment_timestamps=False,
-        allows_alignment_backends=True,
-        requires_deterministic_timestamps=False,
-    )
-
     input_path = Path(args.input_path)
     out_dir = Path(args.out_dir)
     preprocessing_output = preprocess_media(
@@ -529,28 +556,13 @@ def _run_alignment_mode(
         runner=runner,
     )
 
-    aligner = backend_registration.backend_class(
-        ASRConfig(
-            backend_name=alignment_config.backend_name,
-            model_path=resolved_model_path,
-            model_id=alignment_config.model_id,
-            revision=alignment_config.revision,
-            auto_download=None,
-            device=alignment_config.device,
-            compute_type="auto",
-        )
-    )
     script_table = load_script_table(Path(args.script_path))
     reference_spans = _load_alignment_reference_spans(args, script_table=script_table)
-    alignment_result = aligner.align(
+    asr_result = _run_forced_alignment_backend(
+        alignment_config=alignment_config,
         audio_path=str(preprocessing_output.canonical_wav_path),
         reference_spans=reference_spans,
     )
-    asr_result = _alignment_result_to_asr_result(alignment_result)
-    if not asr_result["segments"]:
-        raise CliError(
-            "Alignment backend returned no timestamped spans/chunks; expected non-empty deterministic timestamps."
-        )
     return asr_result, script_table, out_dir, input_path, preprocessing_output
 
 
@@ -943,11 +955,6 @@ def main(
         out_dir: Path
 
         if args.two_stage_qwen3:
-            preprocess_started = time.perf_counter()
-            if args.verbose:
-                print("stage: preprocess start")
-                print("stage: two-stage stage-1 qwen3-asr start")
-                print("stage: two-stage stage-2 qwen3-forced-aligner start")
             (
                 asr_result,
                 script_table,
@@ -956,18 +963,14 @@ def main(
                 preprocessing_output,
                 resolved_model_path,
                 device_resolution_reason,
+                two_stage_timings,
             ) = _run_two_stage_qwen3_mode(
                 args=args,
                 ffmpeg_binary=ffmpeg_binary,
                 runner=runner,
                 asr_config=asr_config,
             )
-            timings["preprocess"] = time.perf_counter() - preprocess_started
-            timings["asr"] = 0.0
-            if args.verbose:
-                print("stage: two-stage stage-1 qwen3-asr end")
-                print("stage: two-stage stage-2 qwen3-forced-aligner end")
-                print("stage: preprocess end")
+            timings.update(two_stage_timings)
         elif args.alignment_backend:
             if args.verbose:
                 print("stage: alignment start")
@@ -1150,6 +1153,8 @@ def main(
             "Verbose: timings seconds="
             f"preprocess={timings.get('preprocess', 0.0):.4f} "
             f"asr={timings.get('asr', 0.0):.4f} "
+            f"asr_stage1={timings.get('asr_stage1', 0.0):.4f} "
+            f"asr_stage2={timings.get('asr_stage2', 0.0):.4f} "
             f"matching={timings.get('matching', 0.0):.4f} "
             f"scene_reconstruction={timings.get('scene_reconstruction', 0.0):.4f} "
             f"total={timings.get('total_runtime', 0.0):.4f}"

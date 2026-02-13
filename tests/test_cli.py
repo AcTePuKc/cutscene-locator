@@ -2025,6 +2025,11 @@ class CliAdapterDispatchTests(unittest.TestCase):
         self.assertIn("stage: two-stage stage-1 qwen3-asr end", logs)
         self.assertIn("stage: two-stage stage-2 qwen3-forced-aligner start", logs)
         self.assertIn("stage: two-stage stage-2 qwen3-forced-aligner end", logs)
+        self.assertLess(logs.index("stage: two-stage stage-1 qwen3-asr start"), logs.index("stage: two-stage stage-1 qwen3-asr end"))
+        self.assertLess(logs.index("stage: two-stage stage-1 qwen3-asr end"), logs.index("stage: two-stage stage-2 qwen3-forced-aligner start"))
+        self.assertLess(logs.index("stage: two-stage stage-2 qwen3-forced-aligner start"), logs.index("stage: two-stage stage-2 qwen3-forced-aligner end"))
+        self.assertIn("asr_stage1=", logs)
+        self.assertIn("asr_stage2=", logs)
 
     def test_cli_uses_adapter_registry_for_mock_backend_dispatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

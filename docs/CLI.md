@@ -416,6 +416,24 @@ Derived script→`reference_spans[]` mapping rules are deterministic:
 
 ---
 
+### `--two-stage-qwen3`
+
+Explicit opt-in two-stage orchestration mode for qwen3. This mode is never auto-selected.
+
+Contract:
+
+1. Stage 1 runs transcript generation with `--asr-backend qwen3-asr` (text-first).
+2. Stage 2 runs `qwen3-forced-aligner` on deterministic `reference_spans[]` derived from stage-1 transcript text.
+3. Matching/export consume only stage-2 aligned timestamps (no fabricated timestamps).
+
+Required pairings:
+
+- Must be combined with `--asr-backend qwen3-asr`.
+- Must provide stage-2 model source: `--alignment-model-path` or `--alignment-model-id`.
+- Cannot be combined with `--alignment-backend` or preflight-only flags.
+
+---
+
 ### `--model-path <path>`
 
 Filesystem path to a local ASR model directory/file.
