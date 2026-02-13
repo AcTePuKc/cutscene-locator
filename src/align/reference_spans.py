@@ -20,12 +20,11 @@ def script_table_to_reference_spans(
     When ``log_callback`` is provided, skip reasons are emitted for diagnostics.
     """
 
-    reference_spans: list[ReferenceSpan] = []
-    for row in script_table.rows:
-        maybe_span = _row_to_reference_span(row, log_callback=log_callback)
-        if maybe_span is not None:
-            reference_spans.append(maybe_span)
-    return reference_spans
+    return [
+        span
+        for row in script_table.rows
+        if (span := _row_to_reference_span(row, log_callback=log_callback)) is not None
+    ]
 
 
 def _row_to_reference_span(
