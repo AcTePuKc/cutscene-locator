@@ -88,6 +88,7 @@ All agents must update this file when completing or modifying tasks.
 - [x] ASR preflight-only CLI mode (`--asr-preflight-only`) for backend availability/model resolution/device probe sanity checks with deterministic JSON output (`cli.py`, `tests/test_cli.py`, `docs/CLI.md`)
 - [x] Qwen3 readiness QA coverage: deterministic `qwen3-asr` preflight JSON smoke assertion + optional env-gated local init-only loader smoke (no inference, offline-by-default CI), including from_pretrained-without-`device` and explicit post-load device transfer assertions (`tests/test_cli.py`, `tests/test_qwen3_asr_backend.py`, `docs/CLI.md`)
 - [x] Consolidated overlapping qwen3-asr error-text regression tests into one table-driven suite (missing optional dependency, loader API mismatch, runtime init failure with verbose traceback) while keeping one standalone missing-dependency smoke test for readability (`tests/test_qwen3_asr_backend.py`, `docs/STATUS.md`)
+- [x] Added test-consolidation policy notes (what stays isolated vs what can be table-driven), consolidated duplicate diagnostics-format assertions into labeled parameterized coverage (`qwen3-asr`, `qwen-forced-aligner`), and added a reviewer checklist note to preserve backend-specific debugging clarity (`cli.py`, `tests/test_cli.py`, `docs/STATUS.md`)
 - [x] Windows progress-thread guard + verbose stage markers (`cli.py`, `src/match/engine.py`, `tests/test_cli.py`, `tests/test_matching.py`)
 
 ---
@@ -184,9 +185,9 @@ Contract notes:
 
 - [x] CLI docs/parser flag parity consistency test + declared-disabled backend definition consistency assertion (`tests/test_docs_consistency.py`, `docs/CLI.md`, `cli.py`)
 - [ ] Unit test coverage for core modules
-- [x] Shared ASR/alignment contract regression test module consolidating duplicated schema assertions with backend-labeled failure messages (`tests/test_asr_contracts.py`, `tests/test_qwen3_asr_backend.py`, `tests/test_qwen3_forced_aligner.py`)
+- [x] Shared ASR/alignment contract regression test module consolidating duplicated schema assertions with backend-labeled failure messages (`cli.py`, `tests/test_asr_contracts.py`, `tests/test_qwen3_asr_backend.py`, `tests/test_qwen3_forced_aligner.py`)
 - [x] Test fixtures (audio + script) (`src/asr/timestamp_normalization.py`, `cli.py`, `tests/fixtures/script_integration_sample.tsv`, `tests/fixtures/asr_normalized_faster_whisper.json`, `tests/fixtures/asr_normalized_qwen3_asr.json`, `tests/fixtures/asr_normalized_whisperx_vibevoice.json`)
-- [x] Centralized deterministic qwen/alignment/timestamp-edge fixtures and refactored backend tests to consume fixtures, plus integration-style parser/validator no-rewrite contract coverage (`tests/fixtures/qwen3_asr_minimal_segments.json`, `tests/fixtures/qwen3_forced_alignment_minimal_spans.json`, `tests/fixtures/timestamp_boundary_cases.json`, `tests/test_qwen3_asr_backend.py`, `tests/test_qwen3_forced_aligner.py`, `tests/test_asr.py`, `tests/test_asr_contracts.py`, `tests/fixtures/README.md`)
+- [x] Centralized deterministic qwen/alignment/timestamp-edge fixtures and refactored backend tests to consume fixtures, plus integration-style parser/validator no-rewrite contract coverage (`cli.py`, `tests/fixtures/qwen3_asr_minimal_segments.json`, `tests/fixtures/qwen3_forced_alignment_minimal_spans.json`, `tests/fixtures/timestamp_boundary_cases.json`, `tests/test_qwen3_asr_backend.py`, `tests/test_qwen3_forced_aligner.py`, `tests/test_asr.py`, `tests/test_asr_contracts.py`, `tests/fixtures/README.md`)
 - [x] Integration test (optional, gated) (`cli.py`, `src/export/writers.py`, `tests/test_integration_pipeline.py`)
 - [ ] Performance profiling (large scripts)
 - [ ] Config file support (optional)
@@ -256,6 +257,8 @@ Contract notes:
 
 - 2026-02-12 – Updated qwen3-asr pipeline initialization failure messaging to match the core model artifact contract (config/tokenizer/tokenizer_config/weights; processor/preprocessor optional) and include concise runtime debugging hints; added backend error-message regression coverage (`src/asr/qwen3_asr_backend.py`, `tests/test_qwen3_asr_backend.py`, `docs/STATUS.md`).
 - 2026-02-13 – Consolidated overlapping qwen3-asr backend error-path tests into a single table-driven regression (missing dependency, loader API mismatch, runtime init failure/verbose traceback) and kept a standalone missing-dependency smoke test for readability (`tests/test_qwen3_asr_backend.py`, `docs/STATUS.md`).
+
+- 2026-02-13 – Documented test-consolidation guardrails (keep backend loader/device-probe/subprocess-verbose behavior isolated), consolidated duplicate CLI diagnostics-format checks into one labeled table-driven test case set (`qwen3-asr/asr-mode`, `qwen-forced-aligner/asr-mode`), and added reviewer checklist guidance to keep unique backend behavior separate (`tests/test_cli.py`, `docs/STATUS.md`).
 
 - YYYY-MM-DD – Initial STATUS.md created
 - 2026-02-12 – Fixed static ASR adapter return-path typing by replacing docstring-only `ASRAdapter` protocol methods with explicit ellipsis stubs (signature-preserving), and added adapter-registry coverage to assert each registered adapter exposes callable `transcribe` (`src/asr/adapters.py`, `tests/test_asr_registry.py`, `docs/STATUS.md`).

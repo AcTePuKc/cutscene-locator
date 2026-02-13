@@ -1,3 +1,14 @@
+"""CLI regression tests.
+
+Consolidation policy for debugging clarity:
+- Keep backend loader-specific tests separate.
+- Keep device/probe selection tests separate.
+- Keep subprocess/verbose logging behavior tests separate.
+- Consolidate only pure contract assertions and repeated diagnostics formatting checks.
+
+Reviewer checklist note: "consolidate duplicates, keep unique backend behavior isolated."
+"""
+
 import io
 import json
 import os
@@ -282,68 +293,56 @@ class CliPhaseOneTests(unittest.TestCase):
         self.assertIn("Unknown ASR backend", stderr.getvalue())
         self.assertNotIn("declared but currently disabled", stderr.getvalue())
 
-    def test_declared_but_disabled_backend_exits_with_actionable_error(self) -> None:
-        stderr = io.StringIO()
-        disabled_backend = SimpleNamespace(
-            name="qwen3-asr",
-            enabled=False,
-            missing_dependencies=("torch", "qwen_asr"),
-            install_extra="asr_qwen3",
+    def test_declared_but_disabled_backends_exits_with_actionable_error(self) -> None:
+        scenarios = (
+            {
+                "backend_mode_label": "qwen3-asr/asr-mode",
+                "backend_name": "qwen3-asr",
+                "missing_dependencies": ("torch", "qwen_asr"),
+                "install_extra": "asr_qwen3",
+            },
+            {
+                "backend_mode_label": "vibevoice/asr-mode",
+                "backend_name": "vibevoice",
+                "missing_dependencies": ("vibevoice", "torch"),
+                "install_extra": "asr_vibevoice",
+            },
         )
-        with patch("cli.list_backend_status", return_value=[disabled_backend]):
-            with redirect_stderr(stderr):
-                code = cli.main(
-                    [
-                        "--input",
-                        "in.wav",
-                        "--script",
-                        "script.tsv",
-                        "--out",
-                        "out",
-                        "--asr-backend",
-                        "qwen3-asr",
-                    ],
-                    which=lambda _: "/usr/bin/ffmpeg",
-                    runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+
+        for scenario in scenarios:
+            with self.subTest(backend_mode_label=scenario["backend_mode_label"]):
+                stderr = io.StringIO()
+                disabled_backend = SimpleNamespace(
+                    name=scenario["backend_name"],
+                    enabled=False,
+                    missing_dependencies=scenario["missing_dependencies"],
+                    install_extra=scenario["install_extra"],
                 )
+                with patch("cli.list_backend_status", return_value=[disabled_backend]):
+                    with redirect_stderr(stderr):
+                        code = cli.main(
+                            [
+                                "--input",
+                                "in.wav",
+                                "--script",
+                                "script.tsv",
+                                "--out",
+                                "out",
+                                "--asr-backend",
+                                scenario["backend_name"],
+                            ],
+                            which=lambda _: "/usr/bin/ffmpeg",
+                            runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                        )
 
-        self.assertEqual(code, 1)
-        self.assertIn("declared but currently disabled", stderr.getvalue())
-        self.assertIn("Missing optional dependencies: torch, qwen_asr", stderr.getvalue())
-        self.assertIn("pip install 'cutscene-locator[asr_qwen3]'", stderr.getvalue())
-
-
-
-
-    def test_declared_but_disabled_vibevoice_backend_exits_with_actionable_error(self) -> None:
-        stderr = io.StringIO()
-        disabled_backend = SimpleNamespace(
-            name="vibevoice",
-            enabled=False,
-            missing_dependencies=("vibevoice", "torch"),
-            install_extra="asr_vibevoice",
-        )
-        with patch("cli.list_backend_status", return_value=[disabled_backend]):
-            with redirect_stderr(stderr):
-                code = cli.main(
-                    [
-                        "--input",
-                        "in.wav",
-                        "--script",
-                        "script.tsv",
-                        "--out",
-                        "out",
-                        "--asr-backend",
-                        "vibevoice",
-                    ],
-                    which=lambda _: "/usr/bin/ffmpeg",
-                    runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                self.assertEqual(code, 1)
+                self.assertIn("declared but currently disabled", stderr.getvalue())
+                expected_missing = ", ".join(scenario["missing_dependencies"])
+                self.assertIn(f"Missing optional dependencies: {expected_missing}", stderr.getvalue())
+                self.assertIn(
+                    f"pip install 'cutscene-locator[{scenario['install_extra']}]'",
+                    stderr.getvalue(),
                 )
-
-        self.assertEqual(code, 1)
-        self.assertIn("declared but currently disabled", stderr.getvalue())
-        self.assertIn("Missing optional dependencies: vibevoice, torch", stderr.getvalue())
-        self.assertIn("pip install 'cutscene-locator[asr_vibevoice]'", stderr.getvalue())
 
     def test_declared_but_disabled_backend_without_missing_deps_uses_reason_without_install_hint(self) -> None:
         stderr = io.StringIO()
@@ -407,67 +406,77 @@ class CliPhaseOneTests(unittest.TestCase):
         self.assertIn("--mock-asr is required", stderr.getvalue())
         self.assertNotIn("declared but currently disabled", stderr.getvalue())
 
-    def test_alignment_backend_rejected_in_asr_mode(self) -> None:
-        stderr = io.StringIO()
-        alignment_registration = SimpleNamespace(
-            name="qwen3-asr",
-            capabilities=SimpleNamespace(supports_alignment=True),
-        )
-        with patch("cli.get_backend", return_value=alignment_registration):
-            with patch("cli.list_backend_status", return_value=[]):
-                with redirect_stderr(stderr):
-                    code = cli.main(
-                        [
-                            "--input",
-                            "in.wav",
-                            "--script",
-                            "script.tsv",
-                            "--out",
-                            "out",
-                            "--asr-backend",
-                            "qwen3-asr",
-                        ],
-                        which=lambda _: "/usr/bin/ffmpeg",
-                        runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+    def test_alignment_backends_are_rejected_in_asr_mode_before_disabled_dependency_diagnostics(self) -> None:
+        scenarios = (
+            {
+                "backend_mode_label": "qwen3-asr/asr-mode",
+                "backend_name": "qwen3-asr",
+                "backend_registration": SimpleNamespace(
+                    name="qwen3-asr",
+                    capabilities=SimpleNamespace(supports_alignment=True),
+                ),
+                "status_rows": [],
+                "expected_fragments": ("alignment backend", "alignment pipeline path"),
+            },
+            {
+                "backend_mode_label": "qwen-forced-aligner/asr-mode",
+                "backend_name": "qwen3-forced-aligner",
+                "backend_registration": None,
+                "status_rows": [
+                    SimpleNamespace(
+                        name="qwen3-forced-aligner",
+                        enabled=False,
+                        missing_dependencies=("qwen_asr",),
+                        reason="missing optional dependencies: qwen_asr",
+                        install_extra="asr_qwen3",
+                        supports_alignment=True,
                     )
-
-        self.assertEqual(code, 1)
-        self.assertIn("alignment backend", stderr.getvalue())
-        self.assertIn("alignment pipeline path", stderr.getvalue())
-
-
-    def test_alignment_backend_status_rejected_before_disabled_dependency_message(self) -> None:
-        stderr = io.StringIO()
-        alignment_status = SimpleNamespace(
-            name="qwen3-forced-aligner",
-            enabled=False,
-            missing_dependencies=("qwen_asr",),
-            reason="missing optional dependencies: qwen_asr",
-            install_extra="asr_qwen3",
-            supports_alignment=True,
+                ],
+                "expected_fragments": ("alignment backend", "reference_spans[]"),
+            },
         )
 
-        with patch("cli.list_backend_status", return_value=[alignment_status]):
-            with redirect_stderr(stderr):
-                code = cli.main(
-                    [
-                        "--input",
-                        "in.wav",
-                        "--script",
-                        "script.tsv",
-                        "--out",
-                        "out",
-                        "--asr-backend",
-                        "qwen3-forced-aligner",
-                    ],
-                    which=lambda _: "/usr/bin/ffmpeg",
-                    runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
-                )
+        for scenario in scenarios:
+            with self.subTest(backend_mode_label=scenario["backend_mode_label"]):
+                stderr = io.StringIO()
+                with patch("cli.list_backend_status", return_value=scenario["status_rows"]):
+                    with redirect_stderr(stderr):
+                        if scenario["backend_registration"] is None:
+                            code = cli.main(
+                                [
+                                    "--input",
+                                    "in.wav",
+                                    "--script",
+                                    "script.tsv",
+                                    "--out",
+                                    "out",
+                                    "--asr-backend",
+                                    scenario["backend_name"],
+                                ],
+                                which=lambda _: "/usr/bin/ffmpeg",
+                                runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                            )
+                        else:
+                            with patch("cli.get_backend", return_value=scenario["backend_registration"]):
+                                code = cli.main(
+                                    [
+                                        "--input",
+                                        "in.wav",
+                                        "--script",
+                                        "script.tsv",
+                                        "--out",
+                                        "out",
+                                        "--asr-backend",
+                                        scenario["backend_name"],
+                                    ],
+                                    which=lambda _: "/usr/bin/ffmpeg",
+                                    runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                                )
 
-        self.assertEqual(code, 1)
-        self.assertIn("alignment backend", stderr.getvalue())
-        self.assertIn("reference_spans[]", stderr.getvalue())
-        self.assertNotIn("declared but currently disabled", stderr.getvalue())
+                self.assertEqual(code, 1)
+                for fragment in scenario["expected_fragments"]:
+                    self.assertIn(fragment, stderr.getvalue())
+                self.assertNotIn("declared but currently disabled", stderr.getvalue())
 
     def test_mock_backend_requires_mock_asr(self) -> None:
         stderr = io.StringIO()
