@@ -158,11 +158,16 @@ class Qwen3ASRBackendTests(unittest.TestCase):
         backend = Qwen3ASRBackend()
 
         with patch("src.asr.qwen3_asr_backend.import_module", side_effect=ModuleNotFoundError()):
-            with self.assertRaisesRegex(ValueError, "cutscene-locator\\[asr_qwen3\\]"):
+            with self.assertRaises(ValueError) as ctx:
                 backend.transcribe(
                     "in.wav",
                     ASRConfig(backend_name="qwen3-asr", model_path=Path("models/qwen3"), device="cpu"),
                 )
+
+        message = str(ctx.exception)
+        self.assertIn("cutscene-locator[asr_qwen3]", message)
+        self.assertIn("qwen_asr", message)
+
 
     def test_backend_emits_standard_contract(self) -> None:
         backend = Qwen3ASRBackend()

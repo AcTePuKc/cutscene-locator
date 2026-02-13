@@ -186,10 +186,10 @@ Backend dependency expectations:
   - Includes: `faster-whisper`, `huggingface_hub`.
 - `qwen3-asr`
   - Install: `pip install 'cutscene-locator[asr_qwen3]'`
-  - Includes: `torch`, `transformers`, `huggingface_hub`.
+  - Includes: `qwen-asr`, `torch`, `transformers`, `huggingface_hub`.
 - `qwen3-forced-aligner`
   - Install: `pip install 'cutscene-locator[asr_qwen3]'`
-  - Includes: `torch`, `transformers`, `huggingface_hub`.
+  - Includes: `qwen-asr`, `torch`, `transformers`, `huggingface_hub`.
 - `whisperx`
   - Install: `pip install 'cutscene-locator[asr_whisperx]'`
   - Includes: `whisperx`, `torch`, `huggingface_hub` (and WhisperX runtime preflight relies on `ctranslate2` CUDA probing).
