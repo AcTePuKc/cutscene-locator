@@ -102,6 +102,7 @@ All ASR backends must produce output that conforms to this structure.
   - Tie-break/preservation rules: keep the earlier segment `segment_id` and `speaker` when present, preserve earliest `start` + latest `end`, preserve stable deterministic ordering by `(start, end, original_index)`.
 - `speaker` is optional.
 - ASR text is not rewritten by timestamp normalization.
+- `qwen3-asr` is text-first ASR at runtime: timestamped `chunks[]` are consumed when present, but timestamp emission is not guaranteed by a universal runtime flag and must be treated as backend-output dependent.
 
 ---
 
