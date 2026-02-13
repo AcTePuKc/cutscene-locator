@@ -66,14 +66,12 @@ class Qwen3ASRBackendTests(unittest.TestCase):
                 ),
             )
 
+        self.assertEqual(len(from_pretrained_calls), 1)
+        call = from_pretrained_calls[0]
+        self.assertEqual(call["dtype"], "float32")
         self.assertEqual(
-            from_pretrained_calls,
-            [
-                {
-                    "model_path": "models/Qwen3-ASR-1.7B",
-                    "dtype": "float32",
-                }
-            ],
+            Path(str(call["model_path"])).resolve(),
+            Path("models/Qwen3-ASR-1.7B").resolve(),
         )
         self.assertEqual(
             transcribe_calls,

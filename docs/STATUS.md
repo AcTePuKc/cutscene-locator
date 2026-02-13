@@ -210,6 +210,7 @@ Contract notes:
 
 ## Change log (manual)
 
+- 2026-02-13 – Fixed qwen3-asr backend test path expectation to be OS-deterministic by asserting resolved `Path` equivalence for `from_pretrained` model path (instead of raw separator-sensitive string equality), preserving intent without changing runtime formatting (`tests/test_qwen3_asr_backend.py`, `docs/STATUS.md`).
 - 2026-02-13 – Added deterministic worker-failure diagnostics gating in CLI ASR subprocess handling: non-verbose mode keeps concise errors without dumping worker streams, while `--verbose` now prints labeled worker stdout/stderr blocks in deterministic order before raising; added regression tests for both paths and documented troubleshooting behavior (`cli.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/STATUS.md`).
 - 2026-02-13 – Removed `temperature` from qwen3-asr transcribe/generation kwargs path to avoid qwen_asr/Transformers invalid-generation-flag warnings while preserving deterministic unsupported-option filtering for other non-qwen decode knobs; added regression coverage asserting qwen transcribe is called without `temperature` (`src/asr/qwen3_asr_backend.py`, `tests/test_qwen3_asr_backend.py`, `docs/STATUS.md`).
 
