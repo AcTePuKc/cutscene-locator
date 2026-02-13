@@ -212,6 +212,27 @@ Explicit alignment execution must use dedicated alignment CLI flags (not `--asr-
 
 Alignment mode must call the selected alignment backend contract directly (`align(audio_path, reference_spans)`), validate output with alignment validators, and produce non-empty deterministic timestamped spans/chunks before matching.
 
+### Optional explicit two-stage qwen3 orchestration
+
+Two-stage orchestration is opt-in only and must never auto-switch from direct ASR or direct alignment paths.
+
+- CLI trigger: `--two-stage-qwen3`
+- Required Stage 1 backend: `--asr-backend qwen3-asr` (text-first transcript contract)
+- Required Stage 2 backend: `qwen3-forced-aligner` with explicit alignment model source (`--alignment-model-path` or `--alignment-model-id`)
+
+Deterministic flow:
+
+1. Run qwen3-asr transcript path to obtain text segments.
+2. Build deterministic `reference_spans[]` from stage-1 transcript text in stable segment order.
+3. Run qwen3-forced-aligner on that deterministic `reference_spans[]` source.
+4. Convert validated alignment spans to ASRResult-compatible timestamp segments and continue matching/scene/export.
+
+Rules:
+
+- No fabricated timestamps are allowed at any stage.
+- If stage-2 aligner model/dependencies are missing, fail fast with deterministic actionable error text.
+- Verbose mode must emit clear stage boundary logs for two-stage stage-1/stage-2 execution.
+
 ---
 
 ## Text normalization

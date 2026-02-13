@@ -256,6 +256,7 @@ class DocsCliFlagParityTests(unittest.TestCase):
             "--asr-logprob-threshold": "### `--asr-logprob-threshold <float>`",
             "--progress": "### `--progress <on|off>`",
             "--alignment-reference-spans": "### `--alignment-reference-spans <path>`",
+            "--two-stage-qwen3": "### `--two-stage-qwen3`",
         }
 
         parser_flags = sorted(
