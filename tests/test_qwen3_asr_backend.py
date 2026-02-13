@@ -80,6 +80,43 @@ class Qwen3ASRBackendTests(unittest.TestCase):
             [{"audio_path": "in.wav", "language": "en", "return_timestamps": True}],
         )
 
+    def test_transcribe_does_not_forward_temperature_kwarg(self) -> None:
+        backend = Qwen3ASRBackend()
+        transcribe_kwargs: list[dict[str, object]] = []
+
+        class _FakeModel:
+            def transcribe(self, audio_path: str, **kwargs: object):
+                del audio_path
+                transcribe_kwargs.append(dict(kwargs))
+                return {"chunks": [{"timestamp": (0.0, 1.0), "text": "hello"}]}
+
+        class _FakeQwen3ASRModel:
+            @classmethod
+            def from_pretrained(cls, model_path: str, **kwargs: object):
+                del model_path
+                del kwargs
+                model = _FakeModel()
+                model.model = _TorchModuleWithTo()
+                return model
+
+        fake_qwen_asr = types.SimpleNamespace(Qwen3ASRModel=_FakeQwen3ASRModel)
+
+        with patch("src.asr.qwen3_asr_backend.import_module", return_value=fake_qwen_asr):
+            backend.transcribe(
+                "in.wav",
+                ASRConfig(
+                    backend_name="qwen3-asr",
+                    model_path=Path("models/Qwen3-ASR-0.6B"),
+                    device="cpu",
+                    language="en",
+                    temperature=0.7,
+                ),
+            )
+
+        self.assertEqual(len(transcribe_kwargs), 1)
+        self.assertNotIn("temperature", transcribe_kwargs[0])
+        self.assertEqual(transcribe_kwargs[0], {"language": "en", "return_timestamps": True})
+
     def test_from_pretrained_does_not_receive_device_kwarg(self) -> None:
         backend = Qwen3ASRBackend()
         from_pretrained_kwargs: list[dict[str, object]] = []
