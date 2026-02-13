@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from importlib.util import find_spec
-from typing import Any
+from typing import Any, Literal
 
 from .backends import MockASRBackend
 from .faster_whisper_backend import FasterWhisperBackend
@@ -14,11 +14,15 @@ from .vibevoice_backend import VibeVoiceBackend
 from src.align.qwen3_forced_aligner import Qwen3ForcedAligner
 
 
+TimestampGuarantee = Literal["text-only", "segment-level", "alignment-required"]
+
+
 @dataclass(frozen=True)
 class BackendCapabilities:
     """Capability metadata exposed for each ASR backend."""
 
     supports_segment_timestamps: bool
+    timestamp_guarantee: TimestampGuarantee
     supports_word_timestamps: bool
     supports_alignment: bool
     supports_diarization: bool
@@ -53,6 +57,7 @@ class BackendStatus:
     reason: str
     install_extra: str | None = None
     supports_alignment: bool = False
+    timestamp_guarantee: TimestampGuarantee = "segment-level"
 
 
 def _missing_dependencies(required_dependencies: tuple[str, ...]) -> tuple[str, ...]:
@@ -64,6 +69,7 @@ def _missing_dependencies(required_dependencies: tuple[str, ...]) -> tuple[str, 
 def _build_declared_registry() -> dict[str, DeclaredBackend]:
     default_capabilities = BackendCapabilities(
         supports_segment_timestamps=True,
+        timestamp_guarantee="segment-level",
         supports_word_timestamps=False,
         supports_alignment=False,
         supports_diarization=False,
@@ -71,6 +77,7 @@ def _build_declared_registry() -> dict[str, DeclaredBackend]:
     )
     alignment_capabilities = BackendCapabilities(
         supports_segment_timestamps=True,
+        timestamp_guarantee="alignment-required",
         supports_word_timestamps=False,
         supports_alignment=True,
         supports_diarization=False,
@@ -99,6 +106,7 @@ def _build_declared_registry() -> dict[str, DeclaredBackend]:
                 backend_class=WhisperXBackend,
                 capabilities=BackendCapabilities(
                     supports_segment_timestamps=True,
+                    timestamp_guarantee="segment-level",
                     supports_word_timestamps=False,
                     supports_alignment=False,
                     supports_diarization=True,
@@ -112,7 +120,14 @@ def _build_declared_registry() -> dict[str, DeclaredBackend]:
             registration=BackendRegistration(
                 name="qwen3-asr",
                 backend_class=Qwen3ASRBackend,
-                capabilities=default_capabilities,
+                capabilities=BackendCapabilities(
+                    supports_segment_timestamps=True,
+                    timestamp_guarantee="text-only",
+                    supports_word_timestamps=False,
+                    supports_alignment=False,
+                    supports_diarization=False,
+                    max_audio_duration=None,
+                ),
             ),
             required_dependencies=("torch", "qwen_asr"),
             install_extra="asr_qwen3",
@@ -158,6 +173,7 @@ def list_backend_status() -> list[BackendStatus]:
                 reason=reason,
                 install_extra=declared_backend.install_extra,
                 supports_alignment=declared_backend.registration.capabilities.supports_alignment,
+                timestamp_guarantee=declared_backend.registration.capabilities.timestamp_guarantee,
             )
         )
     return statuses
@@ -175,11 +191,17 @@ def validate_backend_capabilities(
     *,
     requires_segment_timestamps: bool,
     allows_alignment_backends: bool,
+    requires_deterministic_timestamps: bool = False,
 ) -> None:
     """Validate backend capabilities against pipeline requirements."""
 
     supports_segment_timestamps = getattr(registration.capabilities, "supports_segment_timestamps", True)
     supports_alignment = getattr(registration.capabilities, "supports_alignment", False)
+    timestamp_guarantee: TimestampGuarantee = getattr(
+        registration.capabilities,
+        "timestamp_guarantee",
+        "segment-level",
+    )
 
     if requires_segment_timestamps and not supports_segment_timestamps:
         raise ValueError(
@@ -191,6 +213,12 @@ def validate_backend_capabilities(
             f"'{registration.name}' is an alignment backend and cannot be used with --asr-backend. "
             "Use the alignment pipeline path and alignment input contract (`reference_spans[]`) "
             "instead of ASR-only transcription mode."
+        )
+
+    if requires_deterministic_timestamps and timestamp_guarantee == "text-only":
+        raise ValueError(
+            f"ASR backend '{registration.name}' is text-first and does not guarantee deterministic timestamps. "
+            "Use a segment-level ASR backend or run explicit forced alignment for deterministic timing."
         )
 
 def _build_enabled_registry() -> dict[str, BackendRegistration]:

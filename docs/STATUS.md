@@ -101,7 +101,7 @@ All agents must update this file when completing or modifying tasks.
 - [x] Final ASR backend interface definition
 - [x] Backend registry system
 - [x] Backend discovery via CLI flag
-- [x] Backend capability metadata (supports_word_timestamps, supports_alignment, etc.)
+- [x] Backend capability metadata (supports_word_timestamps, supports_alignment, timestamp guarantee level, etc.) (`src/asr/registry.py`, `cli.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/Integration.md`)
 - [x] Backend status API distinguishes unknown vs declared-disabled backends (`name`, `enabled`, `missing_dependencies`, `reason`) and preserves enabled-only discovery via `list_backends()` (`src/asr/registry.py`, `cli.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/CLI.md`)
 - [x] Docs/backend-name consistency guard: declared registry backend names must be present in `docs/CLI.md` and `docs/STATUS.md` (`tests/test_docs_consistency.py`, `docs/CLI.md`, `docs/STATUS.md`)
 
@@ -391,3 +391,5 @@ Contract notes:
 - 2026-02-13 – Codified regression tests for qwen3-asr and CLI worker failure diagnostics: added a warning-path guard proving qwen transcribe kwargs never forward `temperature`, added failure-path coverage for verbose traceback emission plus preserved chained causes, and hardened CLI worker failure assertions for verbose/non-verbose stdout/stderr behavior with Windows-safe newline and path assertions (`tests/test_qwen3_asr_backend.py`, `tests/test_cli.py`, `docs/STATUS.md`).
 - 2026-02-13 – Hardened qwen3-asr runtime call contract by removing unconditional `return_timestamps`, filtering transcribe kwargs by runtime signature, forwarding temperature only when runtime explicitly supports it, and updating deterministic error/docs/tests for text-vs-timestamp behavior and worker verbose output handling (`src/asr/qwen3_asr_backend.py`, `tests/test_qwen3_asr_backend.py`, `tests/test_cli.py`, `docs/Integration-issues.md`, `docs/Data-contracts.md`, `docs/STATUS.md`).
 
+
+- 2026-02-13 – Added timestamp-guarantee capability marker (`text-only`/`segment-level`/`alignment-required`) to ASR backend registry/status metadata, marked `qwen3-asr` as text-first while keeping `qwen3-forced-aligner` alignment-only, surfaced capability summary in `--asr-preflight-only` JSON diagnostics, and added registry/CLI regression coverage for capability metadata and deterministic timestamp gating paths (`src/asr/registry.py`, `src/asr/adapters.py`, `cli.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/Integration.md`, `docs/STATUS.md`).

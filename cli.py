@@ -145,6 +145,7 @@ def _validate_backend(args: argparse.Namespace) -> None:
             registration,
             requires_segment_timestamps=requirements.requires_segment_timestamps,
             allows_alignment_backends=requirements.allows_alignment_backends,
+            requires_deterministic_timestamps=requirements.requires_deterministic_timestamps,
         )
     except ValueError as exc:
         raise CliError(str(exc)) from exc
@@ -379,6 +380,8 @@ def _build_preflight_output(
     *,
     asr_config: ASRConfig,
     backend_name: str,
+    timestamp_guarantee: str,
+    supports_alignment: bool,
     resolved_model_path: Path | None,
     device_resolution_reason: str | None,
     cuda_probe_label: str | None,
@@ -394,6 +397,10 @@ def _build_preflight_output(
                 "auto_download": asr_config.auto_download,
             },
             "resolved_model_path": str(resolved_model_path) if resolved_model_path is not None else None,
+        },
+        "capabilities": {
+            "timestamp_guarantee": timestamp_guarantee,
+            "supports_alignment": supports_alignment,
         },
         "device": {
             "requested": asr_config.device,
@@ -432,6 +439,7 @@ def _run_asr_preflight_only(
         backend_registration,
         requires_segment_timestamps=requirements.requires_segment_timestamps,
         allows_alignment_backends=requirements.allows_alignment_backends,
+        requires_deterministic_timestamps=requirements.requires_deterministic_timestamps,
     )
 
     resolution_reason: str | None = None
@@ -450,6 +458,8 @@ def _run_asr_preflight_only(
     payload = _build_preflight_output(
         asr_config=asr_config,
         backend_name=backend_registration.name,
+        timestamp_guarantee=getattr(backend_registration.capabilities, "timestamp_guarantee", "segment-level"),
+        supports_alignment=getattr(backend_registration.capabilities, "supports_alignment", False),
         resolved_model_path=resolved_model_path,
         device_resolution_reason=resolution_reason,
         cuda_probe_label=cuda_probe_label,
@@ -571,6 +581,7 @@ def main(
             backend_registration,
             requires_segment_timestamps=requirements.requires_segment_timestamps,
             allows_alignment_backends=requirements.allows_alignment_backends,
+            requires_deterministic_timestamps=requirements.requires_deterministic_timestamps,
         )
 
         if backend_registration.name != "mock":

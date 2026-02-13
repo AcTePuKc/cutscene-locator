@@ -134,6 +134,7 @@ class ASRRegistryTests(unittest.TestCase):
         self.assertTrue(backend.capabilities.supports_segment_timestamps)
         self.assertFalse(backend.capabilities.supports_alignment)
         self.assertFalse(backend.capabilities.supports_word_timestamps)
+        self.assertEqual(backend.capabilities.timestamp_guarantee, "segment-level")
 
     def test_get_backend_returns_capabilities(self) -> None:
         backend = get_backend("mock")
@@ -142,6 +143,7 @@ class ASRRegistryTests(unittest.TestCase):
         self.assertTrue(backend.capabilities.supports_segment_timestamps)
         self.assertFalse(backend.capabilities.supports_alignment)
         self.assertFalse(backend.capabilities.supports_word_timestamps)
+        self.assertEqual(backend.capabilities.timestamp_guarantee, "segment-level")
 
     def test_qwen3_asr_backend_does_not_mark_alignment_capability(self) -> None:
         with patch("importlib.util.find_spec", side_effect=lambda name: object()):
@@ -150,6 +152,7 @@ class ASRRegistryTests(unittest.TestCase):
             backend = registry_module.get_backend("qwen3-asr")
 
         self.assertFalse(backend.capabilities.supports_alignment)
+        self.assertEqual(backend.capabilities.timestamp_guarantee, "text-only")
 
     def test_qwen3_forced_aligner_marks_alignment_capability(self) -> None:
         with patch("importlib.util.find_spec", side_effect=lambda name: object()):
@@ -158,6 +161,7 @@ class ASRRegistryTests(unittest.TestCase):
             backend = registry_module.get_backend("qwen3-forced-aligner")
 
         self.assertTrue(backend.capabilities.supports_alignment)
+        self.assertEqual(backend.capabilities.timestamp_guarantee, "alignment-required")
 
 
     def test_whisperx_backend_capabilities(self) -> None:
@@ -170,6 +174,7 @@ class ASRRegistryTests(unittest.TestCase):
         self.assertFalse(backend.capabilities.supports_alignment)
         self.assertFalse(backend.capabilities.supports_word_timestamps)
         self.assertTrue(backend.capabilities.supports_diarization)
+        self.assertEqual(backend.capabilities.timestamp_guarantee, "segment-level")
 
 
     def test_vibevoice_backend_capabilities(self) -> None:
@@ -181,6 +186,7 @@ class ASRRegistryTests(unittest.TestCase):
         self.assertTrue(backend.capabilities.supports_segment_timestamps)
         self.assertFalse(backend.capabilities.supports_alignment)
         self.assertFalse(backend.capabilities.supports_word_timestamps)
+        self.assertEqual(backend.capabilities.timestamp_guarantee, "segment-level")
 
     def test_get_backend_unknown_raises(self) -> None:
         with self.assertRaisesRegex(ValueError, "Unknown ASR backend"):
@@ -193,6 +199,21 @@ class ASRRegistryTests(unittest.TestCase):
             requires_segment_timestamps=True,
             allows_alignment_backends=False,
         )
+
+
+    def test_validate_backend_capabilities_rejects_text_only_when_deterministic_required(self) -> None:
+        with patch("importlib.util.find_spec", side_effect=lambda name: object()):
+            registry_module = importlib.import_module("src.asr.registry")
+            registry_module = importlib.reload(registry_module)
+            backend = registry_module.get_backend("qwen3-asr")
+
+            with self.assertRaisesRegex(ValueError, "does not guarantee deterministic timestamps"):
+                registry_module.validate_backend_capabilities(
+                    backend,
+                    requires_segment_timestamps=True,
+                    allows_alignment_backends=False,
+                    requires_deterministic_timestamps=True,
+                )
 
     def test_adapter_registry_returns_backend_adapter(self) -> None:
         adapter = get_asr_adapter("mock")
@@ -249,6 +270,7 @@ class ASRRegistryTests(unittest.TestCase):
             backend_class=object,
             capabilities=BackendCapabilities(
                 supports_segment_timestamps=True,
+                timestamp_guarantee="alignment-required",
                 supports_word_timestamps=False,
                 supports_alignment=True,
                 supports_diarization=False,

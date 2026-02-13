@@ -207,6 +207,7 @@ class CapabilityRequirements:
 
     requires_segment_timestamps: bool = True
     allows_alignment_backends: bool = False
+    requires_deterministic_timestamps: bool = False
 
 
 @dataclass(frozen=True)
@@ -431,6 +432,7 @@ def dispatch_asr_transcription(
         registration,
         requires_segment_timestamps=effective_requirements.requires_segment_timestamps,
         allows_alignment_backends=effective_requirements.allows_alignment_backends,
+        requires_deterministic_timestamps=effective_requirements.requires_deterministic_timestamps,
     )
     adapter = get_asr_adapter(registration.name)
     return adapter.transcribe(audio_path, config, context)
