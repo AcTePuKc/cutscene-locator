@@ -1,0 +1,6 @@
+id	original	translation
+A_002	  First line with spaces  	TR1
+	Missing id should skip	TR_SKIP
+A_001	Second line!	TR2
+A_004	   	TR_SKIP
+A_003	Third line unchanged	TR3

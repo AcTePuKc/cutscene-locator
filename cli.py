@@ -28,7 +28,7 @@ from src.asr import (
     resolve_device_with_details,
     validate_backend_capabilities,
 )
-from src.align import ReferenceSpan, validate_alignment_result
+from src.align import ReferenceSpan, script_table_to_reference_spans, validate_alignment_result
 from src.asr.device import select_cuda_probe
 from src.asr.model_resolution import ModelResolutionError, resolve_model_path
 from src.export import (
@@ -307,16 +307,15 @@ def _load_alignment_reference_spans(
             raise CliError("Alignment reference spans cannot be empty.")
         return reference_spans
 
-    reference_spans_from_script: list[ReferenceSpan] = []
-    for row in script_table.rows:
-        reference_spans_from_script.append(
-            {
-                "ref_id": row.values["id"],
-                "text": row.values["original"],
-            }
-        )
+    reference_spans_from_script = script_table_to_reference_spans(
+        script_table,
+        log_callback=(lambda message: print(f"Verbose: {message}")) if args.verbose else None,
+    )
     if not reference_spans_from_script:
-        raise CliError("Alignment mode requires at least one script row to build reference spans.")
+        raise CliError(
+            "Alignment mode requires at least one valid script row to build reference spans. "
+            "Rows with empty id/original are skipped."
+        )
     return reference_spans_from_script
 
 
