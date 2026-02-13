@@ -264,6 +264,21 @@ Default:
 
 ---
 
+
+### `--alignment-backend <name>`
+
+Run explicit forced alignment mode using alignment backend contracts (`reference_spans[]`), then continue matching/export pipeline with deterministic timestamped spans.
+
+- Required for alignment run mode.
+- Must reference a backend with `supports_alignment=True` (for example `qwen3-forced-aligner`).
+- Kept separate from `--asr-backend`; ASR-mode rejection for alignment backends remains unchanged.
+
+Example:
+
+```bash
+cutscene-locator   --input in.wav   --script tests/fixtures/script_sample.tsv   --out out   --alignment-backend qwen3-forced-aligner   --alignment-model-path models/qwen3-forced-aligner
+```
+
 ### `--asr-preflight-only`
 
 Run backend readiness checks only, then exit before ingest/transcription/matching/exports.
@@ -378,6 +393,21 @@ Example:
 ---
 
 
+### `--alignment-reference-spans <path>`
+
+Optional JSON file containing explicit alignment input `reference_spans[]` array:
+
+```json
+[
+  {"ref_id": "M01_001", "text": "You do not get it."},
+  {"ref_id": "M01_002", "text": "Yeah."}
+]
+```
+
+If omitted, alignment mode derives reference spans from `--script` rows (`id` + `original`).
+
+---
+
 ### `--model-path <path>`
 
 Filesystem path to a local ASR model directory/file.
@@ -397,6 +427,12 @@ If the selected backend/model artifacts are missing or invalid, the CLI fails wi
 - Default: none
 - Valid values: existing local filesystem path
 - Backend applicability: model-loading backends (`faster-whisper`, `qwen3-asr`, `whisperx`, `vibevoice`); not used by `mock`
+
+### `--alignment-model-path <path>`
+
+Alignment-mode model path (separate from ASR model flags).
+
+---
 
 ### `--model-id <repo_id>`
 
@@ -427,6 +463,12 @@ Backend-specific compatibility caveats:
 - Valid values: non-empty Hugging Face repo id string
 - Backend applicability: model-loading backends (`faster-whisper`, `qwen3-asr`, `whisperx`, `vibevoice`); not useful for `mock`
 
+### `--alignment-model-id <repo_id>`
+
+Alignment-mode model id (separate from ASR model flags).
+
+---
+
 ### `--auto-download <tiny|base|small>`
 
 Optional convenience selector for deterministic backend-specific model-id mapping.
@@ -438,6 +480,12 @@ Optional convenience selector for deterministic backend-specific model-id mappin
   - `faster-whisper`: supported (mapped to known faster-whisper repos)
   - `qwen3-asr` / `whisperx` / `vibevoice`: currently no documented size mapping; use `--model-id` or `--model-path`
   - `mock`: not applicable
+
+### `--alignment-revision <revision>`
+
+Optional revision for `--alignment-model-id`.
+
+---
 
 ### `--revision <revision>`
 
@@ -457,6 +505,12 @@ Selects ASR execution device.
 - Default: `auto`
 - Valid choices: `cpu`, `cuda`, `auto`
 - Backend applicability: runtime ASR backends (`faster-whisper`, `qwen3-asr`, `whisperx`, `vibevoice`); no effect for `mock`
+
+### `--alignment-device <cpu|cuda|auto>`
+
+Device selection for explicit alignment mode.
+
+---
 
 ### `--compute-type <float16|float32|auto>`
 

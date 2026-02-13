@@ -218,14 +218,19 @@ class DocsCliFlagParityTests(unittest.TestCase):
             "--script": "### `--script`",
             "--out": "### `--out`",
             "--asr-backend": "### `--asr-backend <name>`",
+            "--alignment-backend": "### `--alignment-backend <name>`",
             "--asr-preflight-only": "### `--asr-preflight-only`",
             "--alignment-preflight-only": "### `--alignment-preflight-only`",
             "--mock-asr": "### `--mock-asr <file>`",
             "--model-path": "### `--model-path <path>`",
+            "--alignment-model-path": "### `--alignment-model-path <path>`",
             "--model-id": "### `--model-id <repo_id>`",
+            "--alignment-model-id": "### `--alignment-model-id <repo_id>`",
             "--revision": "### `--revision <revision>`",
+            "--alignment-revision": "### `--alignment-revision <revision>`",
             "--auto-download": "### `--auto-download <tiny|base|small>`",
             "--device": "### `--device <cpu|cuda|auto>`",
+            "--alignment-device": "### `--alignment-device <cpu|cuda|auto>`",
             "--compute-type": "### `--compute-type <float16|float32|auto>`",
             "--chunk": "### `--chunk <seconds>`",
             "--scene-gap": "### `--scene-gap <seconds>`",
@@ -250,6 +255,7 @@ class DocsCliFlagParityTests(unittest.TestCase):
             "--asr-no-speech-threshold": "### `--asr-no-speech-threshold <float>`",
             "--asr-logprob-threshold": "### `--asr-logprob-threshold <float>`",
             "--progress": "### `--progress <on|off>`",
+            "--alignment-reference-spans": "### `--alignment-reference-spans <path>`",
         }
 
         parser_flags = sorted(
