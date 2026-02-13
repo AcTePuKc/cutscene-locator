@@ -393,3 +393,5 @@ Contract notes:
 
 
 - 2026-02-13 – Added timestamp-guarantee capability marker (`text-only`/`segment-level`/`alignment-required`) to ASR backend registry/status metadata, marked `qwen3-asr` as text-first while keeping `qwen3-forced-aligner` alignment-only, surfaced capability summary in `--asr-preflight-only` JSON diagnostics, and added registry/CLI regression coverage for capability metadata and deterministic timestamp gating paths (`src/asr/registry.py`, `src/asr/adapters.py`, `cli.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/Integration.md`, `docs/STATUS.md`).
+
+- [x] qwen3-asr transcribe kwargs hardened to signature-only forwarding: never pass `return_timestamps`, never pass `temperature` when unsupported, and forward `temperature` only when runtime signature explicitly accepts it; regression coverage added for all three paths (`src/asr/qwen3_asr_backend.py`, `tests/test_qwen3_asr_backend.py`, `docs/STATUS.md`).

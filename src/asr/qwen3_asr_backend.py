@@ -72,11 +72,7 @@ class Qwen3ASRBackend:
 
         _move_model_to_device_or_raise(model, resolved_device)
 
-        inference_kwargs: dict[str, object] = {}
-        if config.language is not None:
-            inference_kwargs["language"] = config.language
-        if config.temperature != 0.0:
-            inference_kwargs["temperature"] = config.temperature
+        inference_kwargs = _build_qwen_transcribe_candidate_kwargs(config)
 
         inference_kwargs = _filter_supported_transcribe_kwargs(
             model.transcribe,
@@ -128,10 +124,19 @@ def _filter_supported_transcribe_kwargs(
     if not candidate_kwargs:
         return {}
 
+    candidate_without_forbidden = {
+        key: value
+        for key, value in candidate_kwargs.items()
+        if key != "return_timestamps"
+    }
+
+    if not candidate_without_forbidden:
+        return {}
+
     try:
         transcribe_signature = signature(transcribe_callable)
     except (TypeError, ValueError):
-        return dict(candidate_kwargs)
+        return dict(candidate_without_forbidden)
 
     supported_names = {
         parameter.name
@@ -139,14 +144,26 @@ def _filter_supported_transcribe_kwargs(
         if parameter.kind in (Parameter.POSITIONAL_OR_KEYWORD, Parameter.KEYWORD_ONLY)
     }
     filtered_kwargs = {
-        key: value for key, value in candidate_kwargs.items() if key in supported_names
+        key: value
+        for key, value in candidate_without_forbidden.items()
+        if key in supported_names
     }
 
-    dropped = sorted(set(candidate_kwargs).difference(filtered_kwargs))
+    dropped = sorted(set(candidate_without_forbidden).difference(filtered_kwargs))
     if dropped and callable(log_callback):
         log_callback("asr: filtered unsupported qwen3 transcribe kwargs: " + ", ".join(dropped))
 
     return filtered_kwargs
+
+
+def _build_qwen_transcribe_candidate_kwargs(config: ASRConfig) -> dict[str, object]:
+    candidate_kwargs: dict[str, object] = {}
+    if config.language is not None:
+        candidate_kwargs["language"] = config.language
+    if config.temperature != 0.0:
+        candidate_kwargs["temperature"] = config.temperature
+
+    return candidate_kwargs
 
 
 def _resolve_dtype(compute_type: str) -> str:
