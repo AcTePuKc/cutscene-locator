@@ -87,6 +87,7 @@ All agents must update this file when completing or modifying tasks.
 - [x] Worker failure diagnostics preserve clean non-verbose failures and emit deterministic labeled stdout/stderr blocks in verbose mode (`cli.py`, `tests/test_cli.py`, `docs/CLI.md`)
 - [x] ASR preflight-only CLI mode (`--asr-preflight-only`) for backend availability/model resolution/device probe sanity checks with deterministic JSON output (`cli.py`, `tests/test_cli.py`, `docs/CLI.md`)
 - [x] Qwen3 readiness QA coverage: deterministic `qwen3-asr` preflight JSON smoke assertion + optional env-gated local init-only loader smoke (no inference, offline-by-default CI), including from_pretrained-without-`device` and explicit post-load device transfer assertions (`tests/test_cli.py`, `tests/test_qwen3_asr_backend.py`, `docs/CLI.md`)
+- [x] Consolidated overlapping qwen3-asr error-text regression tests into one table-driven suite (missing optional dependency, loader API mismatch, runtime init failure with verbose traceback) while keeping one standalone missing-dependency smoke test for readability (`tests/test_qwen3_asr_backend.py`, `docs/STATUS.md`)
 - [x] Windows progress-thread guard + verbose stage markers (`cli.py`, `src/match/engine.py`, `tests/test_cli.py`, `tests/test_matching.py`)
 
 ---
@@ -252,6 +253,7 @@ Contract notes:
 - 2026-02-12 – Added qwen3-asr readiness QA coverage with deterministic single-line preflight JSON payload assertions and an optional env-gated local-model init-only smoke test (`CUTSCENE_QWEN3_INIT_SMOKE=1`, `CUTSCENE_QWEN3_MODEL_PATH=...`) that does not run inference; documented usage in CLI preflight troubleshooting notes (`tests/test_cli.py`, `docs/CLI.md`, `docs/STATUS.md`).
 
 - 2026-02-12 – Updated qwen3-asr pipeline initialization failure messaging to match the core model artifact contract (config/tokenizer/tokenizer_config/weights; processor/preprocessor optional) and include concise runtime debugging hints; added backend error-message regression coverage (`src/asr/qwen3_asr_backend.py`, `tests/test_qwen3_asr_backend.py`, `docs/STATUS.md`).
+- 2026-02-13 – Consolidated overlapping qwen3-asr backend error-path tests into a single table-driven regression (missing dependency, loader API mismatch, runtime init failure/verbose traceback) and kept a standalone missing-dependency smoke test for readability (`tests/test_qwen3_asr_backend.py`, `docs/STATUS.md`).
 
 - YYYY-MM-DD – Initial STATUS.md created
 - 2026-02-12 – Fixed static ASR adapter return-path typing by replacing docstring-only `ASRAdapter` protocol methods with explicit ellipsis stubs (signature-preserving), and added adapter-registry coverage to assert each registered adapter exposes callable `transcribe` (`src/asr/adapters.py`, `tests/test_asr_registry.py`, `docs/STATUS.md`).
