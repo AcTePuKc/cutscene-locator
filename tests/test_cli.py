@@ -323,8 +323,19 @@ class CliPhaseOneTests(unittest.TestCase):
 
     def test_alignment_preflight_only_rejects_non_alignment_backends(self) -> None:
         stderr = io.StringIO()
-        with redirect_stderr(stderr):
-            code = cli.main(
+        statuses = [
+            SimpleNamespace(name="qwen3-asr", enabled=True, missing_dependencies=(), reason="enabled", install_extra="asr_qwen3", supports_alignment=False),
+            SimpleNamespace(name="qwen3-forced-aligner", enabled=True, missing_dependencies=(), reason="enabled", install_extra="asr_qwen3", supports_alignment=True),
+        ]
+        fake_registration = SimpleNamespace(
+            name="qwen3-asr",
+            backend_class=object,
+            capabilities=SimpleNamespace(supports_segment_timestamps=True, supports_alignment=False, timestamp_guarantee="text-only"),
+        )
+        with patch("cli.list_backend_status", return_value=statuses):
+            with patch("cli.get_backend", return_value=fake_registration):
+                with redirect_stderr(stderr):
+                    code = cli.main(
                 [
                     "--alignment-preflight-only",
                     "--asr-backend",
@@ -1795,6 +1806,225 @@ class CliAdapterDispatchTests(unittest.TestCase):
                                 lines = matches_path.read_text(encoding="utf-8").splitlines()
                                 self.assertGreater(len(lines), 1)
                                 self.assertIn(",0,0.75,", lines[1])
+
+
+    def test_two_stage_qwen3_run_uses_stage1_text_then_stage2_alignment_timestamps(self) -> None:
+        class _MockQwenAsrBackend:
+            def transcribe(self, audio_path: str, config: object) -> dict[str, object]:
+                del audio_path, config
+                return {
+                    "segments": [
+                        {"segment_id": "seg_0001", "start": 0.0, "end": 0.5, "text": "You don't get it."},
+                        {"segment_id": "seg_0002", "start": 0.5, "end": 1.0, "text": "Yeah."},
+                    ],
+                    "meta": {"backend": "qwen3-asr", "model": "fixture", "version": "1", "device": "cpu"},
+                }
+
+        class _MockAlignerBackend:
+            def __init__(self, config: object):
+                self.config = config
+
+            def align(self, audio_path: str, reference_spans: list[dict[str, str]]) -> dict[str, object]:
+                del audio_path
+                self.last_reference_spans = reference_spans
+                return {
+                    "transcript_text": " ".join(item["text"] for item in reference_spans),
+                    "spans": [
+                        {
+                            "span_id": reference_spans[0]["ref_id"],
+                            "start": 10.0,
+                            "end": 10.8,
+                            "text": reference_spans[0]["text"],
+                            "confidence": 1.0,
+                        },
+                        {
+                            "span_id": reference_spans[1]["ref_id"],
+                            "start": 11.0,
+                            "end": 11.6,
+                            "text": reference_spans[1]["text"],
+                            "confidence": 1.0,
+                        },
+                    ],
+                    "meta": {"backend": "qwen3-forced-aligner", "version": "test", "device": "cpu"},
+                }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            out_dir = Path(tmp_dir) / "out"
+            fake_preprocess = SimpleNamespace(canonical_wav_path=Path("out/_tmp/canonical.wav"), chunk_metadata=[])
+            statuses = [
+                SimpleNamespace(name="qwen3-asr", enabled=True, missing_dependencies=(), reason="enabled", install_extra="asr_qwen3", supports_alignment=False),
+                SimpleNamespace(name="qwen3-forced-aligner", enabled=True, missing_dependencies=(), reason="enabled", install_extra="asr_qwen3", supports_alignment=True),
+            ]
+
+            def fake_get_backend(name: str) -> SimpleNamespace:
+                if name == "qwen3-asr":
+                    return SimpleNamespace(
+                        name="qwen3-asr",
+                        backend_class=_MockQwenAsrBackend,
+                        capabilities=SimpleNamespace(supports_segment_timestamps=True, supports_alignment=False, timestamp_guarantee="text-only"),
+                    )
+                if name == "qwen3-forced-aligner":
+                    return SimpleNamespace(
+                        name="qwen3-forced-aligner",
+                        backend_class=_MockAlignerBackend,
+                        capabilities=SimpleNamespace(supports_segment_timestamps=True, supports_alignment=True, timestamp_guarantee="alignment-required"),
+                    )
+                raise AssertionError(name)
+
+            stage1_result = {
+                "segments": [
+                    {"segment_id": "seg_0001", "start": 0.0, "end": 0.5, "text": "You don't get it."},
+                    {"segment_id": "seg_0002", "start": 0.5, "end": 1.0, "text": "Yeah."},
+                ],
+                "meta": {"backend": "qwen3-asr", "model": "fixture", "version": "1", "device": "cpu"},
+            }
+            with patch("cli.list_backend_status", return_value=statuses):
+                with patch("cli.get_backend", side_effect=fake_get_backend):
+                    with patch("cli.dispatch_asr_transcription", return_value=stage1_result):
+                        with patch("cli.preprocess_media", return_value=fake_preprocess):
+                            with patch("cli.resolve_model_path", side_effect=[Path("models/qwen3-asr"), Path("models/qwen3-aligner")]):
+                                code = cli.main(
+                                [
+                                    "--input", "in.wav",
+                                    "--script", "tests/fixtures/script_sample.tsv",
+                                    "--out", str(out_dir),
+                                    "--asr-backend", "qwen3-asr",
+                                    "--alignment-model-path", "models/qwen3-aligner",
+                                    "--two-stage-qwen3",
+                                    "--chunk", "0",
+                                    "--match-threshold", "0.0",
+                                ],
+                                which=lambda _: "/usr/bin/ffmpeg",
+                                runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                            )
+
+            self.assertEqual(code, 0)
+            lines = (out_dir / "matches.csv").read_text(encoding="utf-8").splitlines()
+            self.assertIn(",10,10.8,", lines[1])
+            self.assertIn(",11,11.6,", lines[2])
+
+    def test_two_stage_qwen3_missing_alignment_model_fails_deterministically(self) -> None:
+        stderr = io.StringIO()
+        statuses = [
+            SimpleNamespace(name="qwen3-asr", enabled=True, missing_dependencies=(), reason="enabled", install_extra="asr_qwen3", supports_alignment=False),
+            SimpleNamespace(name="qwen3-forced-aligner", enabled=True, missing_dependencies=(), reason="enabled", install_extra="asr_qwen3", supports_alignment=True),
+        ]
+        fake_registration = SimpleNamespace(
+            name="qwen3-asr",
+            backend_class=object,
+            capabilities=SimpleNamespace(supports_segment_timestamps=True, supports_alignment=False, timestamp_guarantee="text-only"),
+        )
+        with patch("cli.list_backend_status", return_value=statuses):
+            with patch("cli.get_backend", return_value=fake_registration):
+                with redirect_stderr(stderr):
+                    code = cli.main(
+                    [
+                        "--input", "in.wav",
+                        "--script", "tests/fixtures/script_sample.tsv",
+                        "--out", "out",
+                        "--asr-backend", "qwen3-asr",
+                        "--two-stage-qwen3",
+                        "--chunk", "0",
+                    ],
+                    which=lambda _: "/usr/bin/ffmpeg",
+                    runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                )
+
+        self.assertEqual(code, 1)
+        self.assertIn("--two-stage-qwen3 requires --alignment-model-path or --alignment-model-id", stderr.getvalue())
+
+    def test_two_stage_qwen3_fails_when_aligner_dependencies_missing(self) -> None:
+        stderr = io.StringIO()
+        statuses = [
+            SimpleNamespace(name="qwen3-asr", enabled=True, missing_dependencies=(), reason="enabled", install_extra="asr_qwen3", supports_alignment=False),
+            SimpleNamespace(name="qwen3-forced-aligner", enabled=False, missing_dependencies=("torch", "transformers"), reason="missing optional deps", install_extra="asr_qwen3", supports_alignment=True),
+        ]
+        with patch("cli.list_backend_status", return_value=statuses):
+            with redirect_stderr(stderr):
+                code = cli.main(
+                    [
+                        "--input", "in.wav",
+                        "--script", "tests/fixtures/script_sample.tsv",
+                        "--out", "out",
+                        "--asr-backend", "qwen3-asr",
+                        "--alignment-model-path", "models/qwen3-aligner",
+                        "--two-stage-qwen3",
+                    ],
+                    which=lambda _: "/usr/bin/ffmpeg",
+                    runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                )
+
+        self.assertEqual(code, 1)
+        self.assertIn("Two-stage qwen3 flow requires enabled alignment backend 'qwen3-forced-aligner'", stderr.getvalue())
+        self.assertIn("Missing optional dependencies: torch, transformers", stderr.getvalue())
+
+    def test_two_stage_qwen3_verbose_logs_stage_boundaries(self) -> None:
+        class _MockQwenAsrBackend:
+            def transcribe(self, audio_path: str, config: object) -> dict[str, object]:
+                del audio_path, config
+                return {
+                    "segments": [{"segment_id": "seg_0001", "start": 0.0, "end": 0.5, "text": "You don't get it."}],
+                    "meta": {"backend": "qwen3-asr", "model": "fixture", "version": "1", "device": "cpu"},
+                }
+
+        class _MockAlignerBackend:
+            def __init__(self, config: object):
+                self.config = config
+
+            def align(self, audio_path: str, reference_spans: list[dict[str, str]]) -> dict[str, object]:
+                del audio_path
+                return {
+                    "transcript_text": reference_spans[0]["text"],
+                    "spans": [{"span_id": reference_spans[0]["ref_id"], "start": 3.0, "end": 3.5, "text": reference_spans[0]["text"], "confidence": 1.0}],
+                    "meta": {"backend": "qwen3-forced-aligner", "version": "test", "device": "cpu"},
+                }
+
+        stdout = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            out_dir = Path(tmp_dir) / "out"
+            fake_preprocess = SimpleNamespace(canonical_wav_path=Path("out/_tmp/canonical.wav"), chunk_metadata=[])
+
+            def fake_get_backend(name: str) -> SimpleNamespace:
+                if name == "qwen3-asr":
+                    return SimpleNamespace(name="qwen3-asr", backend_class=_MockQwenAsrBackend, capabilities=SimpleNamespace(supports_segment_timestamps=True, supports_alignment=False, timestamp_guarantee="text-only"))
+                return SimpleNamespace(name="qwen3-forced-aligner", backend_class=_MockAlignerBackend, capabilities=SimpleNamespace(supports_segment_timestamps=True, supports_alignment=True, timestamp_guarantee="alignment-required"))
+
+            statuses = [
+                SimpleNamespace(name="qwen3-asr", enabled=True, missing_dependencies=(), reason="enabled", install_extra="asr_qwen3", supports_alignment=False),
+                SimpleNamespace(name="qwen3-forced-aligner", enabled=True, missing_dependencies=(), reason="enabled", install_extra="asr_qwen3", supports_alignment=True),
+            ]
+            stage1_result = {
+                "segments": [{"segment_id": "seg_0001", "start": 0.0, "end": 0.5, "text": "You don't get it."}],
+                "meta": {"backend": "qwen3-asr", "model": "fixture", "version": "1", "device": "cpu"},
+            }
+            with patch("cli.list_backend_status", return_value=statuses):
+                with patch("cli.get_backend", side_effect=fake_get_backend):
+                    with patch("cli.dispatch_asr_transcription", return_value=stage1_result):
+                        with patch("cli.preprocess_media", return_value=fake_preprocess):
+                            with patch("cli.resolve_model_path", side_effect=[Path("models/qwen3-asr"), Path("models/qwen3-aligner")]):
+                                with redirect_stdout(stdout):
+                                    code = cli.main(
+                                    [
+                                        "--input", "in.wav",
+                                        "--script", "tests/fixtures/script_sample.tsv",
+                                        "--out", str(out_dir),
+                                        "--asr-backend", "qwen3-asr",
+                                        "--alignment-model-path", "models/qwen3-aligner",
+                                        "--two-stage-qwen3",
+                                        "--chunk", "0",
+                                        "--match-threshold", "0.0",
+                                        "--verbose",
+                                    ],
+                                    which=lambda _: "/usr/bin/ffmpeg",
+                                    runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                                )
+
+        self.assertEqual(code, 0)
+        logs = stdout.getvalue()
+        self.assertIn("stage: two-stage stage-1 qwen3-asr start", logs)
+        self.assertIn("stage: two-stage stage-1 qwen3-asr end", logs)
+        self.assertIn("stage: two-stage stage-2 qwen3-forced-aligner start", logs)
+        self.assertIn("stage: two-stage stage-2 qwen3-forced-aligner end", logs)
 
     def test_cli_uses_adapter_registry_for_mock_backend_dispatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

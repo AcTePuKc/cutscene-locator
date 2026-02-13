@@ -105,6 +105,21 @@ All ASR backends must produce output that conforms to this structure.
 - `qwen3-asr` is text-first ASR at runtime: timestamped `chunks[]` are consumed when present, but timestamp emission is not guaranteed by a universal runtime flag and must be treated as backend-output dependent.
 - Bridge enforcement: if a backend advertises `timestamp_guarantee="text-only"` and runtime output lacks deterministic segment timestamps, the CLI bridge must raise a deterministic actionable error and stop before matching; timestamps must never be fabricated.
 
+### Optional two-stage qwen3 orchestration contract
+
+When `--two-stage-qwen3` is selected, the bridge contract is:
+
+1. Stage 1 (`qwen3-asr`): text-first transcript result is consumed only to build deterministic `reference_spans[]`.
+2. Stage 2 (`qwen3-forced-aligner`): timestamps must come from validated alignment `spans[]` only.
+3. Downstream matching/export consumes stage-2 timestamps; stage-1 timestamps are not trusted/required in two-stage mode.
+
+Determinism requirements:
+
+- Stage-1 transcript segment order defines `reference_spans[]` order.
+- `ref_id` generation for two-stage bridge is deterministic and stable per segment index.
+- Empty/whitespace-only stage-1 text spans are skipped; if no spans remain, fail deterministically.
+- Timestamp fabrication is forbidden; only stage-2 aligner timestamps may enter matching/scene/export.
+
 ---
 
 
