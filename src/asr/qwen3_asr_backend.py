@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 import traceback
+from inspect import Parameter, signature
 from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from .backends import validate_asr_result
 from .base import ASRResult, ASRSegment
 from .config import ASRConfig
 from .timestamp_normalization import normalize_asr_segments_for_contract
 
-_SUPPORTED_INFERENCE_OPTIONS = ("language", "return_timestamps", "device", "dtype")
+_SUPPORTED_BACKEND_CONTROLS = ("language", "device", "dtype")
 
 
 class Qwen3ASRBackend:
@@ -71,10 +72,17 @@ class Qwen3ASRBackend:
 
         _move_model_to_device_or_raise(model, resolved_device)
 
-        inference_kwargs: dict[str, object] = {
-            "language": config.language,
-            "return_timestamps": True,
-        }
+        inference_kwargs: dict[str, object] = {}
+        if config.language is not None:
+            inference_kwargs["language"] = config.language
+        if config.temperature != 0.0:
+            inference_kwargs["temperature"] = config.temperature
+
+        inference_kwargs = _filter_supported_transcribe_kwargs(
+            model.transcribe,
+            inference_kwargs,
+            config.log_callback,
+        )
 
         try:
             raw_result = model.transcribe(audio_path, **inference_kwargs)
@@ -110,6 +118,35 @@ class Qwen3ASRBackend:
             },
             source="qwen3-asr",
         )
+
+
+def _filter_supported_transcribe_kwargs(
+    transcribe_callable: object,
+    candidate_kwargs: dict[str, object],
+    log_callback: Callable[[str], None] | None,
+) -> dict[str, object]:
+    if not candidate_kwargs:
+        return {}
+
+    try:
+        transcribe_signature = signature(transcribe_callable)
+    except (TypeError, ValueError):
+        return dict(candidate_kwargs)
+
+    supported_names = {
+        parameter.name
+        for parameter in transcribe_signature.parameters.values()
+        if parameter.kind in (Parameter.POSITIONAL_OR_KEYWORD, Parameter.KEYWORD_ONLY)
+    }
+    filtered_kwargs = {
+        key: value for key, value in candidate_kwargs.items() if key in supported_names
+    }
+
+    dropped = sorted(set(candidate_kwargs).difference(filtered_kwargs))
+    if dropped and callable(log_callback):
+        log_callback("asr: filtered unsupported qwen3 transcribe kwargs: " + ", ".join(dropped))
+
+    return filtered_kwargs
 
 
 def _resolve_dtype(compute_type: str) -> str:
@@ -162,17 +199,12 @@ def _validate_supported_options(config: ASRConfig) -> None:
     if config.vad_filter:
         unsupported_options.append("vad_filter")
 
-    # qwen_asr/transformers generation path does not accept temperature for this
-    # ASR usage and emits invalid-generation-flag warnings when provided.
-    # We intentionally ignore ASRConfig.temperature for qwen3-asr and never
-    # forward it to model.transcribe().
-
     if unsupported_options:
         raise ValueError(
             "qwen3-asr backend does not support options: "
             f"{', '.join(sorted(unsupported_options))}. "
-            "Supported options are: "
-            f"{', '.join(_SUPPORTED_INFERENCE_OPTIONS)}."
+            "Supported backend controls are: "
+            f"{', '.join(_SUPPORTED_BACKEND_CONTROLS)}."
         )
 
 
@@ -181,7 +213,7 @@ def _normalize_qwen_segments(raw_result: Any) -> list[ASRSegment]:
     if not isinstance(chunks, list) or not chunks:
         raise ValueError(
             "qwen3-asr backend did not return timestamped chunks. "
-            "Expected a non-empty 'chunks' list when return_timestamps=True."
+            "Expected a non-empty 'chunks' list with per-segment timestamps; qwen3-asr may emit text-only output depending on runtime/model behavior."
         )
 
     normalized_segments: list[ASRSegment] = []

@@ -43,8 +43,8 @@ class Qwen3ASRBackendTests(unittest.TestCase):
         transcribe_calls: list[dict[str, object]] = []
 
         class _FakeModel:
-            def transcribe(self, audio_path: str, **kwargs: object):
-                transcribe_calls.append({"audio_path": audio_path, **kwargs})
+            def transcribe(self, audio_path: str, language: str | None = None):
+                transcribe_calls.append({"audio_path": audio_path, "language": language})
                 return {
                     "chunks": [
                         {"timestamp": (0.0, 0.9), "text": "variant line one"},
@@ -83,7 +83,7 @@ class Qwen3ASRBackendTests(unittest.TestCase):
         )
         self.assertEqual(
             transcribe_calls,
-            [{"audio_path": "in.wav", "language": "en", "return_timestamps": True}],
+            [{"audio_path": "in.wav", "language": "en"}],
         )
 
     def test_transcribe_does_not_forward_temperature_kwarg(self) -> None:
@@ -91,9 +91,9 @@ class Qwen3ASRBackendTests(unittest.TestCase):
         transcribe_kwargs: list[dict[str, object]] = []
 
         class _FakeModel:
-            def transcribe(self, audio_path: str, **kwargs: object):
+            def transcribe(self, audio_path: str, language: str | None = None):
                 del audio_path
-                transcribe_kwargs.append(dict(kwargs))
+                transcribe_kwargs.append({"language": language})
                 return {"chunks": [{"timestamp": (0.0, 1.0), "text": "hello"}]}
 
         class _FakeQwen3ASRModel:
@@ -121,8 +121,84 @@ class Qwen3ASRBackendTests(unittest.TestCase):
 
         self.assertEqual(len(transcribe_kwargs), 1)
         self.assertNotIn("temperature", transcribe_kwargs[0])
-        self.assertEqual(transcribe_kwargs[0], {"language": "en", "return_timestamps": True})
+        self.assertEqual(transcribe_kwargs[0], {"language": "en"})
 
+
+    def test_transcribe_filters_kwargs_by_runtime_signature(self) -> None:
+        backend = Qwen3ASRBackend()
+        transcribe_kwargs: list[dict[str, object]] = []
+
+        class _FakeModel:
+            def transcribe(self, audio_path: str, language: str | None = None):
+                del audio_path
+                transcribe_kwargs.append({"language": language})
+                return {"chunks": [{"timestamp": (0.0, 1.0), "text": "hello"}]}
+
+        class _FakeQwen3ASRModel:
+            @classmethod
+            def from_pretrained(cls, model_path: str, **kwargs: object):
+                del model_path
+                del kwargs
+                model = _FakeModel()
+                model.model = _TorchModuleWithTo()
+                return model
+
+        fake_qwen_asr = types.SimpleNamespace(Qwen3ASRModel=_FakeQwen3ASRModel)
+
+        with patch("src.asr.qwen3_asr_backend.import_module", return_value=fake_qwen_asr):
+            backend.transcribe(
+                "in.wav",
+                ASRConfig(
+                    backend_name="qwen3-asr",
+                    model_path=Path("models/Qwen3-ASR-0.6B"),
+                    device="cpu",
+                    language="en",
+                    temperature=0.7,
+                ),
+            )
+
+        self.assertEqual(transcribe_kwargs, [{"language": "en"}])
+
+    def test_transcribe_passes_temperature_only_when_signature_supports_it(self) -> None:
+        backend = Qwen3ASRBackend()
+        transcribe_calls: list[dict[str, object]] = []
+
+        class _FakeModel:
+            def transcribe(
+                self,
+                audio_path: str,
+                *,
+                language: str | None = None,
+                temperature: float | None = None,
+            ):
+                del audio_path
+                transcribe_calls.append({"language": language, "temperature": temperature})
+                return {"chunks": [{"timestamp": (0.0, 1.0), "text": "hello"}]}
+
+        class _FakeQwen3ASRModel:
+            @classmethod
+            def from_pretrained(cls, model_path: str, **kwargs: object):
+                del model_path
+                del kwargs
+                model = _FakeModel()
+                model.model = _TorchModuleWithTo()
+                return model
+
+        fake_qwen_asr = types.SimpleNamespace(Qwen3ASRModel=_FakeQwen3ASRModel)
+
+        with patch("src.asr.qwen3_asr_backend.import_module", return_value=fake_qwen_asr):
+            backend.transcribe(
+                "in.wav",
+                ASRConfig(
+                    backend_name="qwen3-asr",
+                    model_path=Path("models/Qwen3-ASR-0.6B"),
+                    device="cpu",
+                    language="en",
+                    temperature=0.7,
+                ),
+            )
+
+        self.assertEqual(transcribe_calls, [{"language": "en", "temperature": 0.7}])
     def test_temperature_filtering_avoids_unsupported_generation_warning_path(self) -> None:
         backend = Qwen3ASRBackend()
         fixture = _load_fixture("qwen3_asr_minimal_segments.json")
@@ -355,6 +431,53 @@ class Qwen3ASRBackendTests(unittest.TestCase):
                 else:
                     self.assertEqual(verbose_logs, [])
 
+
+    def test_transcribe_failure_logs_traceback_only_when_verbose_and_preserves_cause(self) -> None:
+        backend = Qwen3ASRBackend()
+
+        class _FakeModel:
+            def __init__(self) -> None:
+                self.model = _TorchModuleWithTo()
+
+            def transcribe(self, audio_path: str, **kwargs: object):
+                del audio_path
+                del kwargs
+                raise RuntimeError("decode boom")
+
+        class _FakeQwen3ASRModel:
+            @classmethod
+            def from_pretrained(cls, model_path: str, **kwargs: object):
+                del model_path
+                del kwargs
+                return _FakeModel()
+
+        fake_qwen_asr = types.SimpleNamespace(Qwen3ASRModel=_FakeQwen3ASRModel)
+
+        with patch("src.asr.qwen3_asr_backend.import_module", return_value=fake_qwen_asr):
+            with self.assertRaises(ValueError) as ctx_non_verbose:
+                backend.transcribe(
+                    "in.wav",
+                    ASRConfig(backend_name="qwen3-asr", model_path=Path("models/qwen3"), device="cpu"),
+                )
+
+        self.assertIsInstance(ctx_non_verbose.exception.__cause__, RuntimeError)
+
+        verbose_logs: list[str] = []
+        with patch("src.asr.qwen3_asr_backend.import_module", return_value=fake_qwen_asr):
+            with self.assertRaises(ValueError) as ctx_verbose:
+                backend.transcribe(
+                    "in.wav",
+                    ASRConfig(
+                        backend_name="qwen3-asr",
+                        model_path=Path("models/qwen3"),
+                        device="cpu",
+                        log_callback=verbose_logs.append,
+                    ),
+                )
+
+        self.assertIsInstance(ctx_verbose.exception.__cause__, RuntimeError)
+        self.assertTrue(any("Traceback (most recent call last):" in entry for entry in verbose_logs))
+        self.assertTrue(any("RuntimeError: decode boom" in entry for entry in verbose_logs))
     def test_unsupported_options_raise_deterministic_error(self) -> None:
         backend = Qwen3ASRBackend()
 
@@ -382,7 +505,7 @@ class Qwen3ASRBackendTests(unittest.TestCase):
                     ),
                 )
 
-        self.assertIn("Supported options are: language, return_timestamps, device, dtype", str(ctx.exception))
+        self.assertIn("Supported backend controls are: language, device, dtype", str(ctx.exception))
 
     def test_device_move_uses_top_level_to_when_model_attribute_missing(self) -> None:
         backend = Qwen3ASRBackend()

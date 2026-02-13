@@ -1106,7 +1106,7 @@ class CliPhaseOneTests(unittest.TestCase):
             )
             with patch("cli.subprocess.run", return_value=completed):
                 with redirect_stdout(stdout), redirect_stderr(stderr):
-                    with self.assertRaisesRegex(cli.CliError, "ASR worker failed with exit code 17"):
+                    with self.assertRaisesRegex(cli.CliError, "ASR worker failed with exit code 17") as ctx:
                         cli._run_faster_whisper_subprocess(
                             audio_path=audio_path,
                             resolved_model_path=Path("models/faster-whisper"),
@@ -1114,6 +1114,8 @@ class CliPhaseOneTests(unittest.TestCase):
                             verbose=False,
                         )
 
+        self.assertNotIn("worker stdout trace", str(ctx.exception))
+        self.assertNotIn("worker stderr trace", str(ctx.exception))
         self.assertEqual(stdout.getvalue().replace("\r\n", "\n"), "")
         self.assertEqual(stderr.getvalue().replace("\r\n", "\n"), "")
 
@@ -1138,13 +1140,16 @@ class CliPhaseOneTests(unittest.TestCase):
             )
             with patch("cli.subprocess.run", return_value=completed):
                 with redirect_stdout(stdout), redirect_stderr(stderr):
-                    with self.assertRaisesRegex(cli.CliError, "ASR worker failed with exit code 19"):
+                    with self.assertRaisesRegex(cli.CliError, "ASR worker failed with exit code 19") as ctx:
                         cli._run_faster_whisper_subprocess(
                             audio_path=audio_path,
                             resolved_model_path=Path("models/faster-whisper"),
                             asr_config=config,
                             verbose=True,
                         )
+
+        self.assertNotIn("worker stdout trace", str(ctx.exception))
+        self.assertNotIn("worker stderr trace", str(ctx.exception))
 
         self.assertEqual(
             stdout.getvalue().replace("\r\n", "\n"),

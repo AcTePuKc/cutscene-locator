@@ -297,24 +297,24 @@ These backends rely on `torch` CUDA probing (`torch.cuda.is_available()`) during
 
 ### Symptom
 
-- Model resolution/preflight succeeds (artifacts exist) but transcription fails with backend init errors when creating `transformers.pipeline(task="automatic-speech-recognition", ...)`.
+- Model resolution/preflight succeeds (artifacts exist) but transcription fails with backend init/runtime errors when calling `qwen_asr.Qwen3ASRModel.from_pretrained(...)` or `model.transcribe(...)`.
 
 ### Meaning
 
 - This is usually a runtime/API compatibility issue, not a missing-artifact issue:
-  - checkpoint contents are present but not pipeline-compatible for your runtime stack, or
-  - installed `transformers` / `torch` versions are incompatible with that checkpoint implementation.
+  - checkpoint contents are present but not compatible with your qwen_asr runtime stack, or
+  - installed `qwen_asr` / `transformers` / `torch` versions are incompatible with that checkpoint implementation.
 
 ### Deterministic checks to separate root causes
 
 1. Keep artifact validation and runtime validation separate:
    - artifact validation confirms required files are present,
-   - backend smoke validation confirms expected pipeline call shape and timestamp contract assumptions (`return_timestamps=True`, `chunks[]`, tuple timestamps).
+   - backend smoke validation confirms expected qwen3 runtime call shape (`Qwen3ASRModel.from_pretrained(...)` then `model.transcribe(...)`) and checks timestamped `chunks[]`/tuple parsing without assuming timestamps are guaranteed by ASR runtime flags.
 2. Re-run with `--asr-preflight-only` to capture deterministic diagnostics for logs.
 3. Verify the exact same model path under a known-good environment; avoid changing backend or mode as a workaround.
 
 ### Mitigations
 
-- Use a checkpoint family known to support Transformers ASR pipeline loading (for example validated `Qwen3-ASR-0.6B` / `1.7B` layouts).
+- Use a checkpoint family known to support qwen_asr loader/runtime expectations (for example validated `Qwen3-ASR-0.6B` / `1.7B` layouts).
 - Pin `transformers` and `torch` to a compatible pair used by your deployment baseline.
 - If failure persists after dependency pinning, treat it as checkpoint/runtime incompatibility instead of an ingest/matching bug.
