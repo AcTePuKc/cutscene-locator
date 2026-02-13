@@ -551,6 +551,29 @@ class CliPhaseOneTests(unittest.TestCase):
         self.assertNotIn("declared but currently disabled", stderr.getvalue())
 
 
+    def test_unknown_backend_returns_registry_error_when_status_is_missing(self) -> None:
+        stderr = io.StringIO()
+        with patch("cli.list_backend_status", return_value=[]):
+            with patch("cli.get_backend", side_effect=ValueError("Unknown ASR backend 'not-real'.")):
+                with redirect_stderr(stderr):
+                    code = cli.main(
+                        [
+                            "--input",
+                            "in.wav",
+                            "--script",
+                            "script.tsv",
+                            "--out",
+                            "out",
+                            "--asr-backend",
+                            "not-real",
+                        ],
+                        which=lambda _: "/usr/bin/ffmpeg",
+                        runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                    )
+
+        self.assertEqual(code, 1)
+        self.assertIn("Unknown ASR backend 'not-real'.", stderr.getvalue())
+
     def test_alignment_backend_rejected_in_asr_mode_with_deterministic_error(self) -> None:
         stderr = io.StringIO()
         alignment_backend = SimpleNamespace(

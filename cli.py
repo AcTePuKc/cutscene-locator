@@ -113,14 +113,16 @@ def _validate_backend(args: argparse.Namespace) -> None:
 
     backend_status_by_name = {status.name: status for status in list_backend_status()}
     status = backend_status_by_name.get(args.asr_backend)
-    is_alignment_backend = bool(status is not None and getattr(status, "supports_alignment", False))
-    if is_alignment_backend and not args.alignment_preflight_only:
+    if status is None:
+        pass
+    elif status.supports_alignment and not args.alignment_preflight_only:
         raise CliError(
             f"'{status.name}' is an alignment backend and cannot be used with --asr-backend. "
             "Use the explicit alignment pipeline path and alignment input contract "
             "(`reference_spans[]`) instead of ASR-only transcription mode."
         )
-    if args.alignment_preflight_only and status is not None and not is_alignment_backend:
+
+    if args.alignment_preflight_only and status is not None and not status.supports_alignment:
         raise CliError(
             f"'{status.name}' is not an alignment backend and cannot be used with --alignment-preflight-only. "
             "Use an alignment backend (for example, qwen3-forced-aligner)."
