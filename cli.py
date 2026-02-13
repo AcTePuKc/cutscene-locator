@@ -107,6 +107,12 @@ def _validate_required_args(args: argparse.Namespace) -> None:
 def _validate_backend(args: argparse.Namespace) -> None:
     backend_status_by_name = {status.name: status for status in list_backend_status()}
     status = backend_status_by_name.get(args.asr_backend)
+    if status is not None and getattr(status, "supports_alignment", False):
+        raise CliError(
+            f"'{status.name}' is an alignment backend and cannot be used with --asr-backend. "
+            "Use the explicit alignment pipeline path and alignment input contract "
+            "(`reference_spans[]`) instead of ASR-only transcription mode."
+        )
     if status is not None and not status.enabled:
         missing_deps = tuple(status.missing_dependencies)
         message = f"ASR backend '{status.name}' is declared but currently disabled."

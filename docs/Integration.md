@@ -143,7 +143,8 @@ ASR output **must** provide:
 Speaker labels are optional.
 
 
-Readiness preflight for runtime ASR backends (`qwen3-asr`, `whisperx`, `vibevoice`) is deterministic and must run before inference:
+Readiness preflight for runtime ASR backends (`qwen3-asr`, `whisperx`, `vibevoice`) is deterministic and must run before inference. `qwen3-asr` belongs only to the ASR transcript path (`ASRResult`) and is not an alignment backend:
+
 
 - verify optional dependency importability for selected backend extras,
 - verify backend status is enabled in registry,
@@ -169,7 +170,7 @@ Later backends (out of scope for Milestone 1):
 
 ## Forced alignment stage (explicit path)
 
-Forced alignment is a distinct pipeline path and must not be routed through the ASR transcript interface.
+Forced alignment is a distinct pipeline path and must not be routed through the ASR transcript interface. Forced-aligner model families (for example `qwen3-forced-aligner`) require the alignment contract/path and are not drop-in replacements for ASR transcript backends.
 
 ### Contract
 

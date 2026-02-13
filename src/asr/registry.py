@@ -52,6 +52,7 @@ class BackendStatus:
     missing_dependencies: tuple[str, ...]
     reason: str
     install_extra: str | None = None
+    supports_alignment: bool = False
 
 
 def _missing_dependencies(required_dependencies: tuple[str, ...]) -> tuple[str, ...]:
@@ -156,6 +157,7 @@ def list_backend_status() -> list[BackendStatus]:
                 missing_dependencies=missing_dependencies,
                 reason=reason,
                 install_extra=declared_backend.install_extra,
+                supports_alignment=declared_backend.registration.capabilities.supports_alignment,
             )
         )
     return statuses
@@ -187,7 +189,8 @@ def validate_backend_capabilities(
     if not allows_alignment_backends and supports_alignment:
         raise ValueError(
             f"'{registration.name}' is an alignment backend and cannot be used with --asr-backend. "
-            "Use the alignment pipeline path instead of ASR-only transcription mode."
+            "Use the alignment pipeline path and alignment input contract (`reference_spans[]`) "
+            "instead of ASR-only transcription mode."
         )
 
 def _build_enabled_registry() -> dict[str, BackendRegistration]:
