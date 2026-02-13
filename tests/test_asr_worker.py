@@ -9,6 +9,55 @@ from src.asr import asr_worker
 
 
 class ASRWorkerTests(unittest.TestCase):
+    def test_build_parser_sets_numeric_decode_defaults(self) -> None:
+        args = asr_worker.build_parser().parse_args(
+            [
+                "--asr-backend",
+                "qwen3-asr",
+                "--audio-path",
+                "in.wav",
+                "--model-path",
+                "models/qwen3-asr",
+                "--device",
+                "cpu",
+                "--compute-type",
+                "float32",
+                "--result-path",
+                "out.json",
+            ]
+        )
+
+        self.assertEqual(args.asr_beam_size, 1)
+        self.assertEqual(args.asr_temperature, 0.0)
+        self.assertEqual(args.asr_best_of, 1)
+
+    def test_build_runtime_asr_config_falls_back_when_numeric_decode_options_are_none(self) -> None:
+        args = asr_worker.build_parser().parse_args(
+            [
+                "--asr-backend",
+                "faster-whisper",
+                "--audio-path",
+                "in.wav",
+                "--model-path",
+                "models/faster-whisper",
+                "--device",
+                "cpu",
+                "--compute-type",
+                "float32",
+                "--result-path",
+                "out.json",
+            ]
+        )
+        args.asr_beam_size = None
+        args.asr_temperature = None
+        args.asr_best_of = None
+
+        config = asr_worker._build_runtime_asr_config(args)
+
+        self.assertEqual(config.beam_size, 1)
+        self.assertEqual(config.temperature, 0.0)
+        self.assertEqual(config.best_of, 1)
+
     def test_configure_runtime_environment_sets_progress_guards(self) -> None:
         with patch.dict("src.asr.asr_worker.os.environ", {}, clear=True):
             asr_worker._configure_runtime_environment(device="cuda")
@@ -66,6 +115,9 @@ class ASRWorkerTests(unittest.TestCase):
         self.assertEqual(config.backend_name, "faster-whisper")
         self.assertEqual(config.compute_type, "float16")
         self.assertEqual(config.device, "cuda")
+        self.assertEqual(config.beam_size, 1)
+        self.assertEqual(config.temperature, 0.0)
+        self.assertEqual(config.best_of, 1)
 
     def test_main_serializes_validated_asr_result_contract(self) -> None:
         class _FakeBackend:

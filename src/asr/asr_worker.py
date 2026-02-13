@@ -59,9 +59,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--compute-type", required=True, choices=("float16", "float32", "auto"))
     parser.add_argument("--result-path", required=True)
     parser.add_argument("--asr-language", default=None)
-    parser.add_argument("--asr-beam-size", type=int)
-    parser.add_argument("--asr-temperature", type=float)
-    parser.add_argument("--asr-best-of", type=int)
+    parser.add_argument("--asr-beam-size", type=int, default=1)
+    parser.add_argument("--asr-temperature", type=float, default=0.0)
+    parser.add_argument("--asr-best-of", type=int, default=1)
     parser.add_argument("--qwen3-batch-size", type=int, default=None)
     parser.add_argument("--qwen3-chunk-length-s", type=float, default=None)
     parser.add_argument("--asr-no-speech-threshold", type=float, default=None)
@@ -71,6 +71,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _build_runtime_asr_config(args: argparse.Namespace) -> ASRConfig:
+    beam_size = args.asr_beam_size if args.asr_beam_size is not None else 1
+    temperature = args.asr_temperature if args.asr_temperature is not None else 0.0
+    best_of = args.asr_best_of if args.asr_best_of is not None else 1
+
     common_kwargs = {
         "backend_name": args.asr_backend,
         "model_path": Path(args.model_path),
@@ -82,27 +86,27 @@ def _build_runtime_asr_config(args: argparse.Namespace) -> ASRConfig:
     if args.asr_backend == "faster-whisper":
         return ASRConfig(
             **common_kwargs,
-            beam_size=args.asr_beam_size,
-            temperature=args.asr_temperature,
-            best_of=args.asr_best_of,
+            beam_size=beam_size,
+            temperature=temperature,
+            best_of=best_of,
             no_speech_threshold=args.asr_no_speech_threshold,
             log_prob_threshold=args.asr_logprob_threshold,
         )
     if args.asr_backend == "qwen3-asr":
         return ASRConfig(
             **common_kwargs,
-            beam_size=args.asr_beam_size,
-            temperature=args.asr_temperature,
-            best_of=args.asr_best_of,
+            beam_size=beam_size,
+            temperature=temperature,
+            best_of=best_of,
             qwen3_batch_size=args.qwen3_batch_size,
             qwen3_chunk_length_s=args.qwen3_chunk_length_s,
         )
     if args.asr_backend in {"whisperx", "vibevoice"}:
         return ASRConfig(
             **common_kwargs,
-            beam_size=args.asr_beam_size,
-            temperature=args.asr_temperature,
-            best_of=args.asr_best_of,
+            beam_size=beam_size,
+            temperature=temperature,
+            best_of=best_of,
         )
 
     supported = ", ".join(_WORKER_RUNTIME_BACKENDS)
