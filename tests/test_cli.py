@@ -1249,7 +1249,8 @@ class CliPhaseOneTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             out_dir = Path(temp_dir)
             stdout = io.StringIO()
-            with redirect_stdout(stdout):
+            stderr = io.StringIO()
+            with redirect_stdout(stdout), redirect_stderr(stderr):
                 code = cli.main(
                     [
                         "--input",
@@ -1274,11 +1275,13 @@ class CliPhaseOneTests(unittest.TestCase):
             self.assertTrue((out_dir / "subs_qa.srt").exists())
             self.assertTrue((out_dir / "subs_target.srt").exists())
             output = stdout.getvalue()
+            log_output = stderr.getvalue()
             self.assertIn("Full pipeline completed and exports written", output)
             self.assertIn("stage: preprocess start", output)
             self.assertIn("stage: preprocess end", output)
             self.assertIn("stage: asr start", output)
             self.assertIn("stage: asr end", output)
+            self.assertIn("ASR input: canonical wav", log_output)
             self.assertIn("stage: matching start", output)
             self.assertIn("stage: matching end", output)
             self.assertIn("stage: exports start", output)
@@ -1286,6 +1289,77 @@ class CliPhaseOneTests(unittest.TestCase):
             self.assertIn("Verbose: matching progress 2/2 segments", output)
             self.assertIn("Verbose: script rows loaded=2", output)
             self.assertIn("Verbose: timings seconds=", output)
+
+    def test_verbose_per_chunk_asr_logs_source_mode_and_chunk_progress(self) -> None:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        dispatched_results = [
+            {
+                "segments": [{"segment_id": "a", "start": 0.0, "end": 0.4, "text": "one"}],
+                "meta": {"backend": "mock", "model": "fixture", "version": "1", "device": "cpu"},
+            },
+            {
+                "segments": [
+                    {"segment_id": "b", "start": 0.1, "end": 0.5, "text": "two"},
+                    {"segment_id": "c", "start": 0.6, "end": 1.0, "text": "three"},
+                ],
+                "meta": {"backend": "mock", "model": "fixture", "version": "1", "device": "cpu"},
+            },
+        ]
+        fake_preprocess = SimpleNamespace(
+            canonical_wav_path=Path("out/_tmp/audio/canonical.wav"),
+            chunk_metadata=[
+                SimpleNamespace(
+                    chunk_index=0,
+                    absolute_offset_seconds=0.0,
+                    chunk_wav_path=Path("out/_tmp/chunks/chunk_000000.wav"),
+                ),
+                SimpleNamespace(
+                    chunk_index=1,
+                    absolute_offset_seconds=5.0,
+                    chunk_wav_path=Path("out/_tmp/chunks/chunk_000001.wav"),
+                ),
+            ],
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            out_dir = Path(temp_dir)
+            with patch("cli.preprocess_media", return_value=fake_preprocess):
+                with patch("cli.dispatch_asr_transcription", side_effect=dispatched_results):
+                    with redirect_stdout(stdout), redirect_stderr(stderr):
+                        code = cli.main(
+                            [
+                                "--input",
+                                "in.wav",
+                                "--script",
+                                "tests/fixtures/script_sample.tsv",
+                                "--out",
+                                str(out_dir),
+                                "--mock-asr",
+                                "tests/fixtures/mock_asr_valid.json",
+                                "--chunk",
+                                "5",
+                                "--asr-chunk-mode",
+                                "per-chunk",
+                                "--match-threshold",
+                                "0.0",
+                                "--verbose",
+                            ],
+                            which=lambda _: "/usr/bin/ffmpeg",
+                            runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
+                        )
+
+        self.assertEqual(code, 0)
+        output = stderr.getvalue()
+        self.assertIn("ASR input: 2 chunks (chunk_seconds=5)", output)
+        self.assertIn(
+            "ASR chunk 1/2 (chunk_index=0, range=0.00-5.00s, offset=0.00s, file=chunk_000000.wav, segments=1)",
+            output,
+        )
+        self.assertIn(
+            "ASR chunk 2/2 (chunk_index=1, range=5.00-10.00s, offset=5.00s, file=chunk_000001.wav, segments=2)",
+            output,
+        )
 
     def test_success_without_low_confidence_exits_zero(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -1797,6 +1871,9 @@ class CliAdapterDispatchTests(unittest.TestCase):
                     mock_asr_path="tests/fixtures/mock_asr_valid.json",
                 ),
                 requirements=cli.CapabilityRequirements(requires_segment_timestamps=True, allows_alignment_backends=False),
+                verbose=False,
+                asr_chunk_mode="per-chunk",
+                chunk_seconds=5,
             )
 
         renumbered = cli._renumber_segments_sequentially(merged)

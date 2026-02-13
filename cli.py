@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import shutil
 import subprocess
@@ -42,6 +43,18 @@ from src.match.engine import MatchingConfig, match_segments_to_script
 from src.scene import reconstruct_scenes
 
 VERSION = "0.0.0"
+LOGGER = logging.getLogger("cutscene_locator.cli")
+
+
+def _configure_verbose_logger() -> None:
+    for handler in list(LOGGER.handlers):
+        LOGGER.removeHandler(handler)
+        handler.close()
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    LOGGER.addHandler(handler)
+    LOGGER.setLevel(logging.INFO)
+    LOGGER.propagate = False
 
 
 @dataclass
@@ -907,17 +920,32 @@ def _run_asr_for_selected_paths(
     asr_config: ASRConfig,
     asr_context: ASRExecutionContext,
     requirements: CapabilityRequirements,
+    verbose: bool,
+    asr_chunk_mode: str,
+    chunk_seconds: int,
 ) -> ASRResult:
     merged_segments: list[dict[str, Any]] = []
     merged_meta: dict[str, str] | None = None
 
-    for audio_path, absolute_offset_seconds, chunk_index in audio_paths_with_offsets:
+    total_paths = len(audio_paths_with_offsets)
+    for position, (audio_path, absolute_offset_seconds, chunk_index) in enumerate(audio_paths_with_offsets, start=1):
         chunk_result = dispatch_asr_transcription(
             audio_path=str(audio_path),
             config=asr_config,
             context=asr_context,
             requirements=requirements,
         )
+        if verbose and asr_chunk_mode == "per-chunk":
+            end_seconds = absolute_offset_seconds + float(max(chunk_seconds, 0))
+            LOGGER.info(
+                "ASR chunk "
+                f"{position}/{total_paths} "
+                f"(chunk_index={chunk_index}, "
+                f"range={absolute_offset_seconds:.2f}-{end_seconds:.2f}s, "
+                f"offset={absolute_offset_seconds:.2f}s, "
+                f"file={audio_path.name}, "
+                f"segments={len(chunk_result['segments'])})"
+            )
         if merged_meta is None:
             merged_meta = chunk_result["meta"]
 
@@ -960,6 +988,9 @@ def main(
     if args.version:
         print(f"cutscene-locator {VERSION}")
         return 0
+
+    if args.verbose:
+        _configure_verbose_logger()
 
     timings: dict[str, float] = {}
     runtime_started = time.perf_counter()
@@ -1110,6 +1141,15 @@ def main(
                 preprocess_result=preprocessing_output,
                 asr_chunk_mode=args.asr_chunk_mode,
             )
+            if args.verbose:
+                if args.asr_chunk_mode == "per-chunk":
+                    LOGGER.info(
+                        "ASR input: "
+                        f"{len(asr_audio_paths_with_offsets)} chunks "
+                        f"(chunk_seconds={args.chunk})"
+                    )
+                else:
+                    LOGGER.info("ASR input: canonical wav")
             try:
                 asr_result = _run_asr_for_selected_paths(
                     audio_paths_with_offsets=asr_audio_paths_with_offsets,
@@ -1122,6 +1162,9 @@ def main(
                         faster_whisper_preflight=_print_faster_whisper_cuda_preflight,
                     ),
                     requirements=requirements,
+                    verbose=args.verbose,
+                    asr_chunk_mode=args.asr_chunk_mode,
+                    chunk_seconds=args.chunk,
                 )
             except ValueError as exc:
                 timestamp_guarantee = getattr(backend_registration.capabilities, "timestamp_guarantee", "segment-level")
