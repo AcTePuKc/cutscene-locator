@@ -17,6 +17,10 @@ from .vibevoice_backend import VibeVoiceBackend
 from .whisperx_backend import WhisperXBackend
 
 
+_DEFAULT_ASR_BEAM_SIZE = 1
+_DEFAULT_ASR_TEMPERATURE = 0.0
+_DEFAULT_ASR_BEST_OF = 1
+
 _WORKER_RUNTIME_BACKENDS: tuple[str, ...] = (
     "faster-whisper",
     "qwen3-asr",
@@ -59,9 +63,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--compute-type", required=True, choices=("float16", "float32", "auto"))
     parser.add_argument("--result-path", required=True)
     parser.add_argument("--asr-language", default=None)
-    parser.add_argument("--asr-beam-size", type=int, default=1)
-    parser.add_argument("--asr-temperature", type=float, default=0.0)
-    parser.add_argument("--asr-best-of", type=int, default=1)
+    parser.add_argument("--asr-beam-size", type=int, default=_DEFAULT_ASR_BEAM_SIZE)
+    parser.add_argument("--asr-temperature", type=float, default=_DEFAULT_ASR_TEMPERATURE)
+    parser.add_argument("--asr-best-of", type=int, default=_DEFAULT_ASR_BEST_OF)
     parser.add_argument("--qwen3-batch-size", type=int, default=None)
     parser.add_argument("--qwen3-chunk-length-s", type=float, default=None)
     parser.add_argument("--asr-no-speech-threshold", type=float, default=None)
@@ -71,9 +75,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _build_runtime_asr_config(args: argparse.Namespace) -> ASRConfig:
-    beam_size = args.asr_beam_size if args.asr_beam_size is not None else 1
-    temperature = args.asr_temperature if args.asr_temperature is not None else 0.0
-    best_of = args.asr_best_of if args.asr_best_of is not None else 1
+    beam_size = args.asr_beam_size if args.asr_beam_size is not None else _DEFAULT_ASR_BEAM_SIZE
+    temperature = args.asr_temperature if args.asr_temperature is not None else _DEFAULT_ASR_TEMPERATURE
+    best_of = args.asr_best_of if args.asr_best_of is not None else _DEFAULT_ASR_BEST_OF
+    if temperature == _DEFAULT_ASR_TEMPERATURE:
+        best_of = _DEFAULT_ASR_BEST_OF
 
     common_kwargs = {
         "backend_name": args.asr_backend,

@@ -58,6 +58,34 @@ class ASRWorkerTests(unittest.TestCase):
         self.assertEqual(config.temperature, 0.0)
         self.assertEqual(config.best_of, 1)
 
+
+    def test_build_runtime_asr_config_enforces_deterministic_best_of_when_temperature_is_zero(self) -> None:
+        args = asr_worker.build_parser().parse_args(
+            [
+                "--asr-backend",
+                "faster-whisper",
+                "--audio-path",
+                "in.wav",
+                "--model-path",
+                "models/faster-whisper",
+                "--device",
+                "cpu",
+                "--compute-type",
+                "float32",
+                "--result-path",
+                "out.json",
+                "--asr-temperature",
+                "0.0",
+                "--asr-best-of",
+                "5",
+            ]
+        )
+
+        config = asr_worker._build_runtime_asr_config(args)
+
+        self.assertEqual(config.temperature, 0.0)
+        self.assertEqual(config.best_of, 1)
+
     def test_configure_runtime_environment_sets_progress_guards(self) -> None:
         with patch.dict("src.asr.asr_worker.os.environ", {}, clear=True):
             asr_worker._configure_runtime_environment(device="cuda")
