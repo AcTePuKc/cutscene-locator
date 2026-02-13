@@ -239,36 +239,6 @@ class Qwen3ASRBackendTests(unittest.TestCase):
         self.assertIn("qwen_asr", message)
 
 
-    def test_backend_emits_standard_contract(self) -> None:
-        backend = Qwen3ASRBackend()
-
-        class _FakeQwen3ASRModel:
-            @classmethod
-            def from_pretrained(cls, model_path: str, **kwargs: object):
-                del model_path
-                del kwargs
-                model = _FakeQwen3Model()
-                model.model = _TorchModuleWithTo()
-                return model
-
-        fake_qwen_asr = types.SimpleNamespace(Qwen3ASRModel=_FakeQwen3ASRModel)
-
-        with patch("src.asr.qwen3_asr_backend.import_module", return_value=fake_qwen_asr):
-            with patch("src.asr.qwen3_asr_backend.version", return_value="9.9.9"):
-                result = backend.transcribe(
-                    "in.wav",
-                    ASRConfig(backend_name="qwen3-asr", model_path=Path("models/qwen3"), device="cpu"),
-                )
-
-        self.assertEqual(result["meta"]["backend"], "qwen3-asr")
-        self.assertEqual(result["meta"]["model"], "qwen3")
-        self.assertEqual(result["meta"]["version"], "9.9.9")
-        self.assertEqual(result["meta"]["device"], "cpu")
-        self.assertEqual(result["segments"][0]["segment_id"], "seg_0001")
-        self.assertEqual(result["segments"][0]["start"], 0.0)
-        self.assertEqual(result["segments"][0]["end"], 1.0)
-        self.assertEqual(result["segments"][0]["text"], " hello ")
-
     def test_model_init_error_mentions_core_contract_and_runtime_hints(self) -> None:
         backend = Qwen3ASRBackend()
 

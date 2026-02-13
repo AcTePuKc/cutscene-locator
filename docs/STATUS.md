@@ -183,6 +183,7 @@ Contract notes:
 
 - [x] CLI docs/parser flag parity consistency test + declared-disabled backend definition consistency assertion (`tests/test_docs_consistency.py`, `docs/CLI.md`, `cli.py`)
 - [ ] Unit test coverage for core modules
+- [x] Shared ASR/alignment contract regression test module consolidating duplicated schema assertions with backend-labeled failure messages (`tests/test_asr_contracts.py`, `tests/test_qwen3_asr_backend.py`, `tests/test_qwen3_forced_aligner.py`)
 - [x] Test fixtures (audio + script) (`src/asr/timestamp_normalization.py`, `cli.py`, `tests/fixtures/script_integration_sample.tsv`, `tests/fixtures/asr_normalized_faster_whisper.json`, `tests/fixtures/asr_normalized_qwen3_asr.json`, `tests/fixtures/asr_normalized_whisperx_vibevoice.json`)
 - [x] Integration test (optional, gated) (`cli.py`, `src/export/writers.py`, `tests/test_integration_pipeline.py`)
 - [ ] Performance profiling (large scripts)
@@ -209,6 +210,7 @@ Contract notes:
 ---
 
 ## Change log (manual)
+- 2026-02-13 – Consolidated duplicated qwen3-asr and qwen3-forced-aligner contract assertions into shared parameterized backend contract tests that validate required keys, timestamp ordering, and metadata presence with backend-tagged failure messages; kept backend-specific tests for unique behavior (qwen loader/device semantics and forced-aligner reference-text/confidence fallback) (`tests/test_asr_contracts.py`, `tests/test_qwen3_asr_backend.py`, `tests/test_qwen3_forced_aligner.py`, `docs/STATUS.md`).
 
 - 2026-02-13 – Fixed qwen3-asr backend test path expectation to be OS-deterministic by asserting resolved `Path` equivalence for `from_pretrained` model path (instead of raw separator-sensitive string equality), preserving intent without changing runtime formatting (`tests/test_qwen3_asr_backend.py`, `docs/STATUS.md`).
 - 2026-02-13 – Added deterministic worker-failure diagnostics gating in CLI ASR subprocess handling: non-verbose mode keeps concise errors without dumping worker streams, while `--verbose` now prints labeled worker stdout/stderr blocks in deterministic order before raising; added regression tests for both paths and documented troubleshooting behavior (`cli.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/STATUS.md`).
