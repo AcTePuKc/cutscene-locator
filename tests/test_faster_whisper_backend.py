@@ -312,6 +312,32 @@ class FasterWhisperBackendTests(unittest.TestCase):
         self.assertIn("Hello there", result["segments"][0]["text"])
         self.assertIn("General Kenobi", result["segments"][0]["text"])
 
+    def test_merge_short_segments_preserves_contract_shape_and_types(self) -> None:
+        backend = FasterWhisperBackend()
+        fake_factory = _FakeWhisperModelFactory()
+        fake_module = types.SimpleNamespace(WhisperModel=fake_factory)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = _create_fake_model_dir(Path(temp_dir))
+            with patch("src.asr.faster_whisper_backend.import_module", return_value=fake_module):
+                with patch("src.asr.faster_whisper_backend.version", return_value="1.2.1"):
+                    result = backend.transcribe(
+                        "in.wav",
+                        ASRConfig(
+                            backend_name="faster-whisper",
+                            model_path=model_path,
+                            merge_short_segments_seconds=2.0,
+                        ),
+                    )
+
+        self.assertEqual(len(result["segments"]), 1)
+        segment = result["segments"][0]
+        self.assertEqual(set(segment.keys()), {"segment_id", "start", "end", "text"})
+        self.assertIsInstance(segment["segment_id"], str)
+        self.assertIsInstance(segment["start"], float)
+        self.assertIsInstance(segment["end"], float)
+        self.assertIsInstance(segment["text"], str)
+
 
     def test_timestamp_normalization_is_stable_for_backend_edge_fixture(self) -> None:
         backend = FasterWhisperBackend()
