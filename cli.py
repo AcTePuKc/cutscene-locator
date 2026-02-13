@@ -298,8 +298,7 @@ def _run_faster_whisper_subprocess(
         if completed.returncode != 0:
             if verbose:
                 if completed.stdout:
-                    print("----- ASR worker stdout -----")
-                    print(completed.stdout, end="")
+                    print(f"----- ASR worker stdout -----\n{completed.stdout}", end="")
                 if completed.stderr:
                     print("----- ASR worker stderr -----", file=sys.stderr)
                     print(completed.stderr, file=sys.stderr, end="")
