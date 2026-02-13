@@ -1,0 +1,67 @@
+{
+  "asr_raw_chunks": [
+    {
+      "timestamp": [
+        0.0,
+        0.5000004
+      ],
+      "text": "lead"
+    },
+    {
+      "timestamp": [
+        0.5000004,
+        1.0000004
+      ],
+      "text": "boundary"
+    },
+    {
+      "timestamp": [
+        0.8000004,
+        1.2000004
+      ],
+      "text": "overlap"
+    }
+  ],
+  "asr_expected_segments": [
+    {
+      "segment_id": "seg_0001",
+      "start": 0.0,
+      "end": 0.5,
+      "text": "lead"
+    },
+    {
+      "segment_id": "seg_0002",
+      "start": 0.5,
+      "end": 1.0,
+      "text": "boundary"
+    },
+    {
+      "segment_id": "seg_0003",
+      "start": 0.8,
+      "end": 1.2,
+      "text": "overlap"
+    }
+  ],
+  "alignment_raw_spans": [
+    {
+      "span_id": "span_boundary",
+      "start": 5.0,
+      "end": 5.5,
+      "text": "Exact text",
+      "confidence": 1.0
+    },
+    {
+      "span_id": "span_overlap",
+      "start": 5.5,
+      "end": 6.0,
+      "text": "No rewrite",
+      "confidence": 0.95
+    }
+  ],
+  "alignment_meta": {
+    "backend": "qwen3-forced-aligner",
+    "version": "fixture",
+    "device": "cpu"
+  },
+  "alignment_transcript_text": "Exact text No rewrite"
+}

@@ -186,6 +186,7 @@ Contract notes:
 - [ ] Unit test coverage for core modules
 - [x] Shared ASR/alignment contract regression test module consolidating duplicated schema assertions with backend-labeled failure messages (`tests/test_asr_contracts.py`, `tests/test_qwen3_asr_backend.py`, `tests/test_qwen3_forced_aligner.py`)
 - [x] Test fixtures (audio + script) (`src/asr/timestamp_normalization.py`, `cli.py`, `tests/fixtures/script_integration_sample.tsv`, `tests/fixtures/asr_normalized_faster_whisper.json`, `tests/fixtures/asr_normalized_qwen3_asr.json`, `tests/fixtures/asr_normalized_whisperx_vibevoice.json`)
+- [x] Centralized deterministic qwen/alignment/timestamp-edge fixtures and refactored backend tests to consume fixtures, plus integration-style parser/validator no-rewrite contract coverage (`tests/fixtures/qwen3_asr_minimal_segments.json`, `tests/fixtures/qwen3_forced_alignment_minimal_spans.json`, `tests/fixtures/timestamp_boundary_cases.json`, `tests/test_qwen3_asr_backend.py`, `tests/test_qwen3_forced_aligner.py`, `tests/test_asr.py`, `tests/test_asr_contracts.py`, `tests/fixtures/README.md`)
 - [x] Integration test (optional, gated) (`cli.py`, `src/export/writers.py`, `tests/test_integration_pipeline.py`)
 - [ ] Performance profiling (large scripts)
 - [ ] Config file support (optional)
@@ -211,6 +212,7 @@ Contract notes:
 ---
 
 ## Change log (manual)
+- 2026-02-13 – Centralized deterministic ASR/alignment fixtures for minimal qwen3 transcript chunks, forced-alignment spans, and boundary timestamp cases; refactored qwen/align/timestamp tests to load fixtures instead of copy-pasted inline dict payloads; and added an integration-style contract test proving fixture payloads pass existing ASR/alignment validators while preserving fixture text without rewrite (`tests/fixtures/qwen3_asr_minimal_segments.json`, `tests/fixtures/qwen3_forced_alignment_minimal_spans.json`, `tests/fixtures/timestamp_boundary_cases.json`, `tests/test_qwen3_asr_backend.py`, `tests/test_qwen3_forced_aligner.py`, `tests/test_asr.py`, `tests/test_asr_contracts.py`, `tests/fixtures/README.md`, `docs/STATUS.md`).
 - 2026-02-13 – Consolidated duplicated qwen3-asr and qwen3-forced-aligner contract assertions into shared parameterized backend contract tests that validate required keys, timestamp ordering, and metadata presence with backend-tagged failure messages; kept backend-specific tests for unique behavior (qwen loader/device semantics and forced-aligner reference-text/confidence fallback) (`tests/test_asr_contracts.py`, `tests/test_qwen3_asr_backend.py`, `tests/test_qwen3_forced_aligner.py`, `docs/STATUS.md`).
 
 - 2026-02-13 – Fixed qwen3-asr backend test path expectation to be OS-deterministic by asserting resolved `Path` equivalence for `from_pretrained` model path (instead of raw separator-sensitive string equality), preserving intent without changing runtime formatting (`tests/test_qwen3_asr_backend.py`, `docs/STATUS.md`).

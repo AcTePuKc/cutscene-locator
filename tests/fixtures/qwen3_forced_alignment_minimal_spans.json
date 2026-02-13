@@ -1,0 +1,15 @@
+{
+  "reference_spans": [
+    {"ref_id": "span_0001", "text": "you"},
+    {"ref_id": "span_0002", "text": "know"}
+  ],
+  "raw_chunks": [
+    {"timestamp": [10.0, 11.0], "text": "you", "confidence": 0.9},
+    {"timestamp": [11.1, 12.0], "text": "know", "confidence": 0.8}
+  ],
+  "expected_transcript_text": "you know",
+  "expected_spans": [
+    {"span_id": "span_0001", "start": 10.0, "end": 11.0, "text": "you", "confidence": 0.9},
+    {"span_id": "span_0002", "start": 11.1, "end": 12.0, "text": "know", "confidence": 0.8}
+  ]
+}
