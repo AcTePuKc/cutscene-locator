@@ -370,3 +370,5 @@ Contract notes:
 - 2026-02-12 – Follow-up typing fix: made ASR result validator accept any `Mapping` root (not only `dict`) to match widened parse contract, and updated parse test coverage to use a non-`dict` Mapping implementation for contract-path enforcement (`src/asr/backends.py`, `tests/test_asr.py`, `docs/STATUS.md`).
 
 - 2026-02-13 – Improved qwen3-asr failure diagnostics by preserving concise deterministic ValueError messages while emitting full traceback only when verbose logging callback is enabled; exceptions now keep original root cause chaining and tests verify verbose-only traceback output plus __cause__ preservation (`src/asr/qwen3_asr_backend.py`, `tests/test_qwen3_asr_backend.py`, `docs/STATUS.md`).
+
+- 2026-02-13 – Refactored qwen3-asr verbose traceback coverage into a single subTest-parameterized unit test to remove duplicated init/transcribe failure assertions while preserving deterministic diagnostics checks (`tests/test_qwen3_asr_backend.py`, `docs/STATUS.md`).
