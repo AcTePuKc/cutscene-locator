@@ -7,7 +7,7 @@ from inspect import Parameter, signature
 from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from .backends import validate_asr_result
 from .base import ASRResult, ASRSegment
@@ -75,7 +75,7 @@ class Qwen3ASRBackend:
         inference_kwargs = _build_qwen_transcribe_candidate_kwargs(config)
 
         inference_kwargs = _filter_supported_transcribe_kwargs(
-            model.transcribe,
+            model,
             inference_kwargs,
             config.log_callback,
         )
@@ -117,7 +117,7 @@ class Qwen3ASRBackend:
 
 
 def _filter_supported_transcribe_kwargs(
-    transcribe_callable: object,
+    model: object,
     candidate_kwargs: dict[str, object],
     log_callback: Callable[[str], None] | None,
 ) -> dict[str, object]:
@@ -133,8 +133,14 @@ def _filter_supported_transcribe_kwargs(
     if not candidate_without_forbidden:
         return {}
 
+    candidate = getattr(model, "transcribe", None)
+    if not callable(candidate):
+        return dict(candidate_without_forbidden)
+
+    candidate_callable = cast(Callable[..., object], candidate)
+
     try:
-        transcribe_signature = signature(transcribe_callable)
+        transcribe_signature = signature(candidate_callable)
     except (TypeError, ValueError):
         return dict(candidate_without_forbidden)
 
