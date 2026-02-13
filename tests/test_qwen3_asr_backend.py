@@ -8,14 +8,22 @@ from src.asr import ASRConfig
 from src.asr.qwen3_asr_backend import Qwen3ASRBackend
 
 
+def _load_fixture(name: str) -> dict[str, object]:
+    return json.loads(Path("tests/fixtures", name).read_text(encoding="utf-8"))
+
+
 class _FakeQwen3Model:
     def transcribe(self, audio_path: str, **kwargs: object):
         del audio_path
         del kwargs
+        fixture = _load_fixture("qwen3_asr_minimal_segments.json")
         return {
             "chunks": [
-                {"timestamp": (0.0, 1.0), "text": " hello "},
-                {"timestamp": (1.1, 2.0), "text": "world"},
+                {
+                    "timestamp": tuple(chunk["timestamp"]),
+                    "text": chunk["text"],
+                }
+                for chunk in fixture["raw_chunks"]
             ]
         }
 
@@ -117,13 +125,21 @@ class Qwen3ASRBackendTests(unittest.TestCase):
 
     def test_temperature_filtering_avoids_unsupported_generation_warning_path(self) -> None:
         backend = Qwen3ASRBackend()
+        fixture = _load_fixture("qwen3_asr_minimal_segments.json")
 
         class _FakeModel:
             def transcribe(self, audio_path: str, **kwargs: object):
                 del audio_path
                 if "temperature" in kwargs:
                     raise RuntimeError("unsupported generation flag: temperature")
-                return {"chunks": [{"timestamp": (0.0, 1.0), "text": "hello"}]}
+                return {
+                    "chunks": [
+                        {
+                            "timestamp": tuple(fixture["raw_chunks"][0]["timestamp"]),
+                            "text": fixture["raw_chunks"][0]["text"],
+                        }
+                    ]
+                }
 
         class _FakeQwen3ASRModel:
             @classmethod
@@ -148,7 +164,7 @@ class Qwen3ASRBackendTests(unittest.TestCase):
                 ),
             )
 
-        self.assertEqual(result["segments"][0]["text"], "hello")
+        self.assertEqual(result["segments"][0]["text"], fixture["raw_chunks"][0]["text"])
 
     def test_from_pretrained_does_not_receive_device_kwarg(self) -> None:
         backend = Qwen3ASRBackend()
@@ -400,7 +416,7 @@ class Qwen3ASRBackendTests(unittest.TestCase):
 
     def test_timestamp_normalization_is_stable_for_backend_edge_fixture(self) -> None:
         backend = Qwen3ASRBackend()
-        fixture = json.loads(Path("tests/fixtures/asr_timestamp_edges_qwen3.json").read_text(encoding="utf-8"))
+        fixture = _load_fixture("asr_timestamp_edges_qwen3.json")
         raw_chunks = []
         for chunk in fixture["raw_chunks"]:
             raw_chunks.append({"timestamp": tuple(chunk["timestamp"]), "text": chunk["text"]})

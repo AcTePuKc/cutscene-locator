@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import unittest
@@ -13,6 +14,10 @@ from src.asr import (
 )
 from src.asr.timestamp_normalization import normalize_asr_segments_for_contract
 from src.asr.device import _cuda_probe_ctranslate2, select_cuda_probe
+
+
+def _load_fixture(name: str) -> dict[str, object]:
+    return json.loads(Path("tests/fixtures", name).read_text(encoding="utf-8"))
 
 
 class MockASRBackendTests(unittest.TestCase):
@@ -129,18 +134,22 @@ class MockASRBackendTests(unittest.TestCase):
 
 
     def test_timestamp_normalization_handles_equal_segment_boundaries_and_overlap_order(self) -> None:
+        fixture = _load_fixture("timestamp_boundary_cases.json")
         normalized = normalize_asr_segments_for_contract(
             [
-                {"segment_id": "seg_0002", "start": 2.0000004, "end": 3.0, "text": "second"},
-                {"segment_id": "seg_0001", "start": 1.0, "end": 2.0000004, "text": "adjacent"},
-                {"segment_id": "seg_0003", "start": 1.0000004, "end": 1.5000004, "text": "overlap"},
+                {
+                    "segment_id": f"seg_{index:04d}",
+                    "start": chunk["timestamp"][0],
+                    "end": chunk["timestamp"][1],
+                    "text": chunk["text"],
+                }
+                for index, chunk in enumerate(fixture["asr_raw_chunks"], start=1)
             ],
             source="inline",
         )
 
         self.assertEqual(len(normalized), 3)
-        self.assertEqual([segment["segment_id"] for segment in normalized], ["seg_0003", "seg_0001", "seg_0002"])
-        self.assertEqual(normalized[1]["end"], normalized[2]["start"])
+        self.assertEqual(normalized, fixture["asr_expected_segments"])
 
     def test_timestamp_normalization_rejects_end_before_start(self) -> None:
         with self.assertRaisesRegex(ValueError, "end must be greater than or equal to start"):
