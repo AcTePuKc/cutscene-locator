@@ -34,7 +34,16 @@ def _merge_short_segments(
             previous["end"] = float(segment["end"])
             previous["text"] = f"{str(previous['text']).strip()} {str(segment['text']).strip()}".strip()
             continue
-        merged.append(dict(segment))
+
+        seg: ASRSegment = {
+            "segment_id": str(segment["segment_id"]),
+            "start": segment["start"],
+            "end": segment["end"],
+            "text": str(segment["text"]),
+        }
+        if "speaker" in segment:
+            seg["speaker"] = str(segment["speaker"])
+        merged.append(seg)
 
     for idx, segment in enumerate(merged, start=1):
         segment["segment_id"] = f"seg_{idx:04d}"
