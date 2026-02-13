@@ -213,6 +213,7 @@ Some matches will remain ambiguous.
   - exported
   - reviewable
 - Never auto-correct or guess.
+- For deterministic tuning of fuzzy-match strictness and long-media chunking presets, see **`docs/CLI.md` → "Matching quality tuning"**.
 
 ---
 

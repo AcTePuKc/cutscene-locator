@@ -770,6 +770,13 @@ class CliPhaseOneTests(unittest.TestCase):
 
 
 
+    def test_matching_knob_defaults_parse(self) -> None:
+        args = cli.build_parser().parse_args([])
+        self.assertEqual(args.chunk, 300)
+        self.assertEqual(args.match_quick_threshold, 0.25)
+        self.assertEqual(args.match_monotonic_window, 0)
+        self.assertEqual(args.match_threshold, 0.85)
+
     def test_asr_knob_defaults_parse(self) -> None:
         args = cli.build_parser().parse_args([])
         self.assertIsNone(args.asr_language)
