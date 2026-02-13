@@ -88,6 +88,7 @@ Chunk size in seconds.
 
 - Default: `300`
 - Use `0` to disable chunking.
+- **Important:** `--chunk 0` disables chunking and may hurt alignment stability on long files because long-form ASR segmentation drift has no deterministic reset boundaries.
 - Valid range: integer `>= 0`
 - Backend applicability: all backends (preprocessing before ASR/alignment)
 
@@ -713,6 +714,40 @@ Optional monotonic alignment window in script-row indexes.
 - When > 0, later segments search only from previous best row forward by this window, which can reduce comparisons and enforce timeline consistency.
 - Valid range: integer `>= 0`
 - Backend applicability: all backends (post-ASR matching)
+
+### Matching quality tuning
+
+Use these deterministic presets when tuning alignment quality without switching ASR backends.
+
+#### Long media baseline (recommended first)
+
+- Use chunking to stabilize ASR segmentation and matching windows on long files:
+  - `--chunk 150` for dense dialogue / rapid turn-taking.
+  - `--chunk 300` for general long-form media.
+- Avoid `--chunk 0` for long files unless you are explicitly debugging segmentation behavior.
+
+#### Stricter matching baseline
+
+For scripts with repeated short lines or frequent near-duplicates, increase match strictness:
+
+- `--match-quick-threshold 0.35` (or `0.40` for very noisy ASR)
+- `--match-monotonic-window 120` (keeps local script-order continuity)
+- `--match-threshold 0.90` (flags more borderline candidates for review)
+
+Example preset command:
+
+```bash
+cutscene-locator \
+  --input in.mp4 \
+  --script script.tsv \
+  --out out \
+  --chunk 300 \
+  --match-quick-threshold 0.35 \
+  --match-monotonic-window 120 \
+  --match-threshold 0.90
+```
+
+If recall drops too much, loosen one knob at a time (first `--match-threshold`, then `--match-quick-threshold`) and keep all other settings fixed for deterministic comparisons.
 
 ### `--match-progress-every <int>`
 
