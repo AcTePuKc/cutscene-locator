@@ -233,6 +233,7 @@ class DocsCliFlagParityTests(unittest.TestCase):
             "--alignment-device": "### `--alignment-device <cpu|cuda|auto>`",
             "--compute-type": "### `--compute-type <float16|float32|auto>`",
             "--chunk": "### `--chunk <seconds>`",
+            "--asr-chunk-mode": "### `--asr-chunk-mode <auto|canonical|per-chunk>`",
             "--scene-gap": "### `--scene-gap <seconds>`",
             "--ffmpeg-path": "### `--ffmpeg-path <path>`",
             "--keep-wav": "### `--keep-wav`",

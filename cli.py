@@ -13,7 +13,7 @@ import tempfile
 import importlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Sequence
+from typing import Any, Callable, Sequence, cast
 
 from src.asr import (
     ASRConfig,
@@ -70,6 +70,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--alignment-device", default="auto")
     parser.add_argument("--compute-type", default="auto")
     parser.add_argument("--chunk", type=int, default=300)
+    parser.add_argument(
+        "--asr-chunk-mode",
+        choices=("auto", "canonical", "per-chunk"),
+        default="auto",
+    )
     parser.add_argument("--scene-gap", type=int, default=10)
     parser.add_argument("--ffmpeg-path")
     parser.add_argument("--keep-wav", action="store_true")
@@ -868,6 +873,76 @@ def _build_text_only_timestamp_error(*, backend_name: str, reason: str) -> CliEr
     )
 
 
+def _resolve_asr_audio_paths(
+    *,
+    preprocess_result: PreprocessResult,
+    asr_chunk_mode: str,
+) -> list[tuple[Path, float, int]]:
+    if asr_chunk_mode in {"auto", "canonical"}:
+        return [(preprocess_result.canonical_wav_path, 0.0, 0)]
+
+    ordered_chunks = sorted(preprocess_result.chunk_metadata, key=lambda chunk: chunk.chunk_index)
+    return [
+        (chunk.chunk_wav_path, float(chunk.absolute_offset_seconds), int(chunk.chunk_index))
+        for chunk in ordered_chunks
+    ]
+
+
+def _renumber_segments_sequentially(asr_result: ASRResult) -> ASRResult:
+    rebuilt_segments: list[dict[str, Any]] = [
+        {**segment, "segment_id": f"seg_{index:04d}"}
+        for index, segment in enumerate(asr_result["segments"], start=1)
+    ]
+
+    rebuilt: dict[str, object] = {
+        "segments": rebuilt_segments,
+        "meta": asr_result["meta"],
+    }
+    return cast(ASRResult, rebuilt)
+
+
+def _run_asr_for_selected_paths(
+    *,
+    audio_paths_with_offsets: list[tuple[Path, float, int]],
+    asr_config: ASRConfig,
+    asr_context: ASRExecutionContext,
+    requirements: CapabilityRequirements,
+) -> ASRResult:
+    merged_segments: list[dict[str, Any]] = []
+    merged_meta: dict[str, str] | None = None
+
+    for audio_path, absolute_offset_seconds, chunk_index in audio_paths_with_offsets:
+        chunk_result = dispatch_asr_transcription(
+            audio_path=str(audio_path),
+            config=asr_config,
+            context=asr_context,
+            requirements=requirements,
+        )
+        if merged_meta is None:
+            merged_meta = chunk_result["meta"]
+
+        for segment in chunk_result["segments"]:
+            merged_segment: dict[str, Any] = {
+                "segment_id": str(segment["segment_id"]),
+                "start": float(segment["start"]),
+                "end": float(segment["end"]),
+                "text": str(segment["text"]),
+                "chunk_index": int(chunk_index),
+            }
+            if "speaker" in segment:
+                merged_segment["speaker"] = segment["speaker"]
+            merged_segments.append(merged_segment)
+
+    if merged_meta is None:
+        raise CliError("ASR dispatch produced no results for selected audio inputs.")
+
+    merged_result: dict[str, object] = {
+        "segments": merged_segments,
+        "meta": merged_meta,
+    }
+    return cast(ASRResult, merged_result)
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -1031,11 +1106,15 @@ def main(
             asr_started = time.perf_counter()
             if args.verbose:
                 print("stage: asr start")
+            asr_audio_paths_with_offsets = _resolve_asr_audio_paths(
+                preprocess_result=preprocessing_output,
+                asr_chunk_mode=args.asr_chunk_mode,
+            )
             try:
-                asr_result = dispatch_asr_transcription(
-                    audio_path=str(preprocessing_output.canonical_wav_path),
-                    config=asr_config,
-                    context=ASRExecutionContext(
+                asr_result = _run_asr_for_selected_paths(
+                    audio_paths_with_offsets=asr_audio_paths_with_offsets,
+                    asr_config=asr_config,
+                    asr_context=ASRExecutionContext(
                         resolved_model_path=resolved_model_path,
                         verbose=args.verbose,
                         mock_asr_path=args.mock_asr_path,
@@ -1056,6 +1135,7 @@ def main(
                     for chunk in preprocessing_output.chunk_metadata
                 },
             )
+            asr_result = _renumber_segments_sequentially(asr_result)
             timings["asr"] = time.perf_counter() - asr_started
             if args.verbose:
                 print("stage: asr end")
@@ -1126,6 +1206,7 @@ def main(
         print(
             "Verbose: asr config="
             f"backend={asr_config.backend_name} requested_device={asr_config.device} compute_type={asr_config.compute_type} "
+            f"asr_chunk_mode={args.asr_chunk_mode} "
             f"model_path={resolved_model_path if resolved_model_path is not None else asr_config.model_path} "
             f"model_id={asr_config.model_id} revision={asr_config.revision} "
             f"auto_download={asr_config.auto_download} download_progress={args.progress} "

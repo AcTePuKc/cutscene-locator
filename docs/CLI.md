@@ -102,6 +102,26 @@ Example:
 
 ---
 
+### `--asr-chunk-mode <auto|canonical|per-chunk>`
+
+Deterministic ASR input strategy selector.
+
+- Default: `auto`
+- Valid values:
+  - `auto`: current deterministic default policy (runs ASR on canonical WAV)
+  - `canonical`: always run ASR once on canonical WAV
+  - `per-chunk`: run ASR per chunk in stable `chunk_index` order and merge with absolute chunk offsets
+- Backend applicability: ASR transcript mode (`--asr-backend`); does not affect explicit alignment mode
+
+Deterministic merge rules for `per-chunk`:
+
+- input order is stable by `chunk_index`
+- each chunk segment is shifted by `chunk_metadata[i].absolute_offset_seconds`
+- merged segments are rebuilt with sequential IDs (`seg_0001`, `seg_0002`, ...), independent of backend-local IDs
+- merged `meta` preserves backend/model/device/version deterministically from ASR output
+
+---
+
 ### `--scene-gap <seconds>`
 
 Time gap threshold for starting a new scene.
