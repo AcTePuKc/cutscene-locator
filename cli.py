@@ -81,6 +81,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--asr-beam-size", type=int, default=1)
     parser.add_argument("--asr-temperature", type=float, default=0.0)
     parser.add_argument("--asr-best-of", type=int, default=1)
+    parser.add_argument("--qwen3-batch-size", type=int, default=None)
+    parser.add_argument("--qwen3-chunk-length-s", type=float, default=None)
     parser.add_argument("--asr-no-speech-threshold", type=float, default=None)
     parser.add_argument("--asr-logprob-threshold", type=float, default=None)
     parser.add_argument("--progress", choices=("on", "off"), default=None)
@@ -221,6 +223,11 @@ def _validate_asr_options(args: argparse.Namespace) -> None:
     if args.asr_temperature == 0.0 and args.asr_best_of > 1:
         raise CliError("Invalid ASR decode options: --asr-best-of must be 1 when --asr-temperature is 0.0.")
 
+    if args.qwen3_batch_size is not None and args.qwen3_batch_size < 1:
+        raise CliError("Invalid --qwen3-batch-size value. Expected an integer greater than or equal to 1.")
+    if args.qwen3_chunk_length_s is not None and args.qwen3_chunk_length_s <= 0.0:
+        raise CliError("Invalid --qwen3-chunk-length-s value. Expected a float greater than 0.0.")
+
     if args.asr_no_speech_threshold is not None and not (0.0 <= args.asr_no_speech_threshold <= 1.0):
         raise CliError("Invalid --asr-no-speech-threshold value. Expected a float in [0.0, 1.0].")
     if args.asr_logprob_threshold is not None and not (0.0 <= args.asr_logprob_threshold <= 1.0):
@@ -315,6 +322,10 @@ def _run_faster_whisper_subprocess(
             cmd.extend(["--asr-no-speech-threshold", str(asr_config.no_speech_threshold)])
         if asr_config.log_prob_threshold is not None:
             cmd.extend(["--asr-logprob-threshold", str(asr_config.log_prob_threshold)])
+        if asr_config.qwen3_batch_size is not None:
+            cmd.extend(["--qwen3-batch-size", str(asr_config.qwen3_batch_size)])
+        if asr_config.qwen3_chunk_length_s is not None:
+            cmd.extend(["--qwen3-chunk-length-s", str(asr_config.qwen3_chunk_length_s)])
         if verbose:
             cmd.append("--verbose")
 
@@ -579,6 +590,8 @@ def main(
             best_of=1 if args.asr_temperature == 0.0 else args.asr_best_of,
             no_speech_threshold=args.asr_no_speech_threshold,
             log_prob_threshold=args.asr_logprob_threshold,
+            qwen3_batch_size=args.qwen3_batch_size,
+            qwen3_chunk_length_s=args.qwen3_chunk_length_s,
             vad_filter=args.asr_vad_filter == "on",
             merge_short_segments_seconds=args.asr_merge_short_segments,
             ffmpeg_path=None,
@@ -605,6 +618,8 @@ def main(
             best_of=asr_config.best_of,
             no_speech_threshold=asr_config.no_speech_threshold,
             log_prob_threshold=asr_config.log_prob_threshold,
+            qwen3_batch_size=asr_config.qwen3_batch_size,
+            qwen3_chunk_length_s=asr_config.qwen3_chunk_length_s,
             vad_filter=asr_config.vad_filter,
             merge_short_segments_seconds=asr_config.merge_short_segments_seconds,
             ffmpeg_path=ffmpeg_binary,
