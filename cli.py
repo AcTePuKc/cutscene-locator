@@ -13,7 +13,7 @@ import tempfile
 import importlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Sequence
+from typing import Any, Callable, Sequence, cast
 
 from src.asr import (
     ASRConfig,
@@ -877,50 +877,41 @@ def _resolve_asr_audio_paths(
     *,
     preprocess_result: PreprocessResult,
     asr_chunk_mode: str,
-) -> list[tuple[Path, float]]:
+) -> list[tuple[Path, float, int]]:
     if asr_chunk_mode in {"auto", "canonical"}:
-        return [(preprocess_result.canonical_wav_path, 0.0)]
+        return [(preprocess_result.canonical_wav_path, 0.0, 0)]
 
     ordered_chunks = sorted(preprocess_result.chunk_metadata, key=lambda chunk: chunk.chunk_index)
     return [
-        (chunk.chunk_wav_path, float(chunk.absolute_offset_seconds))
+        (chunk.chunk_wav_path, float(chunk.absolute_offset_seconds), int(chunk.chunk_index))
         for chunk in ordered_chunks
     ]
 
 
 def _renumber_segments_sequentially(asr_result: ASRResult) -> ASRResult:
-    rebuilt_segments: list[dict[str, object]] = []
-    for index, segment in enumerate(asr_result["segments"], start=1):
-        rebuilt_segment: dict[str, object] = {
-            "segment_id": f"seg_{index:04d}",
-            "start": segment["start"],
-            "end": segment["end"],
-            "text": segment["text"],
-        }
-        if "speaker" in segment:
-            rebuilt_segment["speaker"] = segment["speaker"]
-        rebuilt_segments.append(rebuilt_segment)
+    rebuilt_segments: list[dict[str, Any]] = [
+        {**segment, "segment_id": f"seg_{index:04d}"}
+        for index, segment in enumerate(asr_result["segments"], start=1)
+    ]
 
-    return parse_asr_result(
-        {
-            "segments": rebuilt_segments,
-            "meta": asr_result["meta"],
-        },
-        source="merged ASR segments",
-    )
+    rebuilt: dict[str, object] = {
+        "segments": rebuilt_segments,
+        "meta": asr_result["meta"],
+    }
+    return cast(ASRResult, rebuilt)
 
 
 def _run_asr_for_selected_paths(
     *,
-    audio_paths_with_offsets: list[tuple[Path, float]],
+    audio_paths_with_offsets: list[tuple[Path, float, int]],
     asr_config: ASRConfig,
     asr_context: ASRExecutionContext,
     requirements: CapabilityRequirements,
 ) -> ASRResult:
-    merged_segments: list[dict[str, object]] = []
+    merged_segments: list[dict[str, Any]] = []
     merged_meta: dict[str, str] | None = None
 
-    for audio_path, absolute_offset_seconds in audio_paths_with_offsets:
+    for audio_path, absolute_offset_seconds, chunk_index in audio_paths_with_offsets:
         chunk_result = dispatch_asr_transcription(
             audio_path=str(audio_path),
             config=asr_config,
@@ -931,11 +922,12 @@ def _run_asr_for_selected_paths(
             merged_meta = chunk_result["meta"]
 
         for segment in chunk_result["segments"]:
-            merged_segment: dict[str, object] = {
+            merged_segment: dict[str, Any] = {
                 "segment_id": str(segment["segment_id"]),
-                "start": float(segment["start"]) + absolute_offset_seconds,
-                "end": float(segment["end"]) + absolute_offset_seconds,
+                "start": float(segment["start"]),
+                "end": float(segment["end"]),
                 "text": str(segment["text"]),
+                "chunk_index": int(chunk_index),
             }
             if "speaker" in segment:
                 merged_segment["speaker"] = segment["speaker"]
@@ -944,13 +936,11 @@ def _run_asr_for_selected_paths(
     if merged_meta is None:
         raise CliError("ASR dispatch produced no results for selected audio inputs.")
 
-    return parse_asr_result(
-        {
-            "segments": merged_segments,
-            "meta": merged_meta,
-        },
-        source="merged ASR chunk output",
-    )
+    merged_result: dict[str, object] = {
+        "segments": merged_segments,
+        "meta": merged_meta,
+    }
+    return cast(ASRResult, merged_result)
 
 
 def main(

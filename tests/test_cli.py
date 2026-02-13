@@ -1761,9 +1761,9 @@ class CliAdapterDispatchTests(unittest.TestCase):
         self.assertEqual(
             selected,
             [
-                (Path("out/_tmp/chunks/chunk_000000.wav"), 0.0),
-                (Path("out/_tmp/chunks/chunk_000001.wav"), 5.0),
-                (Path("out/_tmp/chunks/chunk_000002.wav"), 10.0),
+                (Path("out/_tmp/chunks/chunk_000000.wav"), 0.0, 0),
+                (Path("out/_tmp/chunks/chunk_000001.wav"), 5.0, 1),
+                (Path("out/_tmp/chunks/chunk_000002.wav"), 10.0, 2),
             ],
         )
 
@@ -1787,8 +1787,8 @@ class CliAdapterDispatchTests(unittest.TestCase):
         with patch("cli.dispatch_asr_transcription", side_effect=dispatched_results):
             merged = cli._run_asr_for_selected_paths(
                 audio_paths_with_offsets=[
-                    (Path("out/_tmp/chunks/chunk_000000.wav"), 0.0),
-                    (Path("out/_tmp/chunks/chunk_000001.wav"), 5.0),
+                    (Path("out/_tmp/chunks/chunk_000000.wav"), 0.0, 0),
+                    (Path("out/_tmp/chunks/chunk_000001.wav"), 5.0, 1),
                 ],
                 asr_config=cli.ASRConfig(backend_name="mock"),
                 asr_context=cli.ASRExecutionContext(
@@ -1801,9 +1801,10 @@ class CliAdapterDispatchTests(unittest.TestCase):
 
         renumbered = cli._renumber_segments_sequentially(merged)
 
+        self.assertEqual([segment["chunk_index"] for segment in merged["segments"]], [0, 0, 1])
         self.assertEqual([segment["segment_id"] for segment in renumbered["segments"]], ["seg_0001", "seg_0002", "seg_0003"])
-        self.assertEqual([segment["start"] for segment in renumbered["segments"]], [0.0, 0.4, 5.1])
-        self.assertEqual([segment["end"] for segment in renumbered["segments"]], [0.4, 0.8, 5.5])
+        self.assertEqual([segment["start"] for segment in renumbered["segments"]], [0.0, 0.4, 0.1])
+        self.assertEqual([segment["end"] for segment in renumbered["segments"]], [0.4, 0.8, 0.5])
         self.assertEqual(renumbered["segments"][2].get("speaker"), "A")
         self.assertEqual(renumbered["meta"], {"backend": "mock", "model": "fixture", "version": "1", "device": "cpu"})
 
