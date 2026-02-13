@@ -406,6 +406,14 @@ Optional JSON file containing explicit alignment input `reference_spans[]` array
 
 If omitted, alignment mode derives reference spans from `--script` rows (`id` + `original`).
 
+Derived script→`reference_spans[]` mapping rules are deterministic:
+
+- Stable file-order iteration of script rows.
+- Direct structural mapping only: `ref_id <- id`, `text <- original`.
+- Text is passed through unchanged (no rewriting/normalization by the converter).
+- Rows with empty/whitespace-only `id` or `original` are skipped.
+- `--verbose` prints skip diagnostics with row numbers; non-verbose mode remains concise.
+
 ---
 
 ### `--model-path <path>`

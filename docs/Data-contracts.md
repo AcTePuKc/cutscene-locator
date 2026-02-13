@@ -125,6 +125,16 @@ Forced alignment uses a separate contract from ASR transcript generation.
 }
 ```
 
+When `reference_spans[]` is derived from script rows (`id`, `original`) instead of caller-provided JSON, conversion follows deterministic structural mapping rules:
+
+- Iterate script rows in stable file order.
+- For each row, map directly to `{ "ref_id": <id>, "text": <original> }`.
+- Preserve `id` and `original` text exactly (no normalization, trimming, or rewrite in converter).
+- Skip rows where `id` is empty/whitespace.
+- Skip rows where `original` is empty/whitespace.
+- In verbose mode, emit a per-row skip diagnostic with row number and reason.
+- In non-verbose mode, skip silently and keep output concise.
+
 ### Alignment JSON schema
 
 ```json
