@@ -1105,8 +1105,8 @@ class CliPhaseOneTests(unittest.TestCase):
                             verbose=False,
                         )
 
-        self.assertEqual(stdout.getvalue(), "")
-        self.assertEqual(stderr.getvalue(), "")
+        self.assertEqual(stdout.getvalue().replace("\r\n", "\n"), "")
+        self.assertEqual(stderr.getvalue().replace("\r\n", "\n"), "")
 
     def test_worker_failure_verbose_prints_stdout_then_stderr(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -1138,11 +1138,11 @@ class CliPhaseOneTests(unittest.TestCase):
                         )
 
         self.assertEqual(
-            stdout.getvalue(),
+            stdout.getvalue().replace("\r\n", "\n"),
             "----- ASR worker stdout -----\nworker stdout trace\n",
         )
         self.assertEqual(
-            stderr.getvalue(),
+            stderr.getvalue().replace("\r\n", "\n"),
             "----- ASR worker stderr -----\nworker stderr trace\n",
         )
 
@@ -1231,6 +1231,8 @@ class CliPhaseOneTests(unittest.TestCase):
 
         self.assertIn("--asr-backend", captured_cmd)
         self.assertEqual(captured_cmd[captured_cmd.index("--asr-backend") + 1], "whisperx")
+        self.assertEqual(Path(captured_cmd[captured_cmd.index("--audio-path") + 1]), audio_path)
+        self.assertEqual(Path(captured_cmd[captured_cmd.index("--model-path") + 1]), Path("models/whisperx"))
 
 
     def test_worker_subprocess_result_is_reparsed_with_contract_validator(self) -> None:
