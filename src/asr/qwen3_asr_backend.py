@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import traceback
 from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
@@ -54,6 +55,8 @@ class Qwen3ASRBackend:
                 **model_init_kwargs,
             )
         except Exception as exc:  # pragma: no cover - backend/runtime specific
+            if config.log_callback is not None:
+                config.log_callback(traceback.format_exc())
             raise ValueError(
                 "Failed to initialize qwen3-asr model from resolved path "
                 f"'{config.model_path}'. Ensure this directory is a compatible qwen_asr "
@@ -76,6 +79,8 @@ class Qwen3ASRBackend:
         try:
             raw_result = model.transcribe(audio_path, **inference_kwargs)
         except Exception as exc:  # pragma: no cover - backend/runtime specific
+            if config.log_callback is not None:
+                config.log_callback(traceback.format_exc())
             raise ValueError(
                 f"qwen3-asr transcription failed for '{audio_path}'. "
                 "Verify input audio and model compatibility."
