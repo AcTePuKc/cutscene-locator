@@ -907,17 +907,32 @@ def _run_asr_for_selected_paths(
     asr_config: ASRConfig,
     asr_context: ASRExecutionContext,
     requirements: CapabilityRequirements,
+    verbose: bool,
+    asr_chunk_mode: str,
+    chunk_seconds: int,
 ) -> ASRResult:
     merged_segments: list[dict[str, Any]] = []
     merged_meta: dict[str, str] | None = None
 
-    for audio_path, absolute_offset_seconds, chunk_index in audio_paths_with_offsets:
+    total_paths = len(audio_paths_with_offsets)
+    for position, (audio_path, absolute_offset_seconds, chunk_index) in enumerate(audio_paths_with_offsets, start=1):
         chunk_result = dispatch_asr_transcription(
             audio_path=str(audio_path),
             config=asr_config,
             context=asr_context,
             requirements=requirements,
         )
+        if verbose and asr_chunk_mode == "per-chunk":
+            end_seconds = absolute_offset_seconds + float(max(chunk_seconds, 0))
+            print(
+                "ASR chunk "
+                f"{position}/{total_paths} "
+                f"(chunk_index={chunk_index}, "
+                f"range={absolute_offset_seconds:.2f}-{end_seconds:.2f}s, "
+                f"offset={absolute_offset_seconds:.2f}s, "
+                f"file={audio_path.name}, "
+                f"segments={len(chunk_result['segments'])})"
+            )
         if merged_meta is None:
             merged_meta = chunk_result["meta"]
 
@@ -1110,6 +1125,15 @@ def main(
                 preprocess_result=preprocessing_output,
                 asr_chunk_mode=args.asr_chunk_mode,
             )
+            if args.verbose:
+                if args.asr_chunk_mode == "per-chunk":
+                    print(
+                        "ASR input: "
+                        f"{len(asr_audio_paths_with_offsets)} chunks "
+                        f"(chunk_seconds={args.chunk})"
+                    )
+                else:
+                    print("ASR input: canonical wav")
             try:
                 asr_result = _run_asr_for_selected_paths(
                     audio_paths_with_offsets=asr_audio_paths_with_offsets,
@@ -1122,6 +1146,9 @@ def main(
                         faster_whisper_preflight=_print_faster_whisper_cuda_preflight,
                     ),
                     requirements=requirements,
+                    verbose=args.verbose,
+                    asr_chunk_mode=args.asr_chunk_mode,
+                    chunk_seconds=args.chunk,
                 )
             except ValueError as exc:
                 timestamp_guarantee = getattr(backend_registration.capabilities, "timestamp_guarantee", "segment-level")
