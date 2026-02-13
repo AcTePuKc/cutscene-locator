@@ -1249,7 +1249,8 @@ class CliPhaseOneTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             out_dir = Path(temp_dir)
             stdout = io.StringIO()
-            with redirect_stdout(stdout):
+            stderr = io.StringIO()
+            with redirect_stdout(stdout), redirect_stderr(stderr):
                 code = cli.main(
                     [
                         "--input",
@@ -1274,12 +1275,13 @@ class CliPhaseOneTests(unittest.TestCase):
             self.assertTrue((out_dir / "subs_qa.srt").exists())
             self.assertTrue((out_dir / "subs_target.srt").exists())
             output = stdout.getvalue()
+            log_output = stderr.getvalue()
             self.assertIn("Full pipeline completed and exports written", output)
             self.assertIn("stage: preprocess start", output)
             self.assertIn("stage: preprocess end", output)
             self.assertIn("stage: asr start", output)
             self.assertIn("stage: asr end", output)
-            self.assertIn("ASR input: canonical wav", output)
+            self.assertIn("ASR input: canonical wav", log_output)
             self.assertIn("stage: matching start", output)
             self.assertIn("stage: matching end", output)
             self.assertIn("stage: exports start", output)
@@ -1290,6 +1292,7 @@ class CliPhaseOneTests(unittest.TestCase):
 
     def test_verbose_per_chunk_asr_logs_source_mode_and_chunk_progress(self) -> None:
         stdout = io.StringIO()
+        stderr = io.StringIO()
         dispatched_results = [
             {
                 "segments": [{"segment_id": "a", "start": 0.0, "end": 0.4, "text": "one"}],
@@ -1323,7 +1326,7 @@ class CliPhaseOneTests(unittest.TestCase):
             out_dir = Path(temp_dir)
             with patch("cli.preprocess_media", return_value=fake_preprocess):
                 with patch("cli.dispatch_asr_transcription", side_effect=dispatched_results):
-                    with redirect_stdout(stdout):
+                    with redirect_stdout(stdout), redirect_stderr(stderr):
                         code = cli.main(
                             [
                                 "--input",
@@ -1347,7 +1350,7 @@ class CliPhaseOneTests(unittest.TestCase):
                         )
 
         self.assertEqual(code, 0)
-        output = stdout.getvalue()
+        output = stderr.getvalue()
         self.assertIn("ASR input: 2 chunks (chunk_seconds=5)", output)
         self.assertIn(
             "ASR chunk 1/2 (chunk_index=0, range=0.00-5.00s, offset=0.00s, file=chunk_000000.wav, segments=1)",
