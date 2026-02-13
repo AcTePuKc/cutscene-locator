@@ -105,6 +105,7 @@ All agents must update this file when completing or modifying tasks.
 - [x] Backend capability metadata (supports_word_timestamps, supports_alignment, timestamp guarantee level, etc.) (`src/asr/registry.py`, `cli.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/CLI.md`, `docs/Integration.md`)
 - [x] Backend status API distinguishes unknown vs declared-disabled backends (`name`, `enabled`, `missing_dependencies`, `reason`) and preserves enabled-only discovery via `list_backends()` (`src/asr/registry.py`, `cli.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/CLI.md`)
 - [x] Docs/backend-name consistency guard: declared registry backend names must be present in `docs/CLI.md` and `docs/STATUS.md` (`tests/test_docs_consistency.py`, `docs/CLI.md`, `docs/STATUS.md`)
+- [x] Maintenance hardening: docs/registry/CLI regression checks lock qwen3 text-only vs forced-aligner alignment-only contracts, preflight supported-mode docs, and deterministic ASR-mode rejection messaging for alignment backends (`tests/test_docs_consistency.py`, `tests/test_asr_registry.py`, `tests/test_cli.py`, `docs/STATUS.md`)
 
 ### Model resolution strategy
 
