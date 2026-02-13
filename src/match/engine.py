@@ -107,17 +107,33 @@ def _tokenize(text: str) -> list[str]:
     return stripped.split()
 
 
-def _quick_filter_score(asr_tokens: list[str], candidate_tokens: list[str]) -> float:
+def _quick_filter_stats(
+    asr_tokens: list[str],
+    candidate_tokens: list[str],
+) -> tuple[float, int, float]:
+    """Return quick score, overlap count, and max-set coverage ratio."""
+
     if not asr_tokens and not candidate_tokens:
-        return 1.0
+        return 1.0, 0, 1.0
     if not asr_tokens or not candidate_tokens:
-        return 0.0
+        return 0.0, 0, 0.0
 
     asr_set = set(asr_tokens)
     candidate_set = set(candidate_tokens)
     overlap = len(asr_set.intersection(candidate_set))
-    denom = max(1, min(len(asr_set), len(candidate_set)))
-    return overlap / float(denom)
+
+    quick_denom = max(1, min(len(asr_set), len(candidate_set)))
+    quick_score = overlap / float(quick_denom)
+
+    coverage_denom = max(len(asr_set), len(candidate_set))
+    max_coverage_ratio = overlap / float(coverage_denom)
+
+    return quick_score, overlap, max_coverage_ratio
+
+
+def _quick_filter_score(asr_tokens: list[str], candidate_tokens: list[str]) -> float:
+    quick_score, _, _ = _quick_filter_stats(asr_tokens, candidate_tokens)
+    return quick_score
 
 
 def _quick_filter_passes(
@@ -126,15 +142,14 @@ def _quick_filter_passes(
     candidate_tokens: list[str],
     quick_filter_threshold: float,
 ) -> bool:
-    quick_score = _quick_filter_score(asr_tokens, candidate_tokens)
-    if quick_score < quick_filter_threshold:
+    if not asr_tokens and not candidate_tokens:
+        return True
+    if not asr_tokens or not candidate_tokens:
         return False
 
-    asr_set = set(asr_tokens)
-    candidate_set = set(candidate_tokens)
-    overlap = len(asr_set.intersection(candidate_set))
-    max_token_count = max(len(asr_set), len(candidate_set), 1)
-    max_coverage_ratio = overlap / float(max_token_count)
+    quick_score, overlap, max_coverage_ratio = _quick_filter_stats(asr_tokens, candidate_tokens)
+    if quick_score < quick_filter_threshold:
+        return False
 
     if overlap >= _QUICK_FILTER_MIN_SHARED_TOKENS:
         return True

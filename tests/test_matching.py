@@ -5,7 +5,12 @@ from unittest.mock import Mock, patch
 
 from src.asr.base import ASRResult
 from src.ingest.script_parser import ScriptRow, ScriptTable, load_script_table
-from src.match.engine import MatchingConfig, _similarity_score, match_segments_to_script
+from src.match.engine import (
+    MatchingConfig,
+    _quick_filter_passes,
+    _similarity_score,
+    match_segments_to_script,
+)
 
 
 class MatchingEngineTests(unittest.TestCase):
@@ -142,6 +147,31 @@ class MatchingEngineTests(unittest.TestCase):
             any(
                 "quick-filter rejected all" in call.args[0]
                 for call in progress_logger.call_args_list
+            )
+        )
+
+    def test_quick_filter_allows_empty_token_perfect_match(self) -> None:
+        self.assertTrue(
+            _quick_filter_passes(
+                asr_tokens=[],
+                candidate_tokens=[],
+                quick_filter_threshold=0.25,
+            )
+        )
+
+    def test_quick_filter_rejects_one_sided_empty_tokens(self) -> None:
+        self.assertFalse(
+            _quick_filter_passes(
+                asr_tokens=["hello"],
+                candidate_tokens=[],
+                quick_filter_threshold=0.25,
+            )
+        )
+        self.assertFalse(
+            _quick_filter_passes(
+                asr_tokens=[],
+                candidate_tokens=["hello"],
+                quick_filter_threshold=0.25,
             )
         )
 
