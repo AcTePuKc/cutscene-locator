@@ -132,6 +132,20 @@ Chunk metadata must include:
 
 ## ASR stage
 
+### ASR input strategy (`--asr-chunk-mode`)
+
+The ASR transcript path supports deterministic input strategy selection:
+
+- `canonical`: run ASR exactly once on canonical WAV.
+- `per-chunk`: run ASR independently for each `chunk_metadata[i].chunk_wav_path` in stable `chunk_index` order, shift segment times by `absolute_offset_seconds`, then merge.
+- `auto`: preserve current policy; currently resolves to canonical mode unless policy changes are explicitly documented.
+
+Determinism requirements for merged ASR output:
+
+- merged segment ordering is stable by chunk order then backend segment order,
+- final merged segment IDs are rebuilt sequentially (`seg_0001`, `seg_0002`, ...), independent of backend-local IDs,
+- metadata (`backend`, `model`, `device`, `version`) is preserved deterministically in final `ASRResult.meta`.
+
 ### Requirements
 
 ASR output **must** provide:

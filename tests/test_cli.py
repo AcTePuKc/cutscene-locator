@@ -334,16 +334,17 @@ class CliPhaseOneTests(unittest.TestCase):
         )
         with patch("cli.list_backend_status", return_value=statuses):
             with patch("cli.get_backend", return_value=fake_registration):
-                with redirect_stderr(stderr):
-                    code = cli.main(
-                [
-                    "--alignment-preflight-only",
-                    "--asr-backend",
-                    "faster-whisper",
-                    "--model-path",
-                    "models/faster-whisper/tiny",
-                ]
-            )
+                with patch("cli.resolve_model_path", return_value=Path("models/faster-whisper/tiny")):
+                    with redirect_stderr(stderr):
+                        code = cli.main(
+                            [
+                                "--alignment-preflight-only",
+                                "--asr-backend",
+                                "qwen3-asr",
+                                "--model-path",
+                                "models/faster-whisper/tiny",
+                            ]
+                        )
 
         self.assertEqual(code, 1)
         self.assertIn("is not an alignment backend", stderr.getvalue())
@@ -773,6 +774,7 @@ class CliPhaseOneTests(unittest.TestCase):
     def test_matching_knob_defaults_parse(self) -> None:
         args = cli.build_parser().parse_args([])
         self.assertEqual(args.chunk, 300)
+        self.assertEqual(args.asr_chunk_mode, "auto")
         self.assertEqual(args.match_quick_threshold, 0.25)
         self.assertEqual(args.match_monotonic_window, 0)
         self.assertEqual(args.match_threshold, 0.85)
@@ -1732,6 +1734,79 @@ class Qwen3RuntimeSmokeTests(unittest.TestCase):
 
 
 class CliAdapterDispatchTests(unittest.TestCase):
+    def test_resolve_asr_audio_paths_per_chunk_orders_by_chunk_index(self) -> None:
+        preprocess_result = SimpleNamespace(
+            canonical_wav_path=Path("out/_tmp/audio/canonical.wav"),
+            chunk_metadata=[
+                SimpleNamespace(
+                    chunk_index=2,
+                    absolute_offset_seconds=10.0,
+                    chunk_wav_path=Path("out/_tmp/chunks/chunk_000002.wav"),
+                ),
+                SimpleNamespace(
+                    chunk_index=0,
+                    absolute_offset_seconds=0.0,
+                    chunk_wav_path=Path("out/_tmp/chunks/chunk_000000.wav"),
+                ),
+                SimpleNamespace(
+                    chunk_index=1,
+                    absolute_offset_seconds=5.0,
+                    chunk_wav_path=Path("out/_tmp/chunks/chunk_000001.wav"),
+                ),
+            ],
+        )
+
+        selected = cli._resolve_asr_audio_paths(preprocess_result=preprocess_result, asr_chunk_mode="per-chunk")
+
+        self.assertEqual(
+            selected,
+            [
+                (Path("out/_tmp/chunks/chunk_000000.wav"), 0.0),
+                (Path("out/_tmp/chunks/chunk_000001.wav"), 5.0),
+                (Path("out/_tmp/chunks/chunk_000002.wav"), 10.0),
+            ],
+        )
+
+    def test_run_asr_for_selected_paths_merges_with_offsets_and_renumbers(self) -> None:
+        dispatched_results = [
+            {
+                "segments": [
+                    {"segment_id": "local_9", "start": 0.0, "end": 0.4, "text": "first"},
+                    {"segment_id": "local_3", "start": 0.4, "end": 0.8, "text": "second"},
+                ],
+                "meta": {"backend": "mock", "model": "fixture", "version": "1", "device": "cpu"},
+            },
+            {
+                "segments": [
+                    {"segment_id": "local_1", "start": 0.1, "end": 0.5, "text": "third", "speaker": "A"}
+                ],
+                "meta": {"backend": "mock", "model": "fixture", "version": "1", "device": "cpu"},
+            },
+        ]
+
+        with patch("cli.dispatch_asr_transcription", side_effect=dispatched_results):
+            merged = cli._run_asr_for_selected_paths(
+                audio_paths_with_offsets=[
+                    (Path("out/_tmp/chunks/chunk_000000.wav"), 0.0),
+                    (Path("out/_tmp/chunks/chunk_000001.wav"), 5.0),
+                ],
+                asr_config=cli.ASRConfig(backend_name="mock"),
+                asr_context=cli.ASRExecutionContext(
+                    resolved_model_path=None,
+                    verbose=False,
+                    mock_asr_path="tests/fixtures/mock_asr_valid.json",
+                ),
+                requirements=cli.CapabilityRequirements(requires_segment_timestamps=True, allows_alignment_backends=False),
+            )
+
+        renumbered = cli._renumber_segments_sequentially(merged)
+
+        self.assertEqual([segment["segment_id"] for segment in renumbered["segments"]], ["seg_0001", "seg_0002", "seg_0003"])
+        self.assertEqual([segment["start"] for segment in renumbered["segments"]], [0.0, 0.4, 5.1])
+        self.assertEqual([segment["end"] for segment in renumbered["segments"]], [0.4, 0.8, 5.5])
+        self.assertEqual(renumbered["segments"][2].get("speaker"), "A")
+        self.assertEqual(renumbered["meta"], {"backend": "mock", "model": "fixture", "version": "1", "device": "cpu"})
+
     def test_alignment_mode_runs_forced_aligner_and_produces_timestamped_outputs(self) -> None:
         class _MockAlignmentBackend:
             def __init__(self, config: object):
@@ -2074,7 +2149,7 @@ class CliAdapterDispatchTests(unittest.TestCase):
                     runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
                 )
 
-        self.assertEqual(code, 0)
+        self.assertEqual(code, 2)
         self.assertEqual(dispatch_call.call_count, 1)
         kwargs = dispatch_call.call_args.kwargs
         self.assertTrue(str(kwargs["audio_path"]).endswith("canonical.wav"))
@@ -2129,6 +2204,8 @@ class CliAdapterDispatchTests(unittest.TestCase):
                                 "tests/fixtures/mock_asr_valid.json",
                                 "--chunk",
                                 "0",
+                                "--match-threshold",
+                                "0.0",
                             ],
                             which=lambda _: "/usr/bin/ffmpeg",
                             runner=lambda *args, **kwargs: subprocess.CompletedProcess(args, 0),
